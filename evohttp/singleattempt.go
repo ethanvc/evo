@@ -89,7 +89,7 @@ func (f AttemptInterceptorFunc) HandleRequest(c context.Context, req, resp any, 
 
 func AttemptCodecJson(c context.Context, req, resp any, sa *SingleAttempt) error {
 	var err error
-	if req != nil && sa.Req.Body != nil {
+	if req != nil && sa.Req.Body == nil {
 		buf, err := json.Marshal(req)
 		if err != nil {
 			return err
