@@ -38,6 +38,10 @@ func (info *RequestInfo) Handler() Handler {
 	return info.handlers[l-1]
 }
 
+func (info *RequestInfo) UrlParam(key string) string {
+	return info.params[key]
+}
+
 func GetRequestInfo(c context.Context) *RequestInfo {
 	v, _ := c.Value(contextKeyRequestInfo{}).(*RequestInfo)
 	return v

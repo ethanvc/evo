@@ -12,6 +12,10 @@ func (w *ResponseWriter) Reset(rawW http.ResponseWriter) {
 	w.status = 0
 }
 
+func (w *ResponseWriter) Header() http.Header {
+	return w.w.Header()
+}
+
 func (w *ResponseWriter) Write(p []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
