@@ -58,6 +58,9 @@ func (lc *LogContext) GetEvents() string {
 }
 
 func WithLogContext(c context.Context, traceId string) context.Context {
+	if c == nil {
+		c = context.Background()
+	}
 	lc := &LogContext{traceId: traceId}
 	if len(lc.traceId) == 0 {
 		lc.traceId = NewTraceId()
@@ -66,6 +69,10 @@ func WithLogContext(c context.Context, traceId string) context.Context {
 }
 
 func GetLogContext(c context.Context) *LogContext {
+	// we never crash app, even user give me nil context
+	if c == nil {
+		return globalLogContext
+	}
 	v, _ := c.Value(contextKeyLogContext{}).(*LogContext)
 	if v != nil {
 		return v
