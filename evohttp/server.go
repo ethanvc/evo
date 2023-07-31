@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ethanvc/evo/base"
+	"github.com/ethanvc/evo/evolog"
 	"io"
 	"net/http"
 )
@@ -40,6 +41,7 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	info.Request = req
 	info.Writer.Reset(w)
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
+	c = evolog.WithLogContext(c, req.Header.Get("x-trace-id"))
 	n := svr.router.Find(req.Method, req.URL.Path, info.params)
 	if n == nil {
 		svr.serveHandlerNotFound(c, info)
@@ -47,6 +49,7 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	info.handlers = n.handlers
 	info.PatternPath = n.fullPath
+	evolog.GetLogContext(c).SetMethod(n.fullPath)
 	handlerReq, err := svr.parserRequest(info)
 	if err != nil {
 		svr.writeResponse(info, 0, err, nil)

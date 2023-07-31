@@ -83,27 +83,6 @@ func (b *RouterBuilder) createStaticHandler(relativePath string, fs http.FileSys
 	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
 
 	return func(c context.Context, req any, info *RequestInfo) (any, error) {
-
-		file := info.UrlParam("filepath")
-		// Check if file exists and/or if we have permission to access it
-		f, err := fs.Open(file)
-		if err != nil {
-			info.Writer.WriteHeader(http.StatusNotFound)
-			return nil, nil
-		}
-
-		if _, noListing := fs.(*onlyFilesFS); noListing {
-			stat, err := f.Stat()
-			f.Close()
-			if err != nil || stat.IsDir() {
-				f.Close()
-				info.Writer.WriteHeader(http.StatusNotFound)
-				return nil, nil
-			}
-		} else {
-			f.Close()
-		}
-
 		fileServer.ServeHTTP(&info.Writer, info.Request)
 		return nil, nil
 	}
