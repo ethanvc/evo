@@ -30,6 +30,18 @@ func (info *RequestInfo) Next(c context.Context, req any) (any, error) {
 	return info.handlers[index].HandleRequest(c, req, info)
 }
 
+func (info *RequestInfo) Handler() Handler {
+	l := len(info.handlers)
+	if l == 0 {
+		return nil
+	}
+	return info.handlers[l-1]
+}
+
+func (info *RequestInfo) UrlParam(key string) string {
+	return info.params[key]
+}
+
 func GetRequestInfo(c context.Context) *RequestInfo {
 	v, _ := c.Value(contextKeyRequestInfo{}).(*RequestInfo)
 	return v

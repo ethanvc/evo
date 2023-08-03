@@ -51,6 +51,10 @@ func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *han
 			if n.handlers != nil {
 				return n
 			} else {
+				// for abc.com/abc/*filepath, we want a match and filepath = ""
+				if len(n.children) == 1 && n.children[0].isParamNode() {
+					return n.children[0]
+				}
 				return nil
 			}
 		}

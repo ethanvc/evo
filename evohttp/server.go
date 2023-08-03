@@ -2,6 +2,10 @@ package evohttp
 
 import (
 	"context"
+	"encoding/json"
+	"github.com/ethanvc/evo/base"
+	"github.com/ethanvc/evo/evolog"
+	"io"
 	"net/http"
 )
 
@@ -37,6 +41,7 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	info.Request = req
 	info.Writer.Reset(w)
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
+	c = evolog.WithLogContext(c, req.Header.Get("x-trace-id"))
 	n := svr.router.Find(req.Method, req.URL.Path, info.params)
 	if n == nil {
 		svr.serveHandlerNotFound(c, info)
@@ -44,10 +49,55 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	info.handlers = n.handlers
 	info.PatternPath = n.fullPath
-	info.Next(c, info)
-	if info.Writer.GetStatus() == 0 {
-		info.Writer.WriteHeader(http.StatusInternalServerError)
+	evolog.GetLogContext(c).SetMethod(n.fullPath)
+	handlerReq, err := svr.parserRequest(info)
+	if err != nil {
+		svr.writeResponse(info, 0, err, nil)
+		return
 	}
+	handlerResp, err := info.Next(c, handlerReq)
+	svr.writeResponse(info, 0, err, handlerResp)
+}
+
+func (svr *Server) writeResponse(info *RequestInfo, code int, err error, data any) {
+	if info.Writer.GetStatus() != 0 {
+		return
+	}
+	var httpResp HttpResp
+	s := base.StatusFromError(err)
+	httpResp.Code = s.GetCode()
+	httpResp.Msg = s.GetMsg()
+	httpResp.Data = data
+	info.Writer.WriteHeader(http.StatusOK)
+	buf, _ := json.Marshal(&httpResp)
+	info.Writer.Write(buf)
+}
+
+func (svr *Server) parserRequest(info *RequestInfo) (any, error) {
+	if info.Request.Header.Get("content-type") != "application/json" {
+		return nil, nil
+	}
+	h := info.Handler()
+	if h == nil {
+		return nil, nil
+	}
+	realH, _ := h.(*StdHandler)
+	if realH == nil {
+		return nil, nil
+	}
+	req := realH.NewReq()
+	if req == nil {
+		return nil, nil
+	}
+	buf, err := io.ReadAll(info.Request.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = json.Unmarshal(buf, req)
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
 }
 
 func (svr *Server) serveHandlerNotFound(c context.Context, info *RequestInfo) {

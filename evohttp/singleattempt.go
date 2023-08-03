@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"google.golang.org/grpc/codes"
 	"io"
@@ -66,9 +67,40 @@ func (sa *SingleAttempt) Next(c context.Context, req, resp any) error {
 
 func (sa *SingleAttempt) do(c context.Context, req, resp any) error {
 	var err error
+	if req != nil && sa.Req.Body == nil {
+		switch v := req.(type) {
+		case []byte:
+			sa.Req.Body = io.NopCloser(bytes.NewReader(v))
+		case io.ReadCloser:
+			sa.Req.Body = v
+		case io.Reader:
+			sa.Req.Body = io.NopCloser(v)
+		}
+	}
 	sa.Resp, err = http.DefaultClient.Do(sa.Req)
 	if err != nil {
 		return err
+	}
+	if resp != nil {
+		switch v := resp.(type) {
+		case *[]byte:
+			buf, err := io.ReadAll(sa.Resp.Body)
+			sa.Resp.Body.Close()
+			if err != nil {
+				return err
+			}
+			*v = buf
+		case *string:
+			buf, err := io.ReadAll(sa.Resp.Body)
+			sa.Resp.Body.Close()
+			if err != nil {
+				return err
+			}
+			*v = string(buf)
+		}
+	}
+	if sa.Resp.StatusCode/100 != 2 {
+		return ErrStatusCodeNotOk
 	}
 	return nil
 }
@@ -89,7 +121,7 @@ func (f AttemptInterceptorFunc) HandleRequest(c context.Context, req, resp any, 
 
 func AttemptCodecJson(c context.Context, req, resp any, sa *SingleAttempt) error {
 	var err error
-	if req != nil && sa.Req.Body != nil {
+	if req != nil && sa.Req.Body == nil {
 		buf, err := json.Marshal(req)
 		if err != nil {
 			return err
@@ -164,3 +196,5 @@ func Code(err error) codes.Code {
 		return codes.Internal
 	}
 }
+
+var ErrStatusCodeNotOk = errors.New("StatusCodeNotOk")
