@@ -149,7 +149,7 @@ func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers
 		n.insertNodes(fullPath, parts, handlers)
 		return
 	}
-	if len(parts) == 1 {
+	if len(parts) == 0 {
 		panic("why here")
 	}
 	part := parts[0]

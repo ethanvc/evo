@@ -2,9 +2,10 @@ package evohttp
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
 	"net/http"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // https://docs.github.com/en/rest/commits/commits?apiVersion=2022-11-28
@@ -23,6 +24,14 @@ func TestRouterBuilder1(t *testing.T) {
 	n = b.router.Find(http.MethodGet, "/static/a/b/c", params)
 	require.NotNil(t, n)
 	require.Equal(t, 1, len(params))
+}
+
+func Test_1(t *testing.T) {
+	b := NewRouterBuilder()
+	b.POSTF("/api/a", hf)
+	b.POSTF("/api/b", hf)
+	items := b.router.ListAll()
+	require.Equal(t, 2, len(items))
 }
 
 func hf(c context.Context, req any, info *RequestInfo) (any, error) {
