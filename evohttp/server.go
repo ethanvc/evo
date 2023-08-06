@@ -3,10 +3,12 @@ package evohttp
 import (
 	"context"
 	"encoding/json"
-	"github.com/ethanvc/evo/base"
-	"github.com/ethanvc/evo/evolog"
 	"io"
 	"net/http"
+
+	"github.com/ethanvc/evo/base"
+	"github.com/ethanvc/evo/evolog"
+	"golang.org/x/exp/slog"
 )
 
 type Server struct {
@@ -56,6 +58,9 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	handlerResp, err := info.Next(c, handlerReq)
+	if _, ok := info.Handler().(*StdHandler); ok {
+		slog.InfoContext(c, "REQ_LOG", slog.Any("req", handlerReq), slog.Any("resp", handlerResp), slog.Any("err", err))
+	}
 	svr.writeResponse(info, 0, err, handlerResp)
 }
 
