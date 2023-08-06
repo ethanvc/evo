@@ -1,9 +1,11 @@
 package evolog
 
 import (
-	"golang.org/x/exp/slog"
 	"io"
 	"os"
+	"path/filepath"
+
+	"golang.org/x/exp/slog"
 )
 
 func init() {
@@ -17,17 +19,15 @@ func init() {
 
 func initDefaultLog() {
 	filePath := "./log/evo.log"
-	f, _ := os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
-	var w io.Writer
-	w = f
-	if w == nil {
-		w = os.Stdout
+	os.MkdirAll(filepath.Dir(filePath), 0770)
+	var w io.WriteCloser
+	f, err := os.OpenFile(filePath, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0660)
+	if err != nil {
+		w = os.Stderr
+	} else {
+		w = f
 	}
 	h := NewJsonHandler(w, nil)
 	l := slog.New(h)
 	slog.SetDefault(l)
-}
-
-func OnProcessExit() {
-
 }
