@@ -2,6 +2,7 @@ package base
 
 import (
 	"fmt"
+
 	"google.golang.org/grpc/codes"
 )
 
@@ -36,6 +37,13 @@ func (s *Status) GetMsg() string {
 		return ""
 	}
 	return s.s.msg
+}
+
+func (s *Status) GetEvent() string {
+	if s == nil {
+		return ""
+	}
+	return s.s.event
 }
 
 func (s *Status) Err() StatusError {

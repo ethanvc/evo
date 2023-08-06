@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evolog"
 	"golang.org/x/exp/slog"
+	"google.golang.org/grpc/codes"
 )
 
 type Server struct {
@@ -41,59 +43,75 @@ func (svr *Server) Run(addr string) {
 func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	info := NewRequestInfo()
 	info.Request = req
+	info.RequestTime = time.Now()
 	info.Writer.Reset(w)
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
 	c = evolog.WithLogContext(c, req.Header.Get("x-trace-id"))
-	n := svr.router.Find(req.Method, req.URL.Path, info.params)
-	if n == nil {
-		svr.serveHandlerNotFound(c, info)
-		return
+	svr.baseNext(c, info)
+}
+
+func (svr *Server) baseNext(c context.Context, info *RequestInfo) {
+	resp, err := svr.panicNext(c, nil, info)
+	info.FinishTime = time.Now()
+	var logArgs []any
+	if err != nil {
+		logArgs = append(logArgs, slog.Any("err", err))
 	}
-	info.handlers = n.handlers
+	if info.ParsedRequest != nil {
+		logArgs = append(logArgs, slog.Any("req", info.ParsedRequest))
+	}
+	if resp != nil {
+		logArgs = append(logArgs, slog.Any("resp", resp))
+	}
+	logArgs = append(logArgs, slog.Duration("tc", info.FinishTime.Sub(info.RequestTime)))
+	logArgs = append(logArgs, slog.String("path", info.PatternPath))
+	slog.InfoContext(c, "REQ_END", logArgs...)
+}
+
+func (svr *Server) panicNext(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+	func() {
+		panicked := true
+		defer func() {
+			if !panicked {
+				return
+			}
+			r := recover()
+			switch v := r.(type) {
+			case *base.Status:
+				err = v.Err()
+			case base.StatusError:
+				err = v
+			case error:
+				err = v
+			default:
+				err = base.New(codes.Internal, "UnknownErr").Err()
+			}
+		}()
+		resp, err = svr.routeNext(c, req, info)
+		panicked = false
+	}()
+	return
+}
+
+func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any, error) {
+	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.params)
+	if n == nil {
+		info.ResetHandlers(svr.noRouteHandlers)
+		return info.Next(c, nil)
+	}
+	info.ResetHandlers(n.handlers)
 	info.PatternPath = n.fullPath
 	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	handlerReq, err := svr.parserRequest(info)
-	if err != nil {
-		svr.writeResponse(info, 0, err, nil)
-		return
-	}
-	handlerResp, err := info.Next(c, handlerReq)
-	if _, ok := info.Handler().(*StdHandler); ok {
-		slog.InfoContext(c, "REQ_LOG", slog.Any("req", handlerReq), slog.Any("resp", handlerResp), slog.Any("err", err))
-	}
-	svr.writeResponse(info, 0, err, handlerResp)
+	return svr.codecNext(c, req, info)
 }
 
-func (svr *Server) writeResponse(info *RequestInfo, code int, err error, data any) {
-	if info.Writer.GetStatus() != 0 {
-		return
+func (svr *Server) codecNext(c context.Context, req any, info *RequestInfo) (any, error) {
+	stdH := info.Handler().(*StdHandler)
+	if stdH == nil {
+		return info.Next(c, req)
 	}
-	var httpResp HttpResp
-	s := base.StatusFromError(err)
-	httpResp.Code = s.GetCode()
-	httpResp.Msg = s.GetMsg()
-	httpResp.Data = data
-	info.Writer.WriteHeader(http.StatusOK)
-	buf, _ := json.Marshal(&httpResp)
-	info.Writer.Write(buf)
-}
-
-func (svr *Server) parserRequest(info *RequestInfo) (any, error) {
-	if info.Request.Header.Get("content-type") != "application/json" {
-		return nil, nil
-	}
-	h := info.Handler()
-	if h == nil {
-		return nil, nil
-	}
-	realH, _ := h.(*StdHandler)
-	if realH == nil {
-		return nil, nil
-	}
-	req := realH.NewReq()
-	if req == nil {
-		return nil, nil
-	}
+	req = stdH.NewReq()
+	info.ParsedRequest = req
 	buf, err := io.ReadAll(info.Request.Body)
 	if err != nil {
 		return nil, err
@@ -102,15 +120,17 @@ func (svr *Server) parserRequest(info *RequestInfo) (any, error) {
 	if err != nil {
 		return nil, err
 	}
-	return req, nil
-}
-
-func (svr *Server) serveHandlerNotFound(c context.Context, info *RequestInfo) {
-	info.handlers = svr.noRouteHandlers
-	info.Next(c, info)
-	if info.Writer.GetStatus() == 0 {
-		info.Writer.WriteHeader(http.StatusNotFound)
-	}
+	resp, err := info.Next(c, req)
+	s := base.StatusFromError(err)
+	info.Writer.Header().Set("content-type", "application/json")
+	var httpResp HttpResp
+	httpResp.Code = s.GetCode()
+	httpResp.Msg = s.GetMsg()
+	httpResp.Event = s.GetEvent()
+	httpResp.Data = resp
+	buf, err = json.Marshal(httpResp)
+	info.Writer.Write(buf)
+	return resp, err
 }
 
 type Handler interface {
