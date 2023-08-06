@@ -34,6 +34,15 @@ func Test_1(t *testing.T) {
 	require.Equal(t, 2, len(items))
 }
 
+func Test_2(t *testing.T) {
+	b := NewRouterBuilder()
+	g := b.SubBuilder("/", HandlerFunc(hf))
+	g.POSTF("/a/b/c", hf)
+	item := b.router.ListAll()
+	require.Equal(t, 1, len(item))
+	require.Equal(t, 2, len(item[0].Handlers))
+}
+
 func hf(c context.Context, req any, info *RequestInfo) (any, error) {
 	return nil, nil
 }

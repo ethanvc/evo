@@ -39,6 +39,7 @@ func (b *RouterBuilder) SubBuilder(relativePath string, handlers ...Handler) *Ro
 }
 
 func (b *RouterBuilder) POST(relativePath string, handlers ...Handler) {
+	handlers = joinSlice(b.handlers, handlers)
 	b.router.addRoute(http.MethodPost, path.Join(b.basePath, relativePath), handlers)
 }
 
@@ -47,6 +48,7 @@ func (b *RouterBuilder) POSTF(relativePath string, handlers ...HandlerFunc) {
 }
 
 func (b *RouterBuilder) GET(relativePath string, handlers ...Handler) {
+	handlers = joinSlice(b.handlers, handlers)
 	b.router.addRoute(http.MethodGet, path.Join(b.basePath, relativePath), handlers)
 }
 
@@ -55,6 +57,7 @@ func (b *RouterBuilder) GETF(relativePath string, handlers ...HandlerFunc) {
 }
 
 func (b *RouterBuilder) HEAD(relativePath string, handlers ...Handler) {
+	handlers = joinSlice(b.handlers, handlers)
 	b.router.addRoute(http.MethodHead, path.Join(b.basePath, relativePath), handlers)
 }
 
