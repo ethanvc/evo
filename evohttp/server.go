@@ -114,23 +114,29 @@ func (svr *Server) codecNext(c context.Context, req any, info *RequestInfo) (any
 	info.ParsedRequest = req
 	buf, err := io.ReadAll(info.Request.Body)
 	if err != nil {
-		return nil, err
+		return setStdResponse(info, err, nil)
 	}
-	err = json.Unmarshal(buf, req)
-	if err != nil {
-		return nil, err
+	if len(buf) > 0 {
+		err = json.Unmarshal(buf, req)
+		if err != nil {
+			return setStdResponse(info, err, nil)
+		}
 	}
 	resp, err := info.Next(c, req)
+	return setStdResponse(info, err, resp)
+}
+
+func setStdResponse(info *RequestInfo, err error, data any) (any, error) {
 	s := base.StatusFromError(err)
 	info.Writer.Header().Set("content-type", "application/json")
 	var httpResp HttpResp
 	httpResp.Code = s.GetCode()
 	httpResp.Msg = s.GetMsg()
 	httpResp.Event = s.GetEvent()
-	httpResp.Data = resp
-	buf, err = json.Marshal(httpResp)
+	httpResp.Data = data
+	buf, _ := json.Marshal(httpResp)
 	info.Writer.Write(buf)
-	return resp, err
+	return data, err
 }
 
 type Handler interface {
