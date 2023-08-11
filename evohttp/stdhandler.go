@@ -40,3 +40,6 @@ func (h StdHandler) HandleRequest(c context.Context, req any, info *RequestInfo)
 	}
 	return h.realHandler(c, req)
 }
+
+type EmptyRequest struct {
+}
