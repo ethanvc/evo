@@ -106,8 +106,8 @@ func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any
 }
 
 func (svr *Server) codecNext(c context.Context, req any, info *RequestInfo) (any, error) {
-	stdH := info.Handler().(*StdHandler)
-	if stdH == nil {
+	stdH, ok := info.Handler().(*StdHandler)
+	if !ok {
 		return info.Next(c, req)
 	}
 	req = stdH.NewReq()

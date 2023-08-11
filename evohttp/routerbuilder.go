@@ -39,12 +39,14 @@ func (b *RouterBuilder) SubBuilder(relativePath string, handlers ...Handler) *Ro
 }
 
 func (b *RouterBuilder) POST(relativePath string, handlers ...Handler) {
-	handlers = joinSlice(b.handlers, handlers)
-	b.router.addRoute(http.MethodPost, path.Join(b.basePath, relativePath), handlers)
+	absolutePath := b.getAbsolutePath(relativePath)
+	handlers = b.getRealHandlers(handlers...)
+	b.router.addRoute(http.MethodPost, absolutePath, handlers)
 }
 
 func (b *RouterBuilder) POSTF(relativePath string, handlers ...HandlerFunc) {
-	b.POST(relativePath, funcToHandlers(handlers)...)
+	h := funcToHandlers(handlers)
+	b.POST(relativePath, h...)
 }
 
 func (b *RouterBuilder) GET(relativePath string, handlers ...Handler) {
@@ -89,6 +91,14 @@ func (b *RouterBuilder) createStaticHandler(relativePath string, fs http.FileSys
 		fileServer.ServeHTTP(&info.Writer, info.Request)
 		return nil, nil
 	}
+}
+
+func (b *RouterBuilder) getAbsolutePath(relativePath string) string {
+	return path.Join(b.basePath, relativePath)
+}
+
+func (b *RouterBuilder) getRealHandlers(handlers ...Handler) HandlerChain {
+	return joinSlice(b.handlers, handlers)
 }
 
 func funcToHandlers(h []HandlerFunc) []Handler {

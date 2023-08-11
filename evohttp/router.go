@@ -141,7 +141,8 @@ func (n *handlerNode) visit(f func(n *handlerNode) bool) bool {
 }
 
 func (n *handlerNode) addRoute(urlPath string, handlers HandlerChain) {
-	n.addRouteInternal(urlPath, splitPatternPath(urlPath), handlers)
+	parts := splitPatternPath(urlPath)
+	n.addRouteInternal(urlPath, parts, handlers)
 }
 
 func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers HandlerChain) {
@@ -167,6 +168,16 @@ func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers
 	}
 	prefixLen := getCommonPrefixLength(n.pathPart, part)
 	if prefixLen == len(n.pathPart) {
+		parts = append([]string{part[prefixLen:]}, parts[1:]...)
+		for _, child := range n.children {
+			if child.isParamNode() {
+				panic("conflict with param node")
+			}
+			if getCommonPrefixLength(child.pathPart, parts[0]) > 0 {
+				child.addRouteInternal(fullPath, parts, handlers)
+				return
+			}
+		}
 		newNode := &handlerNode{}
 		n.children = append(n.children, newNode)
 		newNode.insertNodes(fullPath, append([]string{part[prefixLen:]}, parts[1:]...), handlers)

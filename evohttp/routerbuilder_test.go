@@ -35,12 +35,43 @@ func Test_1(t *testing.T) {
 }
 
 func Test_2(t *testing.T) {
-	b := NewRouterBuilder()
-	g := b.SubBuilder("/", HandlerFunc(hf))
+	rootB := NewRouterBuilder()
+	g := rootB.SubBuilder("/", HandlerFunc(hf))
 	g.POSTF("/a/b/c", hf)
-	item := b.router.ListAll()
+	item := rootB.router.ListAll()
 	require.Equal(t, 1, len(item))
 	require.Equal(t, 2, len(item[0].Handlers))
+}
+
+func Test_3(t *testing.T) {
+	rootB := NewRouterBuilder()
+
+	rootB.POSTF("/api/users/register", hf)
+	rootB.POSTF("/api/users/login", hf)
+
+	// all below handler needs login state
+	g := rootB.SubBuilder("/", HandlerFunc(hf))
+	g.GET("/api/users/get-public-home-access-token", HandlerFunc(hf))
+
+	g.POST("/api/weed-tasks/create", HandlerFunc(hf))
+	g.POST("/api/weed-tasks/get", HandlerFunc(hf))
+	data := []routeContent{
+		{http.MethodPost, "/api/users/register"},
+		{http.MethodPost, "/api/users/login"},
+		{http.MethodGet, "/api/users/get-public-home-access-token"},
+		{http.MethodPost, "/api/weed-tasks/create"},
+		{http.MethodPost, "/api/weed-tasks/get"},
+	}
+	for _, d := range data {
+		urlParam := make(map[string]string)
+		n := rootB.router.Find(d.method, d.p, urlParam)
+		require.Equal(t, d.p, n.fullPath)
+	}
+}
+
+type routeContent struct {
+	method string
+	p      string
 }
 
 func hf(c context.Context, req any, info *RequestInfo) (any, error) {
