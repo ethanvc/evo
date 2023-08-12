@@ -63,6 +63,10 @@ type StatusError struct {
 	s *Status
 }
 
+func (se StatusError) Status() *Status {
+	return se.s
+}
+
 func (se StatusError) Error() string {
 	return ""
 }

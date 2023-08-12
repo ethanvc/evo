@@ -2,15 +2,13 @@ package evohttp
 
 import (
 	"context"
-	"encoding/json"
-	"io"
+	"github.com/ethanvc/evo/base"
+	"google.golang.org/grpc/codes"
 	"net/http"
 	"time"
 
-	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evolog"
-	"golang.org/x/exp/slog"
-	"google.golang.org/grpc/codes"
+	"log/slog"
 )
 
 type Server struct {
@@ -21,6 +19,7 @@ type Server struct {
 func NewServer() *Server {
 	svr := &Server{}
 	svr.RouterBuilder = NewRouterBuilder()
+	svr.Use(NewCodecHandler(), NewRecoverHandler())
 	return svr
 }
 
@@ -47,11 +46,14 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	info.Writer.Reset(w)
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
 	c = evolog.WithLogContext(c, req.Header.Get("x-trace-id"))
-	svr.baseNext(c, info)
+	svr.logNext(c, info)
 }
 
-func (svr *Server) baseNext(c context.Context, info *RequestInfo) {
-	resp, err := svr.panicNext(c, nil, info)
+func (svr *Server) logNext(c context.Context, info *RequestInfo) {
+	resp, err := svr.routeNext(c, nil, info)
+	if info.Writer.GetStatus() == 0 {
+		info.Writer.WriteHeader(http.StatusInternalServerError)
+	}
 	info.FinishTime = time.Now()
 	var logArgs []any
 	if err != nil {
@@ -63,34 +65,27 @@ func (svr *Server) baseNext(c context.Context, info *RequestInfo) {
 	if resp != nil {
 		logArgs = append(logArgs, slog.Any("resp", resp))
 	}
+	logArgs = append(logArgs, slog.Int("http_code", info.Writer.GetStatus()))
 	logArgs = append(logArgs, slog.Duration("tc", info.FinishTime.Sub(info.RequestTime)))
 	logArgs = append(logArgs, slog.String("path", info.PatternPath))
-	slog.InfoContext(c, "REQ_END", logArgs...)
+	slog.Log(c, getErrorLevel(err), "REQ_END", logArgs...)
 }
 
-func (svr *Server) panicNext(c context.Context, req any, info *RequestInfo) (resp any, err error) {
-	func() {
-		panicked := true
-		defer func() {
-			if !panicked {
-				return
-			}
-			r := recover()
-			switch v := r.(type) {
-			case *base.Status:
-				err = v.Err()
-			case base.StatusError:
-				err = v
-			case error:
-				err = v
-			default:
-				err = base.New(codes.Internal, "UnknownErr").Err()
-			}
-		}()
-		resp, err = svr.routeNext(c, req, info)
-		panicked = false
-	}()
-	return
+func getErrorLevel(err error) slog.Level {
+	if err == nil {
+		return slog.LevelInfo
+	}
+	switch realE := err.(type) {
+	case base.StatusError:
+		switch realE.Status().GetCode() {
+		case codes.Unknown, codes.Internal, codes.Unavailable, codes.DataLoss:
+			return slog.LevelError
+		default:
+			return slog.LevelInfo
+		}
+	default:
+		return slog.LevelError
+	}
 }
 
 func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any, error) {
@@ -102,41 +97,7 @@ func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any
 	info.ResetHandlers(n.handlers)
 	info.PatternPath = n.fullPath
 	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	return svr.codecNext(c, req, info)
-}
-
-func (svr *Server) codecNext(c context.Context, req any, info *RequestInfo) (any, error) {
-	stdH, ok := info.Handler().(*StdHandler)
-	if !ok {
-		return info.Next(c, req)
-	}
-	req = stdH.NewReq()
-	info.ParsedRequest = req
-	buf, err := io.ReadAll(info.Request.Body)
-	if err != nil {
-		return setStdResponse(info, err, nil)
-	}
-	if len(buf) > 0 {
-		err = json.Unmarshal(buf, req)
-		if err != nil {
-			return setStdResponse(info, err, nil)
-		}
-	}
-	resp, err := info.Next(c, req)
-	return setStdResponse(info, err, resp)
-}
-
-func setStdResponse(info *RequestInfo, err error, data any) (any, error) {
-	s := base.StatusFromError(err)
-	info.Writer.Header().Set("content-type", "application/json")
-	var httpResp HttpResp
-	httpResp.Code = s.GetCode()
-	httpResp.Msg = s.GetMsg()
-	httpResp.Event = s.GetEvent()
-	httpResp.Data = data
-	buf, _ := json.Marshal(httpResp)
-	info.Writer.Write(buf)
-	return data, err
+	return info.Next(c, req)
 }
 
 type Handler interface {

@@ -2,8 +2,8 @@ package evolog
 
 import (
 	"context"
-	"golang.org/x/exp/slog"
 	"io"
+	"log/slog"
 )
 
 type JsonHandler struct {

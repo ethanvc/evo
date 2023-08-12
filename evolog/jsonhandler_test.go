@@ -3,7 +3,7 @@ package evolog
 import (
 	"bytes"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
+	"log/slog"
 	"testing"
 	"time"
 )
