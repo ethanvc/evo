@@ -24,8 +24,9 @@ func TestJsonHandler_Ignore(t *testing.T) {
 	abc := &Abc{Name: "Hello"}
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
 	record.Add("abc", abc)
-	h.Handle(nil, record)
+	c := WithLogContext(nil, "xx")
+	h.Handle(c, record)
 	require.Equal(t,
-		"{\"level\":\"INFO\",\"msg\":\"hello\",\"abc\":{\"Name\":\"\"},\"trace_id\":\"13eef5ee2424de958ed8010000695da4\"}\n",
+		"{\"level\":\"INFO\",\"msg\":\"hello\",\"abc\":{\"Name\":\"\"},\"trace_id\":\"xx\"}\n",
 		buf.String())
 }

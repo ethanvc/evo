@@ -8,8 +8,9 @@ import (
 )
 
 type JsonHandler struct {
-	slog.JSONHandler
+	h       *slog.JSONHandler
 	encoder *Encoder
+	lvl     slog.LevelVar
 }
 
 func NewJsonHandler(w io.Writer, encoder *Encoder, opts *slog.HandlerOptions) *JsonHandler {
@@ -22,6 +23,9 @@ func NewJsonHandler(w io.Writer, encoder *Encoder, opts *slog.HandlerOptions) *J
 	h := &JsonHandler{
 		encoder: encoder,
 	}
+	if opts.Level != nil {
+		h.lvl.Set(opts.Level.Level())
+	}
 	if h.encoder == nil {
 		h.encoder = DefaultEncoder()
 	}
@@ -32,26 +36,40 @@ func NewJsonHandler(w io.Writer, encoder *Encoder, opts *slog.HandlerOptions) *J
 		}
 		return attrWrapper(encoder, a)
 	}
-	h.JSONHandler = *slog.NewJSONHandler(w, opts)
+	h.h = slog.NewJSONHandler(w, opts)
 	return h
 }
 
 func (h *JsonHandler) Handle(c context.Context, r slog.Record) error {
 	lc := GetLogContext(c)
 	r.AddAttrs(slog.String("trace_id", lc.GetTraceId()))
-	return h.JSONHandler.Handle(c, r)
+	return h.h.Handle(c, r)
 }
 
 func (h *JsonHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &JsonHandler{
-		JSONHandler: *h.JSONHandler.WithAttrs(attrs).(*slog.JSONHandler),
+	newH := &JsonHandler{
+		encoder: h.encoder,
 	}
+	newH.lvl.Set(h.lvl.Level())
+	newH.h = h.h.WithAttrs(attrs).(*slog.JSONHandler)
+	return newH
 }
 
 func (h *JsonHandler) WithGroup(name string) slog.Handler {
-	return &JsonHandler{
-		JSONHandler: *h.JSONHandler.WithGroup(name).(*slog.JSONHandler),
+	newH := &JsonHandler{
+		encoder: h.encoder,
 	}
+	newH.lvl.Set(h.lvl.Level())
+	newH.h = h.h.WithGroup(name).(*slog.JSONHandler)
+	return newH
+}
+
+func (h *JsonHandler) Enabled(c context.Context, lvl slog.Level) bool {
+	return h.lvl.Level() >= lvl
+}
+
+func (h *JsonHandler) SetLevel(lvl slog.Level) {
+	h.lvl.Set(lvl)
 }
 
 func attrWrapper(encoder *Encoder, a slog.Attr) slog.Attr {
