@@ -16,6 +16,7 @@ func TestServer_Simple(t *testing.T) {
 	defer httpSvr.Shutdown(context.Background())
 
 	test := func(c context.Context, req any, info *RequestInfo) (any, error) {
+		info.Writer.WriteHeader(http.StatusOK)
 		return nil, nil
 	}
 	svr.POSTF("/test", test)
@@ -76,6 +77,18 @@ func TestServer_Root(t *testing.T) {
 	err := st.Invoke(nil, nil, &content)
 	require.NoError(t, err)
 	require.Equal(t, "hello", content)
+}
+
+func Test_Default404(t *testing.T) {
+	svr := NewServer()
+	url, httpSvr := startTestServer(svr)
+	defer httpSvr.Shutdown(context.Background())
+
+	st := NewSingleAttempt(http.MethodGet, url+"/abc")
+	var content string
+	err := st.Invoke(nil, nil, &content)
+	require.Equal(t, ErrStatusCodeNotOk, err)
+	require.Equal(t, http.StatusNotFound, st.Resp.StatusCode)
 }
 
 func startTestServer(handler http.Handler) (string, *http.Server) {

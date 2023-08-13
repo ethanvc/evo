@@ -13,11 +13,14 @@ import (
 
 type Server struct {
 	*RouterBuilder
-	noRouteHandlers HandlerChain
+	noRouteHandlers     HandlerChain
+	userNoRouteHandlers HandlerChain
 }
 
 func NewServer() *Server {
-	svr := &Server{}
+	svr := &Server{
+		noRouteHandlers: []Handler{HandlerFunc(finalNoRouteHandler)},
+	}
 	svr.RouterBuilder = NewRouterBuilder()
 	svr.Use(NewCodecHandler(), NewRecoverHandler())
 	return svr
@@ -25,11 +28,16 @@ func NewServer() *Server {
 
 func (svr *Server) Use(handlers ...Handler) {
 	svr.RouterBuilder.Use(handlers...)
-	svr.noRouteHandlers = append(svr.noRouteHandlers, handlers...)
+	svr.rebuild404Handlers()
 }
 
 func (svr *Server) UseF(handlers ...HandlerFunc) {
 	svr.Use(funcToHandlers(handlers)...)
+}
+
+func (svr *Server) NoRoute(handler ...Handler) {
+	svr.userNoRouteHandlers = append(svr.userNoRouteHandlers, handler...)
+	svr.rebuild404Handlers()
 }
 
 func (svr *Server) Run(addr string) {
@@ -100,6 +108,14 @@ func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any
 	return info.Next(c, req)
 }
 
+func (svr *Server) rebuild404Handlers() {
+	if len(svr.userNoRouteHandlers) == 0 {
+		svr.noRouteHandlers = append([]Handler{HandlerFunc(finalNoRouteHandler)}, svr.RouterBuilder.handlers...)
+	} else {
+		svr.noRouteHandlers = joinSlice(svr.RouterBuilder.handlers, svr.userNoRouteHandlers)
+	}
+}
+
 type Handler interface {
 	HandleRequest(c context.Context, req any, info *RequestInfo) (any, error)
 }
@@ -110,4 +126,12 @@ type HandlerFunc func(context.Context, any, *RequestInfo) (any, error)
 
 func (h HandlerFunc) HandleRequest(c context.Context, req any, info *RequestInfo) (any, error) {
 	return h(c, req, info)
+}
+
+func finalNoRouteHandler(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+	resp, err = info.Next(c, req)
+	if info.Writer.GetStatus() == 0 {
+		info.Writer.WriteHeader(http.StatusNotFound)
+	}
+	return
 }
