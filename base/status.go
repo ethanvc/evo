@@ -53,6 +53,11 @@ func (s *Status) Err() StatusError {
 	return se
 }
 
+func Code(err error) codes.Code {
+	se, _ := err.(StatusError)
+	return se.s.GetCode()
+}
+
 type internalStatus struct {
 	code  codes.Code
 	msg   string
