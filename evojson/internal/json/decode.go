@@ -94,12 +94,13 @@ import (
 // invalid UTF-16 surrogate pairs are not treated as an error.
 // Instead, they are replaced by the Unicode replacement
 // character U+FFFD.
-func Unmarshal(data []byte, v any, configer ...*ExtConfiger) error {
+func Unmarshal(data []byte, v any) error {
 	// Check for well-formedness.
 	// Avoids filling out half a data structure
 	// before discovering a JSON syntax error.
+	v, configer := decodeWrapper(v)
 	var d decodeState
-	d.configer = GetConfiger(configer...)
+	d.configer = configer
 	err := checkValid(data, &d.scan)
 	if err != nil {
 		return err

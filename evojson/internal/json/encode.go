@@ -154,8 +154,9 @@ import (
 // JSON cannot represent cyclic data structures and Marshal does not
 // handle them. Passing cyclic structures to Marshal will result in
 // an error.
-func Marshal(v any, configer ...*ExtConfiger) ([]byte, error) {
-	e := newEncodeState(GetConfiger(configer...))
+func Marshal(v any) ([]byte, error) {
+	v, configer := decodeWrapper(v)
+	e := newEncodeState(configer)
 	defer encodeStatePool.Put(e)
 
 	err := e.marshal(v, EncOpts{escapeHTML: true})

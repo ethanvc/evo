@@ -7,19 +7,16 @@ type Field = json.Field
 type EncoderFunc = json.EncoderFunc
 type EncodeState = json.EncodeState
 type EncOpts = json.EncOpts
+type Wrapper = json.Wrapper
 
 func NewExtConfiger() *ExtConfiger {
 	return json.NewExtConfiger()
 }
 
-func Default() *ExtConfiger {
-	return json.DefaultConfier.Load()
+func NewWrapper(configer *ExtConfiger, v any) Wrapper {
+	return json.NewWrapper(configer, v)
 }
 
-func SetDefault(configer *ExtConfiger) {
-	json.DefaultConfier.Store(configer)
-}
-
-func Marshal(v any, configer ...*ExtConfiger) ([]byte, error) {
-	return json.Marshal(v, configer...)
+func Marshal(v any, configer *ExtConfiger) ([]byte, error) {
+	return json.Marshal(NewWrapper(configer, v))
 }

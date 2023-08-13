@@ -29,7 +29,7 @@ type Decoder struct {
 // The decoder introduces its own buffering and may
 // read data from r beyond the JSON values requested.
 func NewDecoder(r io.Reader, configer ...*ExtConfiger) *Decoder {
-	return &Decoder{r: r, d: decodeState{configer: GetConfiger(configer...)}}
+	return &Decoder{r: r, d: decodeState{configer: getConfiger(configer...)}}
 }
 
 // UseNumber causes the Decoder to unmarshal a number into an interface{} as a
@@ -191,7 +191,7 @@ type Encoder struct {
 
 // NewEncoder returns a new encoder that writes to w.
 func NewEncoder(w io.Writer, configer ...*ExtConfiger) *Encoder {
-	return &Encoder{w: w, escapeHTML: true, configer: GetConfiger(configer...)}
+	return &Encoder{w: w, escapeHTML: true, configer: getConfiger(configer...)}
 }
 
 // Encode writes the JSON encoding of v to the stream,

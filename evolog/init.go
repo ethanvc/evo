@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 
 	"log/slog"
 )
@@ -27,7 +28,18 @@ func initDefaultLog() {
 	} else {
 		w = f
 	}
-	h := NewJsonHandler(w, nil)
+	h := NewJsonHandler(w, nil, nil)
+	SetDefaultJsonHandler(h)
 	l := slog.New(h)
 	slog.SetDefault(l)
+}
+
+var defaultJsonHandler atomic.Pointer[JsonHandler]
+
+func SetDefaultJsonHandler(h *JsonHandler) {
+	defaultJsonHandler.Store(h)
+}
+
+func DefaultJsonHandler() *JsonHandler {
+	return defaultJsonHandler.Load()
 }
