@@ -54,7 +54,10 @@ func (s *Status) Err() StatusError {
 }
 
 func Code(err error) codes.Code {
-	se, _ := err.(StatusError)
+	se, ok := err.(StatusError)
+	if !ok {
+		return codes.Unknown
+	}
 	return se.s.GetCode()
 }
 
