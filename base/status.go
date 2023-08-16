@@ -61,6 +61,10 @@ func Code(err error) codes.Code {
 	return se.s.GetCode()
 }
 
+func NotFound(err error) bool {
+	return Code(err) == codes.NotFound
+}
+
 type internalStatus struct {
 	code  codes.Code
 	msg   string
