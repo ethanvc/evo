@@ -7,13 +7,13 @@ import (
 )
 
 type Reporter struct {
-	svr                          string
-	instance                     string
-	serverRequestTotal           *prometheus.CounterVec
-	clientRequestTotal           *prometheus.CounterVec
-	serverRequestDurationSeconds *prometheus.HistogramVec
-	clientRequestDurationSeconds *prometheus.HistogramVec
-	register                     prometheus.Registerer
+	svr                        string
+	instance                   string
+	serverEventTotal           *prometheus.CounterVec
+	clientEventTotal           *prometheus.CounterVec
+	serverEventDurationSeconds *prometheus.HistogramVec
+	clientEventDurationSeconds *prometheus.HistogramVec
+	register                   prometheus.Registerer
 }
 
 func NewReporter(conf *ReporterConfig) *Reporter {
@@ -31,51 +31,51 @@ func (r *Reporter) init() {
 		"svr":  r.svr,
 		"inst": r.instance,
 	}
-	r.serverRequestTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:        "evo_server_request_total",
+	r.serverEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "evo_server_event_total",
 		ConstLabels: constLabels,
 	}, []string{"method", "event"})
-	r.register.MustRegister(r.serverRequestTotal)
+	r.register.MustRegister(r.serverEventTotal)
 
-	r.clientRequestTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:        "evo_client_request_total",
+	r.clientEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "evo_client_event_total",
 		ConstLabels: prometheus.Labels{"inst": r.instance},
 	}, []string{"from_svr", "svr", "method", "event"})
-	r.register.MustRegister(r.serverRequestTotal)
+	r.register.MustRegister(r.serverEventTotal)
 
-	r.serverRequestDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "evo_server_request_duration_seconds",
+	r.serverEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "evo_server_event_duration_seconds",
 		ConstLabels: constLabels,
 	}, []string{"method"})
-	r.register.MustRegister(r.serverRequestDurationSeconds)
+	r.register.MustRegister(r.serverEventDurationSeconds)
 
-	r.clientRequestDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "evo_client_request_duration_seconds",
+	r.clientEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "evo_client_event_duration_seconds",
 		ConstLabels: prometheus.Labels{"inst": r.instance},
 	}, []string{"from_svr", "svr", "method"})
-	r.register.MustRegister(r.clientRequestDurationSeconds)
+	r.register.MustRegister(r.clientEventDurationSeconds)
 }
 
-func (r *Reporter) ReportServerRequest(c context.Context, event string) {
+func (r *Reporter) ReportEvent(c context.Context, event string) {
 	lc := GetLogContext(c)
-	r.serverRequestTotal.WithLabelValues(lc.GetMethod(), event).Inc()
+	r.serverEventTotal.WithLabelValues(lc.GetMethod(), event).Inc()
 }
 
-func (r *Reporter) ReportClientRequest(c context.Context, svr, method, event string) {
-	r.clientRequestTotal.WithLabelValues(r.svr, svr, method, event).Inc()
+func (r *Reporter) ReportClientEvent(c context.Context, svr, method, event string) {
+	r.clientEventTotal.WithLabelValues(r.svr, svr, method, event).Inc()
 }
 
-func (r *Reporter) ReportServerDuration(c context.Context, duration time.Duration) {
+func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration) {
 	lc := GetLogContext(c)
-	r.serverRequestDurationSeconds.WithLabelValues(lc.method).Observe(duration.Seconds())
+	r.serverEventDurationSeconds.WithLabelValues(lc.method).Observe(duration.Seconds())
 }
 
-func (r *Reporter) ReportClientDuration(c context.Context, svr, method string, duration time.Duration) {
-	r.clientRequestDurationSeconds.WithLabelValues(r.svr, svr, method).Observe(duration.Seconds())
+func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method string, duration time.Duration) {
+	r.clientEventDurationSeconds.WithLabelValues(r.svr, svr, method).Observe(duration.Seconds())
 }
 
 func ReportServerRequest(c context.Context, event string) {
-	DefaultReporter().ReportServerRequest(c, event)
+	DefaultReporter().ReportEvent(c, event)
 }
 
 type ReporterConfig struct {

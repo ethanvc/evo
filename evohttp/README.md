@@ -1,1 +1,1 @@
-inspired by gin.
+still in beta, inspired by gin.
