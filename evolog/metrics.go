@@ -61,8 +61,16 @@ func (r *Reporter) ReportEvent(c context.Context, event string) {
 	r.serverEventTotal.WithLabelValues(lc.GetMethod(), event).Inc()
 }
 
+func (r *Reporter) ReportRequest(c context.Context, event string) {
+	r.ReportEvent(c, "REQ:"+event)
+}
+
 func (r *Reporter) ReportClientEvent(c context.Context, svr, method, event string) {
 	r.clientEventTotal.WithLabelValues(r.svr, svr, method, event).Inc()
+}
+
+func (r *Reporter) ReportClientRequest(c context.Context, svr, method, event string) {
+	r.ReportClientEvent(c, svr, method, "REQ:"+event)
 }
 
 func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration) {
