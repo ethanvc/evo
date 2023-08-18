@@ -43,3 +43,16 @@ func SetDefaultJsonHandler(h *JsonHandler) {
 func DefaultJsonHandler() *JsonHandler {
 	return defaultJsonHandler.Load()
 }
+
+var defaultReporter atomic.Pointer[Reporter]
+
+func DefaultReporter() *Reporter {
+	return defaultReporter.Load()
+}
+
+func SetDefaultReporter(r *Reporter) {
+	if r == nil {
+		return
+	}
+	defaultReporter.Store(r)
+}
