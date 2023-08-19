@@ -11,7 +11,7 @@ import (
 func TestNewJsonHandler(t *testing.T) {
 	var buf bytes.Buffer
 	h := NewJsonHandler(&buf, nil, nil)
-	h.Handle(WithLogContext(nil, "xxxx"), slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0))
+	h.Handle(WithLogContext(nil, &LogContextConfig{TraceId: "xxxx"}), slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0))
 	require.Equal(t, "{\"level\":\"INFO\",\"msg\":\"hello\",\"trace_id\":\"xxxx\"}\n", buf.String())
 }
 
@@ -24,7 +24,7 @@ func TestJsonHandler_Ignore(t *testing.T) {
 	abc := &Abc{Name: "Hello"}
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
 	record.Add("abc", abc)
-	c := WithLogContext(nil, "xx")
+	c := WithLogContext(nil, &LogContextConfig{TraceId: "xx"})
 	h.Handle(c, record)
 	require.Equal(t,
 		"{\"level\":\"INFO\",\"msg\":\"hello\",\"abc\":{\"Name\":\"\"},\"trace_id\":\"xx\"}\n",

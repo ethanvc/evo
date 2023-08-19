@@ -57,11 +57,14 @@ func (lc *LogContext) GetEvents() string {
 	return lc.events.String()
 }
 
-func WithLogContext(c context.Context, traceId string) context.Context {
+func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 	if c == nil {
 		c = context.Background()
 	}
-	lc := &LogContext{traceId: traceId}
+	if lcc == nil {
+		lcc = &LogContextConfig{}
+	}
+	lc := &LogContext{traceId: lcc.TraceId, method: lcc.Method}
 	if len(lc.traceId) == 0 {
 		lc.traceId = NewTraceId()
 	}
@@ -83,3 +86,8 @@ func GetLogContext(c context.Context) *LogContext {
 var globalLogContext *LogContext
 
 type contextKeyLogContext struct{}
+
+type LogContextConfig struct {
+	Method  string
+	TraceId string
+}

@@ -53,7 +53,9 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	info.RequestTime = time.Now()
 	info.Writer.Reset(w)
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
-	c = evolog.WithLogContext(c, req.Header.Get("x-trace-id"))
+	c = evolog.WithLogContext(c, &evolog.LogContextConfig{
+		TraceId: req.Header.Get("x-trace-id"),
+	})
 	svr.logNext(c, info)
 }
 
