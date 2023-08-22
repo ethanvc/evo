@@ -2,7 +2,9 @@ package evolog
 
 import (
 	"context"
+	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"google.golang.org/grpc/codes"
 	"time"
 )
 
@@ -59,6 +61,14 @@ func (r *Reporter) init() {
 func (r *Reporter) ReportEvent(c context.Context, event string) {
 	lc := GetLogContext(c)
 	r.serverEventTotal.WithLabelValues(lc.GetMethod(), event).Inc()
+}
+
+func (r *Reporter) ReportErrEvent(c context.Context, event string) {
+	r.ReportEvent(c, "ERR:"+event)
+}
+
+func (r *Reporter) ReportRequestEvent(c context.Context, code codes.Code, event string) {
+	r.ReportEvent(c, fmt.Sprintf("%s:%s", code.String(), event))
 }
 
 func (r *Reporter) ReportRequest(c context.Context, event string) {
