@@ -65,8 +65,6 @@ func (svr *Server) logNext(c context.Context, info *RequestInfo) {
 	info.FinishTime = time.Now()
 	var logArgs []any
 	logArgs = append(logArgs, slog.Int("http_code", info.Writer.GetStatus()))
-	logArgs = append(logArgs, slog.Duration("tc", info.FinishTime.Sub(info.RequestTime)))
-	logArgs = append(logArgs, slog.String("path", info.PatternPath))
 	evolog.LogRequest(c, &evolog.RequestLogInfo{
 		Err:      err,
 		Req:      info.ParsedRequest,

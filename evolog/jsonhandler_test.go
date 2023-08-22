@@ -2,6 +2,7 @@ package evolog
 
 import (
 	"bytes"
+	"errors"
 	"github.com/stretchr/testify/require"
 	"log/slog"
 	"testing"
@@ -28,5 +29,17 @@ func TestJsonHandler_Ignore(t *testing.T) {
 	h.Handle(c, record)
 	require.Equal(t,
 		"{\"level\":\"INFO\",\"msg\":\"hello\",\"abc\":{\"Name\":\"\"},\"trace_id\":\"xx\"}\n",
+		buf.String())
+}
+
+func Test_Error(t *testing.T) {
+	var buf bytes.Buffer
+	h := NewJsonHandler(&buf, nil, nil)
+	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
+	record.AddAttrs(Error(errors.New("hello_error")))
+	c := WithLogContext(nil, &LogContextConfig{TraceId: "xx"})
+	h.Handle(c, record)
+	require.Equal(t,
+		"{\"level\":\"INFO\",\"msg\":\"hello\",\"err\":\"hello_error\",\"trace_id\":\"xx\"}\n",
 		buf.String())
 }

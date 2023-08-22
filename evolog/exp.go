@@ -2,6 +2,7 @@ package evolog
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"log/slog"
 	"time"
 )
@@ -37,4 +38,20 @@ type RequestLogInfo struct {
 	Err      error
 	Req      any
 	Resp     any
+}
+
+func Error(err error) slog.Attr {
+	return NamedError("err", err)
+}
+
+func NamedError(k string, err error) slog.Attr {
+	if err == nil {
+		return slog.Any("err", nil)
+	}
+	switch realErr := err.(type) {
+	case base.StatusError:
+		return slog.Any(k, realErr.Status())
+	default:
+		return slog.String(k, err.Error())
+	}
 }
