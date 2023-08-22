@@ -1,6 +1,7 @@
 package base
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"google.golang.org/grpc/codes"
@@ -13,15 +14,15 @@ type Status struct {
 func New(code codes.Code, event string) *Status {
 	s := &Status{
 		s: internalStatus{
-			code:  code,
-			event: event,
+			Code:  code,
+			Event: event,
 		},
 	}
 	return s
 }
 
 func (s *Status) SetMsg(format string, args ...any) *Status {
-	s.s.msg = fmt.Sprintf(format, args...)
+	s.s.Msg = fmt.Sprintf(format, args...)
 	return s
 }
 
@@ -29,21 +30,21 @@ func (s *Status) GetCode() codes.Code {
 	if s == nil {
 		return codes.OK
 	}
-	return s.s.code
+	return s.s.Code
 }
 
 func (s *Status) GetMsg() string {
 	if s == nil {
 		return ""
 	}
-	return s.s.msg
+	return s.s.Msg
 }
 
 func (s *Status) GetEvent() string {
 	if s == nil {
 		return ""
 	}
-	return s.s.event
+	return s.s.Event
 }
 
 func (s *Status) Err() StatusError {
@@ -51,6 +52,13 @@ func (s *Status) Err() StatusError {
 		s: s,
 	}
 	return se
+}
+
+func (s *Status) MarshalJSON() ([]byte, error) {
+	if s == nil {
+		return []byte("null"), nil
+	}
+	return json.Marshal(s.s)
 }
 
 func Code(err error) codes.Code {
@@ -66,9 +74,9 @@ func NotFound(err error) bool {
 }
 
 type internalStatus struct {
-	code  codes.Code
-	msg   string
-	event string
+	Code  codes.Code `json:"code"`
+	Msg   string     `json:"msg,omitempty"`
+	Event string     `json:"event,omitempty"`
 }
 
 type StatusError struct {

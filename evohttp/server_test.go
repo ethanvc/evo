@@ -2,8 +2,11 @@ package evohttp
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path"
 	"testing"
@@ -119,4 +122,18 @@ func startTestServer(handler http.Handler) (string, *http.Server) {
 		panic(err)
 	}
 	return url, httpSvr
+}
+
+func Test_PanicRecover(t *testing.T) {
+	svr := NewServer()
+	h := func(c context.Context, req *int) (resp *int, err error) {
+		panic(base.New(codes.NotFound, ""))
+		return
+	}
+	svr.GET("/abc", NewStdHandlerF(h))
+	httpReq := httptest.NewRequest(http.MethodGet, "/abc", nil)
+	recorder := httptest.NewRecorder()
+	svr.ServeHTTP(recorder, httpReq)
+	require.Equal(t, http.StatusOK, recorder.Code)
+	require.Equal(t, "{\"code\":5,\"msg\":\"\",\"event\":\"\",\"data\":null}", recorder.Body.String())
 }
