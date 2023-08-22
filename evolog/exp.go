@@ -26,7 +26,9 @@ func LogRequest(c context.Context, logInfo *RequestLogInfo, extra ...any) {
 	if logInfo != nil {
 		args = append(args, slog.Duration("tc", logInfo.Duration))
 	}
-	args = append(args, slog.String("events", lc.GetEvents()))
+	if events := lc.GetEvents(); len(events) > 0 {
+		args = append(args, slog.String("events", events))
+	}
 	slog.Log(c, lvl, "REQ_END", args...)
 }
 
