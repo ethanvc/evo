@@ -2,8 +2,6 @@ package evohttp
 
 import (
 	"context"
-	"github.com/ethanvc/evo/base"
-	"google.golang.org/grpc/codes"
 	"net/http"
 	"time"
 
@@ -66,36 +64,15 @@ func (svr *Server) logNext(c context.Context, info *RequestInfo) {
 	}
 	info.FinishTime = time.Now()
 	var logArgs []any
-	if err != nil {
-		logArgs = append(logArgs, slog.Any("err", err))
-	}
-	if info.ParsedRequest != nil {
-		logArgs = append(logArgs, slog.Any("req", info.ParsedRequest))
-	}
-	if resp != nil {
-		logArgs = append(logArgs, slog.Any("resp", resp))
-	}
 	logArgs = append(logArgs, slog.Int("http_code", info.Writer.GetStatus()))
 	logArgs = append(logArgs, slog.Duration("tc", info.FinishTime.Sub(info.RequestTime)))
 	logArgs = append(logArgs, slog.String("path", info.PatternPath))
-	slog.Log(c, getErrorLevel(err), "REQ_END", logArgs...)
-}
-
-func getErrorLevel(err error) slog.Level {
-	if err == nil {
-		return slog.LevelInfo
-	}
-	switch realE := err.(type) {
-	case base.StatusError:
-		switch realE.Status().GetCode() {
-		case codes.Unknown, codes.Internal, codes.Unavailable, codes.DataLoss:
-			return slog.LevelError
-		default:
-			return slog.LevelInfo
-		}
-	default:
-		return slog.LevelError
-	}
+	evolog.LogRequest(c, &evolog.RequestLogInfo{
+		Err:      err,
+		Req:      info.ParsedRequest,
+		Resp:     resp,
+		Duration: info.FinishTime.Sub(info.RequestTime),
+	}, logArgs...)
 }
 
 func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any, error) {
