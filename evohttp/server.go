@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/ethanvc/evo/evolog"
-	"log/slog"
 )
 
 type Server struct {
@@ -20,7 +19,7 @@ func NewServer() *Server {
 		noRouteHandlers: []Handler{HandlerFunc(finalNoRouteHandler)},
 	}
 	svr.RouterBuilder = NewRouterBuilder()
-	svr.Use(NewCodecHandler(), NewRecoverHandler())
+	svr.Use(NewLogHandler(), NewCodecHandler(), NewRecoverHandler())
 	return svr
 }
 
@@ -54,35 +53,20 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	c = evolog.WithLogContext(c, &evolog.LogContextConfig{
 		TraceId: req.Header.Get("x-trace-id"),
 	})
-	svr.logNext(c, info)
+	svr.route(c, info)
 }
 
-func (svr *Server) logNext(c context.Context, info *RequestInfo) {
-	resp, err := svr.routeNext(c, nil, info)
-	if info.Writer.GetStatus() == 0 {
-		info.Writer.WriteHeader(http.StatusInternalServerError)
-	}
-	info.FinishTime = time.Now()
-	var logArgs []any
-	logArgs = append(logArgs, slog.Int("http_code", info.Writer.GetStatus()))
-	evolog.LogRequest(c, &evolog.RequestLogInfo{
-		Err:      err,
-		Req:      info.ParsedRequest,
-		Resp:     resp,
-		Duration: info.FinishTime.Sub(info.RequestTime),
-	}, logArgs...)
-}
-
-func (svr *Server) routeNext(c context.Context, req any, info *RequestInfo) (any, error) {
+func (svr *Server) route(c context.Context, info *RequestInfo) {
 	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.params)
 	if n == nil {
 		info.ResetHandlers(svr.noRouteHandlers)
-		return info.Next(c, nil)
+		info.Next(c, nil)
+		return
 	}
 	info.ResetHandlers(n.handlers)
 	info.PatternPath = n.fullPath
 	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	return info.Next(c, req)
+	info.Next(c, nil)
 }
 
 func (svr *Server) rebuild404Handlers() {

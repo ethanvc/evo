@@ -14,7 +14,7 @@ func LogRequest(c context.Context, logInfo *RequestLogInfo, extra ...any) {
 	args = append(args, slog.String("method", lc.GetMethod()))
 	if logInfo != nil {
 		if logInfo.Err != nil {
-			args = append(args, slog.Any("err", logInfo.Err))
+			args = append(args, Error(logInfo.Err))
 		}
 		if logInfo.Req != nil {
 			args = append(args, slog.Any("req", logInfo.Req))
