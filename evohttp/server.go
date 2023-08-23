@@ -57,16 +57,24 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (svr *Server) route(c context.Context, info *RequestInfo) {
+	var err error
+	defer func() {
+		if err == nil || info.Writer.GetStatus() != 0 {
+			return
+		}
+		info.Writer.WriteHeader(http.StatusInternalServerError)
+		info.Writer.Write([]byte("internal server error"))
+	}()
 	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.params)
 	if n == nil {
 		info.ResetHandlers(svr.noRouteHandlers)
-		info.Next(c, nil)
+		_, err = info.Next(c, nil)
 		return
 	}
 	info.ResetHandlers(n.handlers)
 	info.PatternPath = n.fullPath
 	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	info.Next(c, nil)
+	_, err = info.Next(c, nil)
 }
 
 func (svr *Server) rebuild404Handlers() {

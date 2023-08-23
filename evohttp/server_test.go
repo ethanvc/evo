@@ -137,3 +137,17 @@ func Test_PanicRecover(t *testing.T) {
 	require.Equal(t, http.StatusOK, recorder.Code)
 	require.Equal(t, "{\"code\":5,\"msg\":\"\",\"event\":\"\",\"data\":null}", recorder.Body.String())
 }
+
+func TestPanic2(t *testing.T) {
+	svr := NewServer()
+	h := func(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+		panic(base.New(codes.NotFound, ""))
+		return
+	}
+	svr.GET("/abc", HandlerFunc(h))
+	httpReq := httptest.NewRequest(http.MethodGet, "/abc", nil)
+	recorder := httptest.NewRecorder()
+	svr.ServeHTTP(recorder, httpReq)
+	require.Equal(t, http.StatusInternalServerError, recorder.Code)
+	require.Equal(t, "internal server error", recorder.Body.String())
+}
