@@ -11,7 +11,7 @@ import (
 
 func TestNewJsonHandler(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewJsonHandler(&buf, nil, nil)
+	h := NewJsonHandler(NewJsonHandlerOpts().SetWriter(&buf))
 	h.Handle(WithLogContext(nil, &LogContextConfig{TraceId: "xxxx"}), slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0))
 	require.Equal(t, "{\"level\":\"INFO\",\"msg\":\"hello\",\"trace_id\":\"xxxx\"}\n", buf.String())
 }
@@ -21,7 +21,7 @@ func TestJsonHandler_Ignore(t *testing.T) {
 		Name string `evolog:"ignore"`
 	}
 	var buf bytes.Buffer
-	h := NewJsonHandler(&buf, nil, nil)
+	h := NewJsonHandler(NewJsonHandlerOpts().SetWriter(&buf))
 	abc := &Abc{Name: "Hello"}
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
 	record.Add("abc", abc)
@@ -34,7 +34,7 @@ func TestJsonHandler_Ignore(t *testing.T) {
 
 func Test_Error(t *testing.T) {
 	var buf bytes.Buffer
-	h := NewJsonHandler(&buf, nil, nil)
+	h := NewJsonHandler(NewJsonHandlerOpts().SetWriter(&buf))
 	record := slog.NewRecord(time.Time{}, slog.LevelInfo, "hello", 0)
 	record.AddAttrs(Error(errors.New("hello_error")))
 	c := WithLogContext(nil, &LogContextConfig{TraceId: "xx"})
