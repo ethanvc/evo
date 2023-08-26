@@ -71,14 +71,36 @@ func (h *JsonHandler) Handle(c context.Context, r slog.Record) error {
 }
 
 func (h *JsonHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return h
+	newH := &JsonHandler{
+		h: h.h.WithAttrs(attrs).(*slog.JSONHandler),
+		opts: &JsonHandlerOpts{
+			AddSource:   h.opts.AddSource,
+			ReplaceAttr: h.opts.ReplaceAttr,
+			LogPath:     h.opts.LogPath,
+			Writer:      h.opts.Writer,
+			Encoder:     h.opts.Encoder,
+		},
+	}
+	newH.opts.Level.Set(h.opts.Level.Level())
+	return newH
 }
 
 func (h *JsonHandler) WithGroup(name string) slog.Handler {
 	if len(name) == 0 {
 		return h
 	}
-	return h
+	newH := &JsonHandler{
+		h: h.h.WithGroup(name).(*slog.JSONHandler),
+		opts: &JsonHandlerOpts{
+			AddSource:   h.opts.AddSource,
+			ReplaceAttr: h.opts.ReplaceAttr,
+			LogPath:     h.opts.LogPath,
+			Writer:      h.opts.Writer,
+			Encoder:     h.opts.Encoder,
+		},
+	}
+	newH.opts.Level.Set(h.opts.Level.Level())
+	return newH
 }
 
 func (h *JsonHandler) Enabled(c context.Context, lvl slog.Level) bool {
