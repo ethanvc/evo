@@ -75,6 +75,9 @@ func (h *JsonHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 }
 
 func (h *JsonHandler) WithGroup(name string) slog.Handler {
+	if len(name) == 0 {
+		return h
+	}
 	return h
 }
 
