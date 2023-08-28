@@ -7,7 +7,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 )
 
 type JsonHandler struct {
@@ -67,6 +69,9 @@ func (h *JsonHandler) init() {
 func (h *JsonHandler) Handle(c context.Context, r slog.Record) error {
 	lc := GetLogContext(c)
 	r.AddAttrs(slog.String("trace_id", lc.GetTraceId()))
+	if h.opts.AddSource {
+		r.AddAttrs(slog.String("f", getFileSource(r.PC)))
+	}
 	return h.h.Handle(c, r)
 }
 
@@ -130,6 +135,11 @@ func NewJsonHandlerOpts() *JsonHandlerOpts {
 	}
 }
 
+func (opts *JsonHandlerOpts) SetAddSource(addSource bool) *JsonHandlerOpts {
+	opts.AddSource = addSource
+	return opts
+}
+
 func (opts *JsonHandlerOpts) SetWriter(w io.Writer) *JsonHandlerOpts {
 	opts.Writer = w
 	return opts
@@ -141,4 +151,10 @@ func attrWrapper(encoder *Encoder, a slog.Attr) slog.Attr {
 		return slog.Any(a.Key, evojson.NewWrapper(encoder.configer.Load(), a.Value.Any()))
 	}
 	return a
+}
+
+func getFileSource(pc uintptr) string {
+	fs := runtime.CallersFrames([]uintptr{pc})
+	f, _ := fs.Next()
+	return fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
 }
