@@ -43,3 +43,6 @@ func (h StdHandler) HandleRequest(c context.Context, req any, info *RequestInfo)
 
 type EmptyRequest struct {
 }
+
+type EmptyResponse struct {
+}
