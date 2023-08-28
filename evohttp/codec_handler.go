@@ -36,6 +36,9 @@ func (h *codecHandler) HandleRequest(c context.Context, req any, info *RequestIn
 }
 
 func setStdResponse(info *RequestInfo, err error, data any) (any, error) {
+	if info.Writer.GetStatus() != 0 {
+		return data, err
+	}
 	s := base.StatusFromError(err)
 	info.Writer.Header().Set("content-type", "application/json")
 	var httpResp HttpResp
