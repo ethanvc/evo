@@ -17,11 +17,14 @@ func NewLogHandler() *LogHandler {
 
 func (h *LogHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (resp any, err error) {
 	resp, err = info.Next(c, req)
-	evolog.LogRequest(c, &evolog.RequestLogInfo{
-		Err:      err,
-		Req:      info.ParsedRequest,
-		Resp:     resp,
-		Duration: time.Now().Sub(info.RequestTime),
-	}, slog.Int("http_code", info.Writer.GetStatus()))
+	evolog.LogRequest(c,
+		&evolog.RequestLogInfo{
+			Err:      err,
+			Req:      info.ParsedRequest,
+			Resp:     resp,
+			Duration: time.Now().Sub(info.RequestTime),
+		}, slog.Int("http_code", info.Writer.GetStatus()),
+		slog.String("path", info.Request.URL.Path),
+	)
 	return
 }
