@@ -12,7 +12,7 @@ import (
 
 func Test_getFileSource(t *testing.T) {
 	pc, _, _, _ := runtime.Caller(0)
-	s := getFileSource(pc)
+	s := GetCallerLocation(pc)
 	require.Equal(t, "jsonhandler_test.go:14", s)
 }
 

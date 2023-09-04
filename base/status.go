@@ -21,6 +21,11 @@ func New(code codes.Code, event string) *Status {
 	return s
 }
 
+func (s *Status) SetCode(code codes.Code) *Status {
+	s.s.Code = code
+	return s
+}
+
 func (s *Status) SetMsg(format string, args ...any) *Status {
 	s.s.Msg = fmt.Sprintf(format, args...)
 	return s
