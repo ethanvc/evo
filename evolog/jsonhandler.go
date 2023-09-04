@@ -59,7 +59,7 @@ func (h *JsonHandler) init() {
 	// TODO make source beauty
 	opts := slog.HandlerOptions{
 		AddSource:   false,
-		Level:       &h.opts.Level,
+		Level:       h.opts.Level,
 		ReplaceAttr: realReplaceAttr,
 	}
 	h.h = slog.NewJSONHandler(w, &opts)
@@ -80,13 +80,13 @@ func (h *JsonHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 		h: h.h.WithAttrs(attrs).(*slog.JSONHandler),
 		opts: &JsonHandlerOpts{
 			AddSource:   h.opts.AddSource,
+			Level:       h.opts.Level,
 			ReplaceAttr: h.opts.ReplaceAttr,
 			LogPath:     h.opts.LogPath,
 			Writer:      h.opts.Writer,
 			Encoder:     h.opts.Encoder,
 		},
 	}
-	newH.opts.Level.Set(h.opts.Level.Level())
 	return newH
 }
 
@@ -98,13 +98,13 @@ func (h *JsonHandler) WithGroup(name string) slog.Handler {
 		h: h.h.WithGroup(name).(*slog.JSONHandler),
 		opts: &JsonHandlerOpts{
 			AddSource:   h.opts.AddSource,
+			Level:       h.opts.Level,
 			ReplaceAttr: h.opts.ReplaceAttr,
 			LogPath:     h.opts.LogPath,
 			Writer:      h.opts.Writer,
 			Encoder:     h.opts.Encoder,
 		},
 	}
-	newH.opts.Level.Set(h.opts.Level.Level())
 	return newH
 }
 
@@ -118,7 +118,7 @@ func (h *JsonHandler) SetLevel(lvl slog.Level) {
 
 type JsonHandlerOpts struct {
 	AddSource   bool
-	Level       slog.LevelVar
+	Level       *slog.LevelVar
 	ReplaceAttr func(groups []string, a slog.Attr) slog.Attr
 	LogPath     string
 	Writer      io.Writer
@@ -130,7 +130,7 @@ func NewJsonHandlerOpts() *JsonHandlerOpts {
 	return &JsonHandlerOpts{
 		AddSource: true,
 		LogPath:   filepath.Join(wd, "log/evo.log"),
-		Level:     slog.LevelVar{},
+		Level:     &slog.LevelVar{},
 		Encoder:   DefaultEncoder(),
 	}
 }
