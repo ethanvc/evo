@@ -20,6 +20,11 @@ func (sm *SyncMap[K, V]) Load(k K) V {
 	}
 }
 
+func (sm *SyncMap[K, V]) LoadOrStore(k K, v V) V {
+	actual, _ := sm.m.LoadOrStore(k, v)
+	return actual
+}
+
 func (sm *SyncMap[K, V]) ClearAll() {
 	sm.m.Range(func(k, _ any) bool {
 		sm.m.Delete(k)
