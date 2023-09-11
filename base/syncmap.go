@@ -22,7 +22,7 @@ func (sm *SyncMap[K, V]) Load(k K) V {
 
 func (sm *SyncMap[K, V]) LoadOrStore(k K, v V) V {
 	actual, _ := sm.m.LoadOrStore(k, v)
-	return actual
+	return actual.(V)
 }
 
 func (sm *SyncMap[K, V]) ClearAll() {
