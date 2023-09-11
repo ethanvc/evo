@@ -7,3 +7,6 @@ Extend slog's function.
 Some base utils commonly used:
 1. type safe SyncMap.
 2. error code based Status inspired from grpc. So you can just process limited and unified error codes.
+
+#evores
+Library to obtain cpu/memory and others resources in process perspective.
