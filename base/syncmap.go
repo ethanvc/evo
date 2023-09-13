@@ -2,7 +2,7 @@ package base
 
 import "sync"
 
-type SyncMap[K, V any] struct {
+type SyncMap[K comparable, V any] struct {
 	m sync.Map
 }
 
@@ -11,18 +11,22 @@ func (sm *SyncMap[K, V]) Store(k K, v V) {
 }
 
 func (sm *SyncMap[K, V]) Load(k K) V {
-	var d V
 	gv, ok := sm.m.Load(k)
 	if ok {
 		return gv.(V)
 	} else {
-		return d
+		return Zero[V]()
 	}
 }
 
 func (sm *SyncMap[K, V]) LoadOrStore(k K, v V) V {
 	actual, _ := sm.m.LoadOrStore(k, v)
-	return actual.(V)
+	v, ok := actual.(V)
+	if ok {
+		return v
+	} else {
+		return Zero[V]()
+	}
 }
 
 func (sm *SyncMap[K, V]) ClearAll() {
