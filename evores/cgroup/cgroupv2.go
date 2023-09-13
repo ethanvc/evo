@@ -1,6 +1,12 @@
 package cgroup
 
-type ControlGroupV1 struct {
+type ControlGroupV2 struct {
 }
 
-func (g ControlGroupV1) 
+func NewControlGroupV2() ControlGroupV2 {
+	return ControlGroupV2{}
+}
+
+func (cg ControlGroupV2) CpuCount() int {
+	return 0
+}
