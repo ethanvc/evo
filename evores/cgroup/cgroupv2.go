@@ -88,3 +88,21 @@ func (cg ControlGroupV2) ParseCpuMax(content string) (maxTime, period int64, err
 	}
 	return
 }
+
+func (cg ControlGroupV2) GetMemoryCurrent() (int64, error) {
+	p := "/sys/fs/cgroup/memory.current"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return 0, err
+	}
+	return ParseSingleInteger(string(content))
+}
+
+func (cg ControlGroupV2) GetMemoryMax() (int64, error) {
+	p := "/sys/fs/cgroup/memory.max"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return 0, err
+	}
+	return ParseSingleInteger(string(content))
+}

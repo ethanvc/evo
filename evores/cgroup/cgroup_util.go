@@ -1,6 +1,7 @@
 package cgroup
 
 import (
+	"math"
 	"strconv"
 	"strings"
 )
@@ -23,4 +24,15 @@ func ParseKvContentInteger(content string, kv map[string]*int64) bool {
 		*num = tmp
 	}
 	return true
+}
+
+func ParseSingleInteger(content string) (int64, error) {
+	if content == "max" {
+		return math.MaxInt64, nil
+	}
+	num, err := strconv.ParseInt(content, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	return num, nil
 }
