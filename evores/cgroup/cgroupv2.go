@@ -35,6 +35,39 @@ func (cg ControlGroupV2) GetCpuMax() (maxTime, period int64, err error) {
 	return cg.ParseCpuMax(string(content))
 }
 
+func (cg ControlGroupV2) GetCpuStat() (stat CpuStat, err error) {
+	p := "/sys/fs/cgroup/cpu.stat"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return
+	}
+	return cg.ParseCpuStat(string(content))
+}
+
+func (cg ControlGroupV2) ParseCpuStat(content string) (stat CpuStat, err error) {
+	kv := map[string]*int64{
+		"usage_usec":     &stat.UsageUsec,
+		"user_usec":      &stat.UserUsec,
+		"system_usec":    &stat.SystemUsec,
+		"nr_periods":     &stat.NrPeriods,
+		"nr_throttled":   &stat.NrThrottled,
+		"throttled_usec": &stat.ThrottledUsec,
+	}
+	if !ParseKvContentInteger(content, kv) {
+		return stat, fmt.Errorf("parse cpu.stat failed, content: %s", content)
+	}
+	return
+}
+
+type CpuStat struct {
+	UsageUsec     int64
+	UserUsec      int64
+	SystemUsec    int64
+	NrPeriods     int64
+	NrThrottled   int64
+	ThrottledUsec int64
+}
+
 func (cg ControlGroupV2) ParseCpuMax(content string) (maxTime, period int64, err error) {
 	// content: "max 100000", "100000 100000"
 	ss := strings.Fields(content)
