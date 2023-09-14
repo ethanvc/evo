@@ -28,6 +28,18 @@ func (cg ControlGroupV1) CpuCount() (cnt int, err error) {
 	return
 }
 
+func (cg ControlGroupV1) CpuUsageSeconds() (x int64, err error) {
+	return
+}
+
+func (cg ControlGroupV1) MemorySize() (x int64, err error) {
+	return
+}
+
+func (cg ControlGroupV1) MemoryUsageBytes() (x int64, err error) {
+	return
+}
+
 type CpuStatV1 struct {
 	NrPeriods     int64
 	NrThrottled   int64

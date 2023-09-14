@@ -26,6 +26,18 @@ func (cg ControlGroupV2) CpuCount() (cnt int, err error) {
 	return int(maxTime / period), nil
 }
 
+func (cg ControlGroupV2) CpuUsageSeconds() (x int64, err error) {
+	return
+}
+
+func (cg ControlGroupV2) MemorySize() (cnt int64, err error) {
+	return
+}
+
+func (cg ControlGroupV2) MemoryUsageBytes() (x int64, err error) {
+	return
+}
+
 func (cg ControlGroupV2) GetCpuMax() (maxTime, period int64, err error) {
 	p := "/sys/fs/cgroup/cpu.max"
 	content, err := os.ReadFile(p)
