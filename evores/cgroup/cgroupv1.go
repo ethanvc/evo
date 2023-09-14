@@ -28,16 +28,20 @@ func (cg ControlGroupV1) CpuCount() (cnt int, err error) {
 	return
 }
 
-func (cg ControlGroupV1) CpuUsageSeconds() (x int64, err error) {
-	return
+func (cg ControlGroupV1) CpuUsageSeconds() (x float64, err error) {
+	usage, err := cg.GetCpuAcctUsage()
+	if err != nil {
+		return
+	}
+	return float64(usage) / 1000_000, nil
 }
 
 func (cg ControlGroupV1) MemorySize() (x int64, err error) {
-	return
+	return cg.GetMemoryLimitInBytes()
 }
 
 func (cg ControlGroupV1) MemoryUsageBytes() (x int64, err error) {
-	return
+	return cg.GetMemoryUsageInBytes()
 }
 
 type CpuStatV1 struct {
@@ -67,6 +71,34 @@ func (cg ControlGroupV1) GetCpuStat() (stat CpuStatV1, err error) {
 		return stat, fmt.Errorf("parse cpu.stat failed, content: %s", content)
 	}
 	return
+}
+
+func (cg ControlGroupV1) GetMemoryLimitInBytes() (x int64, err error) {
+	p := "/sys/fs/cgroup/memory/memory.limit_in_bytes"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return
+	}
+	return ParseSingleInteger(string(content))
+}
+
+func (cg ControlGroupV1) GetMemoryUsageInBytes() (x int64, err error) {
+	p := "/sys/fs/cgroup/memory/memory.usage_in_bytes"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return
+	}
+	return ParseSingleInteger(string(content))
+}
+
+func (cg ControlGroupV1) GetCpuAcctUsage() (x int64, err error) {
+	// https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/resource_management_guide/sec-cpuacct
+	p := "/sys/fs/cgroup/cpuacct/cpuacct.usage"
+	content, err := os.ReadFile(p)
+	if err != nil {
+		return
+	}
+	return ParseSingleInteger(string(content))
 }
 
 func (cg ControlGroupV1) GetCpuCfsPeriodUs() (int64, error) {

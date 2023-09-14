@@ -26,7 +26,7 @@ func (cg ControlGroupV2) CpuCount() (cnt int, err error) {
 	return int(maxTime / period), nil
 }
 
-func (cg ControlGroupV2) CpuUsageSeconds() (x int64, err error) {
+func (cg ControlGroupV2) CpuUsageSeconds() (x float64, err error) {
 	return
 }
 
