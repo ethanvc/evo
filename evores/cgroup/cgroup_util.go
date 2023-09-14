@@ -1,9 +1,14 @@
 package cgroup
 
 import (
+	"errors"
 	"math"
 	"strconv"
 	"strings"
+)
+
+var (
+	ErrNoLimit = errors.New("NoLimit")
 )
 
 func ParseKvContentInteger(content string, kv map[string]*int64) bool {

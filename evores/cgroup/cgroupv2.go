@@ -21,7 +21,7 @@ func (cg ControlGroupV2) CpuCount() (cnt int, err error) {
 		return
 	}
 	if maxTime == math.MaxInt64 {
-		return math.MaxInt64, nil
+		return 0, ErrNoLimit
 	}
 	return int(maxTime / period), nil
 }
