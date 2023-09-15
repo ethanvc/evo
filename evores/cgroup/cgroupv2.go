@@ -27,15 +27,19 @@ func (cg ControlGroupV2) CpuCount() (cnt int, err error) {
 }
 
 func (cg ControlGroupV2) CpuUsageSeconds() (x float64, err error) {
-	return
+	stat, err := cg.GetCpuStat()
+	if err != nil {
+		return
+	}
+	return float64(stat.UsageUsec) / 1000_000, nil
 }
 
 func (cg ControlGroupV2) MemorySize() (cnt int64, err error) {
-	return
+	return cg.GetMemoryMax()
 }
 
 func (cg ControlGroupV2) MemoryUsageBytes() (x int64, err error) {
-	return
+	return cg.GetMemoryCurrent()
 }
 
 func (cg ControlGroupV2) GetCpuMax() (maxTime, period int64, err error) {

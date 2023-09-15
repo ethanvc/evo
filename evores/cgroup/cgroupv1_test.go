@@ -30,6 +30,7 @@ CPU Count: %d
 CPU Usage Seconds: %f
 Memory Size: %s(%d)
 Memory Usage Bytes: %s(%d)
+end...
 `, cpuCount, cpuUsage,
 		humanize.Bytes(uint64(memSize)), memSize,
 		humanize.Bytes(uint64(memUsage)), memUsage,

@@ -2,11 +2,37 @@ package cgroup
 
 import (
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"testing"
 )
 
 func TestControlGroupV2_Basic(t *testing.T) {
 	cg := NewControlGroupV2()
-	cnt, err := cg.CpuCount()
-	fmt.Println(cnt, err)
+	cpuCount, err := cg.CpuCount()
+	if err != nil {
+		fmt.Println(err)
+	}
+	cpuUsage, err := cg.CpuUsageSeconds()
+	if err != nil {
+		fmt.Println(err)
+	}
+	memSize, err := cg.MemorySize()
+	if err != nil {
+		fmt.Println(err)
+	}
+	memUsage, err := cg.MemoryUsageBytes()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	fmt.Printf(`cgroup v2 information:
+CPU Count: %d
+CPU Usage Seconds: %f
+Memory Size: %s(%d)
+Memory Usage Bytes: %s(%d)
+end...
+`, cpuCount, cpuUsage,
+		humanize.Bytes(uint64(memSize)), memSize,
+		humanize.Bytes(uint64(memUsage)), memUsage,
+	)
 }
