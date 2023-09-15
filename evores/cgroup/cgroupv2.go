@@ -114,11 +114,18 @@ func (cg ControlGroupV2) GetMemoryCurrent() (int64, error) {
 	return ParseSingleInteger(string(content))
 }
 
-func (cg ControlGroupV2) GetMemoryMax() (int64, error) {
+func (cg ControlGroupV2) GetMemoryMax() (x int64, err error) {
 	p := "/sys/fs/cgroup/memory.max"
 	content, err := os.ReadFile(p)
 	if err != nil {
 		return 0, err
 	}
-	return ParseSingleInteger(string(content))
+	x, err = ParseSingleInteger(string(content))
+	if err != nil {
+		return
+	}
+	if x == math.MaxInt64 {
+		return 0, ErrNoLimit
+	}
+	return
 }

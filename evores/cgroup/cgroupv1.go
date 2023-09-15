@@ -2,6 +2,7 @@ package cgroup
 
 import (
 	"fmt"
+	"math"
 	"os"
 )
 
@@ -79,7 +80,14 @@ func (cg ControlGroupV1) GetMemoryLimitInBytes() (x int64, err error) {
 	if err != nil {
 		return
 	}
-	return ParseSingleInteger(string(content))
+	x, err = ParseSingleInteger(string(content))
+	if err != nil {
+		return
+	}
+	if x == math.MaxInt64 {
+		return 0, ErrNoLimit
+	}
+	return
 }
 
 func (cg ControlGroupV1) GetMemoryUsageInBytes() (x int64, err error) {
