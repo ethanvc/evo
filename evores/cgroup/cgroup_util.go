@@ -32,6 +32,7 @@ func ParseKvContentInteger(content string, kv map[string]*int64) bool {
 }
 
 func ParseSingleInteger(content string) (int64, error) {
+	content = strings.TrimSpace(content)
 	if content == "max" {
 		return math.MaxInt64, nil
 	}
