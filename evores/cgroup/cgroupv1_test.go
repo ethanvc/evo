@@ -8,10 +8,22 @@ import (
 
 func TestControlGroupV1_Basic(t *testing.T) {
 	cg := NewControlGroupV1()
-	cpuCount, _ := cg.CpuCount()
-	cpuUsage, _ := cg.CpuUsageSeconds()
-	memSize, _ := cg.MemorySize()
-	memUsage, _ := cg.MemoryUsageBytes()
+	cpuCount, err := cg.CpuCount()
+	if err != nil {
+		fmt.Println(err)
+	}
+	cpuUsage, err := cg.CpuUsageSeconds()
+	if err != nil {
+		fmt.Println(err)
+	}
+	memSize, err := cg.MemorySize()
+	if err != nil {
+		fmt.Println(err)
+	}
+	memUsage, err := cg.MemoryUsageBytes()
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	fmt.Printf(`cgroup v1 information:
 CPU Count: %d
