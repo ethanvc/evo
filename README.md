@@ -10,3 +10,7 @@ Some base utils commonly used:
 
 #evores
 Library to obtain cpu/memory and others resources in process perspective.
+
+This Library will contain cgroup limit.
+
+
