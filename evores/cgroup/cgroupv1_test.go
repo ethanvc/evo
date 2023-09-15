@@ -13,7 +13,8 @@ func TestControlGroupV1_Basic(t *testing.T) {
 	memSize, _ := cg.MemorySize()
 	memUsage, _ := cg.MemoryUsageBytes()
 
-	fmt.Printf(`CPU Count: %d
+	fmt.Printf(`cgroup v1 information:
+CPU Count: %d
 CPU Usage Seconds: %f
 Memory Size: %s(%d)
 Memory Usage Bytes: %s(%d)
