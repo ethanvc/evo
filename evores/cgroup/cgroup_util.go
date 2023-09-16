@@ -22,6 +22,9 @@ func ParseKvContentInteger(content string, kv map[string]*int64) bool {
 	}
 	for i := 0; i < len(ss); i += 2 {
 		num := kv[ss[i]]
+		if num == nil {
+			continue
+		}
 		tmp, err := strconv.ParseInt(ss[i+1], 10, 64)
 		if err != nil {
 			return false
