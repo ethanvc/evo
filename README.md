@@ -1,4 +1,4 @@
-[![Godoc](https://godoc.org/github.com/ethanvc/evo?status.svg)](https://godoc.org/github.com/ethanvc/evo)
+# evo [![Godoc](https://godoc.org/github.com/ethanvc/evo?status.svg)](https://godoc.org/github.com/ethanvc/evo)
 # evohttp
 Example: auto parse url param and body to request struct:
 ```golang
