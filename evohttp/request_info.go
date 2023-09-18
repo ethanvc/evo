@@ -9,7 +9,7 @@ import (
 type RequestInfo struct {
 	Request       *http.Request
 	Writer        ResponseWriter
-	params        map[string]string
+	UrlParams     map[string]string
 	handlers      HandlerChain
 	PatternPath   string
 	handlerIndex  int
@@ -21,7 +21,7 @@ type RequestInfo struct {
 
 func NewRequestInfo() *RequestInfo {
 	info := &RequestInfo{
-		params: make(map[string]string),
+		UrlParams: make(map[string]string),
 	}
 	return info
 }
@@ -49,7 +49,7 @@ func (info *RequestInfo) ResetHandlers(handlers HandlerChain) {
 }
 
 func (info *RequestInfo) UrlParam(key string) string {
-	return info.params[key]
+	return info.UrlParams[key]
 }
 
 func GetRequestInfo(c context.Context) *RequestInfo {

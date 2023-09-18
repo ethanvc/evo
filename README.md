@@ -12,7 +12,7 @@ svr.POST("/api/users/:user_id", NewStdHandlerF(createUser))
 # evolog
 Extend slog's function.
 1. trace id support.
-2. filed mask support. user can mark struct filed and then log library will mask sensitive data for you.
+2. filed mask support. user can mark struct filed [server.go](evohttp%2Fserver.go)and then log library will mask sensitive data for you.
 
 Examples: mask sensitive field.
 ```golang

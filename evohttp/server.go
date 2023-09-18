@@ -65,7 +65,7 @@ func (svr *Server) route(c context.Context, info *RequestInfo) {
 		info.Writer.WriteHeader(http.StatusInternalServerError)
 		info.Writer.Write([]byte("internal server error"))
 	}()
-	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.params)
+	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.UrlParams)
 	if n == nil {
 		info.ResetHandlers(svr.noRouteHandlers)
 		_, err = info.Next(c, nil)

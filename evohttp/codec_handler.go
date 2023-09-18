@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/ethanvc/evo/base"
+	"github.com/mitchellh/mapstructure"
 	"io"
 )
 
@@ -31,8 +32,30 @@ func (h *codecHandler) HandleRequest(c context.Context, req any, info *RequestIn
 			return setStdResponse(info, err, nil)
 		}
 	}
+	err = h.fillUrlParam(req, info.UrlParams)
+	if err != nil {
+		return setStdResponse(info, err, nil)
+	}
 	resp, err = info.Next(c, req)
 	return setStdResponse(info, err, resp)
+}
+
+func (h *codecHandler) fillUrlParam(v any, params map[string]string) (err error) {
+	fillConfig := &mapstructure.DecoderConfig{
+		Squash:           true,
+		TagName:          "json",
+		Result:           v,
+		WeaklyTypedInput: true,
+	}
+	coder, err := mapstructure.NewDecoder(fillConfig)
+	if err != nil {
+		return
+	}
+	err = coder.Decode(params)
+	if err != nil {
+		return
+	}
+	return
 }
 
 func setStdResponse(info *RequestInfo, err error, data any) (any, error) {
