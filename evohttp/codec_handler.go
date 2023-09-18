@@ -41,6 +41,9 @@ func (h *codecHandler) HandleRequest(c context.Context, req any, info *RequestIn
 }
 
 func (h *codecHandler) fillUrlParam(v any, params map[string]string) (err error) {
+	if len(params) == 0 {
+		return
+	}
 	fillConfig := &mapstructure.DecoderConfig{
 		Squash:           true,
 		TagName:          "json",

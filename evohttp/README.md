@@ -1,1 +1,0 @@
-still in beta, inspired by gin.
