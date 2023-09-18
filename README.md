@@ -5,11 +5,11 @@ Extend slog's function.
 
 Examples: mask sensitive field.
 ```golang
-	type Abc struct {
-		Name string `evolog:"ignore"`
-	}
-	abc := &Abc{Name: "test"}
-	slog.InfoContext(c, "MaskSensitiveField", slog.Any("abc", abc))
+type Abc struct {
+    Name string `evolog:"ignore"`
+}
+abc := &Abc{Name: "test"}
+slog.InfoContext(c, "MaskSensitiveField", slog.Any("abc", abc))
 ```
 
 # base
