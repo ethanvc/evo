@@ -1,3 +1,13 @@
+# evohttp
+Example: auto parse url param and body to request struct:
+```golang
+createUser := func(c context.Context, req *CreateUserReq)(*CreateUserResp, error){
+	...
+}
+svr := NewServer()
+svr.POST("/api/users/:user_id", NewStdHandlerF(createUser))
+```
+
 # evolog
 Extend slog's function.
 1. trace id support.
