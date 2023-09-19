@@ -13,17 +13,10 @@ func (s *Weighted) SetSize(n int64) int64 {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// if previous adjust not effected, cancel it
-	s.adjust = 0
 	oldSize := s.size
-	if n == s.size {
-		return oldSize
-	}
-	if n > s.size {
-		s.size = n
+	s.size = n
+	if s.size > oldSize {
 		s.notifyWaiters()
-	} else {
-		s.adjust = s.size - n
 	}
 	return oldSize
 }

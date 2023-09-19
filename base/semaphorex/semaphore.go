@@ -27,7 +27,6 @@ func NewWeighted(n int64) *Weighted {
 // The callers can request access with a given weight.
 type Weighted struct {
 	size    int64
-	adjust  int64
 	cur     int64
 	mu      sync.Mutex
 	waiters list.List
@@ -87,11 +86,9 @@ func (s *Weighted) Acquire(ctx context.Context, n int64) error {
 // On success, returns true. On failure, returns false and leaves the semaphore unchanged.
 func (s *Weighted) TryAcquire(n int64) bool {
 	s.mu.Lock()
-	n += s.adjust
 	success := s.size-s.cur >= n && s.waiters.Len() == 0
 	if success {
 		s.cur += n
-		s.adjust = 0
 	}
 	s.mu.Unlock()
 	return success
