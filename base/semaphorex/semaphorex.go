@@ -1,6 +1,9 @@
 package semaphorex
 
-import "golang.org/x/sync/semaphore"
+import (
+	"context"
+	"golang.org/x/sync/semaphore"
+)
 
 type _ = semaphore.Weighted // reference to copy code here
 
@@ -39,4 +42,18 @@ func (s *Weighted) GetCurrent() int64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.cur
+}
+
+func (s *Weighted) Go(c context.Context, f func()) (err error) {
+	err = s.Acquire(c, 1)
+	if err != nil {
+		return err
+	}
+	go s.goWrapper(f)
+	return
+}
+
+func (s *Weighted) goWrapper(f func()) {
+	defer s.Release(1)
+	f()
 }
