@@ -49,6 +49,12 @@ func (s *Weighted) Wait() {
 	s.Release(1)
 }
 
+func (s *Weighted) GetWaitRoutines() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.waiters.Len()
+}
+
 func (s *Weighted) goWrapper(f func()) {
 	defer s.Release(1)
 	f()
