@@ -53,6 +53,13 @@ func (s *Weighted) Go(c context.Context, f func()) (err error) {
 	return
 }
 
+func (s *Weighted) Wait() {
+	s.SetSize(1)
+	s.Acquire(context.Background(), 1)
+	s.SetSize(0)
+	s.Release(1)
+}
+
 func (s *Weighted) goWrapper(f func()) {
 	defer s.Release(1)
 	f()
