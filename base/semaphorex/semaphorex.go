@@ -20,14 +20,10 @@ func (s *Weighted) SetSize(n int64) int64 {
 		return oldSize
 	}
 	if n > s.size {
-		s.cur -= n - s.size
-		if s.cur < 0 {
-			s.mu.Unlock()
-			panic("semaphore: released more than held")
-		}
+		s.size = n
 		s.notifyWaiters()
 	} else {
-		s.adjust += s.size - n
+		s.adjust = s.size - n
 	}
 	return oldSize
 }

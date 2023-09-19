@@ -40,8 +40,6 @@ type Weighted struct {
 // If ctx is already done, Acquire may still succeed without blocking.
 func (s *Weighted) Acquire(ctx context.Context, n int64) error {
 	s.mu.Lock()
-	n += s.adjust
-	s.adjust = 0
 	if s.size-s.cur >= n && s.waiters.Len() == 0 {
 		s.cur += n
 		s.mu.Unlock()
