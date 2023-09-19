@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethanvc/evo/base"
 	"google.golang.org/grpc/codes"
 	"io"
 	"net/http"
@@ -157,11 +158,7 @@ func AttemptStdCodecJson(c context.Context, req, resp any, sa *SingleAttempt) er
 	if realResp.Code == codes.OK {
 		return nil
 	}
-	realErr := &Error{
-		Code:  realResp.Code,
-		Msg:   realResp.Msg,
-		Event: realResp.Event,
-	}
+	realErr := base.New(realResp.Code, realResp.Event).SetMsg(realResp.Msg).Err()
 	return realErr
 }
 
@@ -172,29 +169,6 @@ type HttpResp struct {
 	Msg   string     `json:"msg"`
 	Event string     `json:"event"`
 	Data  any        `json:"data"`
-}
-
-type Error struct {
-	Code  codes.Code `json:"code"`
-	Msg   string     `json:"msg"`
-	Event string     `json:"event"`
-}
-
-func (e *Error) Error() string {
-	buf, _ := json.Marshal(e)
-	return string(buf)
-}
-
-func Code(err error) codes.Code {
-	if err == nil {
-		return codes.OK
-	}
-	realErr, _ := err.(*Error)
-	if realErr != nil {
-		return realErr.Code
-	} else {
-		return codes.Internal
-	}
 }
 
 var ErrStatusCodeNotOk = errors.New("StatusCodeNotOk")
