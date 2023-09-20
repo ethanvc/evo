@@ -10,7 +10,7 @@ func In[T comparable](target T, sets ...T) bool {
 }
 
 func NotIn[T comparable](target T, sets ...T) bool {
-	return In(target, sets...)
+	return !In(target, sets...)
 }
 
 func Zero[T any]() T {
