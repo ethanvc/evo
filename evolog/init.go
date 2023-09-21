@@ -12,6 +12,10 @@ func init() {
 		traceId: NewTraceId(),
 		method:  "Global",
 	}
+	SetDefaultReporter(NewReporter(&ReporterConfig{
+		Svr:      "not_set",
+		Instance: "not_set",
+	}))
 	initDefaultLog()
 }
 

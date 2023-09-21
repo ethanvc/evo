@@ -16,5 +16,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Test
         run: go test ./...
-      - name: Build All
+      - name: Check Build All
         run: go build ./...

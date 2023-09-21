@@ -43,7 +43,7 @@ func (r *Reporter) init() {
 		Name:        "evo_client_event_total",
 		ConstLabels: prometheus.Labels{"inst": r.instance},
 	}, []string{"from_svr", "svr", "method", "event"})
-	r.register.MustRegister(r.serverEventTotal)
+	r.register.MustRegister(r.clientEventTotal)
 
 	r.serverEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:        "evo_server_event_duration_seconds",
