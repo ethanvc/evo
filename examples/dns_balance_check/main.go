@@ -20,6 +20,6 @@ func main() {
 			fmt.Fprintf(os.Stderr, "no ip found\n")
 			time.Sleep(time.Second)
 		}
-		evolog.DefaultReporter().ReportEvent(c, "ResolveIP:"+ips[0].String())
+		evolog.ReportServerRequest(c, "ResolveIP:"+ips[0].String())
 	}
 }
