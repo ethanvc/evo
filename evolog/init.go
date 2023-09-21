@@ -13,8 +13,8 @@ func init() {
 		method:  "Global",
 	}
 	SetDefaultReporter(NewReporter(&ReporterConfig{
-		Svr:      "not_set",
-		Instance: "not_set",
+		ReportSvr:  "not_set",
+		ReportInst: "not_set",
 	}))
 	initDefaultLog()
 }

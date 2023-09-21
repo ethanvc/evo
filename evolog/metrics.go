@@ -9,8 +9,7 @@ import (
 )
 
 type Reporter struct {
-	svr                        string
-	instance                   string
+	config                     *ReporterConfig
 	serverEventTotal           *prometheus.CounterVec
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
@@ -20,8 +19,7 @@ type Reporter struct {
 
 func NewReporter(conf *ReporterConfig) *Reporter {
 	r := &Reporter{
-		svr:      conf.Svr,
-		instance: conf.Instance,
+		config: conf,
 	}
 	r.init()
 	return r
@@ -29,32 +27,35 @@ func NewReporter(conf *ReporterConfig) *Reporter {
 
 func (r *Reporter) init() {
 	r.register = prometheus.NewRegistry()
-	constLabels := prometheus.Labels{
-		"svr":  r.svr,
-		"inst": r.instance,
+	globalLabels := prometheus.Labels{
+		"report_svr":  r.config.ReportSvr,
+		"report_inst": r.config.ReportInst,
+	}
+	for k, v := range r.config.GlobalLabels {
+		globalLabels[k] = v
 	}
 	r.serverEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        "evo_server_event_total",
-		ConstLabels: constLabels,
+		ConstLabels: globalLabels,
 	}, []string{"method", "event"})
 	r.register.MustRegister(r.serverEventTotal)
 
 	r.clientEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        "evo_client_event_total",
-		ConstLabels: prometheus.Labels{"inst": r.instance},
-	}, []string{"from_svr", "svr", "method", "event"})
+		ConstLabels: globalLabels,
+	}, []string{"svr", "method", "event"})
 	r.register.MustRegister(r.clientEventTotal)
 
 	r.serverEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:        "evo_server_event_duration_seconds",
-		ConstLabels: constLabels,
+		ConstLabels: globalLabels,
 	}, []string{"method"})
 	r.register.MustRegister(r.serverEventDurationSeconds)
 
 	r.clientEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:        "evo_client_event_duration_seconds",
-		ConstLabels: prometheus.Labels{"inst": r.instance},
-	}, []string{"from_svr", "svr", "method"})
+		ConstLabels: globalLabels,
+	}, []string{"svr", "method"})
 	r.register.MustRegister(r.clientEventDurationSeconds)
 }
 
@@ -76,7 +77,7 @@ func (r *Reporter) ReportRequest(c context.Context, event string) {
 }
 
 func (r *Reporter) ReportClientEvent(c context.Context, svr, method, event string) {
-	r.clientEventTotal.WithLabelValues(r.svr, svr, method, event).Inc()
+	r.clientEventTotal.WithLabelValues(svr, method, event).Inc()
 }
 
 func (r *Reporter) ReportClientRequest(c context.Context, svr, method, event string) {
@@ -89,7 +90,7 @@ func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration
 }
 
 func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method string, duration time.Duration) {
-	r.clientEventDurationSeconds.WithLabelValues(r.svr, svr, method).Observe(duration.Seconds())
+	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
 }
 
 func ReportServerRequest(c context.Context, event string) {
@@ -97,6 +98,7 @@ func ReportServerRequest(c context.Context, event string) {
 }
 
 type ReporterConfig struct {
-	Svr      string
-	Instance string
+	ReportSvr    string
+	ReportInst   string
+	GlobalLabels prometheus.Labels
 }
