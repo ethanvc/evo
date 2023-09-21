@@ -72,12 +72,8 @@ func (r *Reporter) ReportErrEvent(c context.Context, event string) {
 	r.ReportEvent(c, "ERR:"+event)
 }
 
-func (r *Reporter) ReportRequestEvent(c context.Context, code codes.Code, event string) {
-	r.ReportEvent(c, fmt.Sprintf("%s:%s", code.String(), event))
-}
-
-func (r *Reporter) ReportRequest(c context.Context, event string) {
-	r.ReportEvent(c, "REQ:"+event)
+func (r *Reporter) ReportRequest(c context.Context, code codes.Code, event string) {
+	r.ReportEvent(c, fmt.Sprintf("REQ:%s:%s", code.String(), event))
 }
 
 func (r *Reporter) ReportClientEvent(c context.Context, svr, method, event string) {
@@ -95,10 +91,6 @@ func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration
 
 func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method string, duration time.Duration) {
 	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
-}
-
-func ReportServerRequest(c context.Context, event string) {
-	DefaultReporter().ReportEvent(c, event)
 }
 
 func ReportEvent(c context.Context, event string) {
