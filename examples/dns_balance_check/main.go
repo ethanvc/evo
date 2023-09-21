@@ -4,11 +4,19 @@ import (
 	"context"
 	"fmt"
 	"github.com/ethanvc/evo/evolog"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
+	"net/http"
 	"os"
 )
 
 func main() {
+	go func() {
+		err := http.ListenAndServe(":8080", promhttp.Handler())
+		if err != nil {
+			panic(err)
+		}
+	}()
 	c := evolog.WithLogContext(nil, &evolog.LogContextConfig{Method: "query_dns"})
 	for {
 		QueryDns(c)
