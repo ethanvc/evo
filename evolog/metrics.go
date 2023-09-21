@@ -25,6 +25,10 @@ func NewReporter(conf *ReporterConfig) *Reporter {
 	return r
 }
 
+func (r *Reporter) GetRegisterer() prometheus.Registerer {
+	return r.register
+}
+
 func (r *Reporter) init() {
 	r.register = prometheus.NewRegistry()
 	globalLabels := prometheus.Labels{
@@ -94,6 +98,10 @@ func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method stri
 }
 
 func ReportServerRequest(c context.Context, event string) {
+	DefaultReporter().ReportEvent(c, event)
+}
+
+func ReportEvent(c context.Context, event string) {
 	DefaultReporter().ReportEvent(c, event)
 }
 
