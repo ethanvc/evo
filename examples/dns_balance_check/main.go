@@ -11,7 +11,7 @@ import (
 
 func main() {
 	host := os.Getenv("HOST")
-	fmt.Printf("test host %s\n", host)
+	fmt.Printf("test host %s, PreferGo is %t\n", host, net.DefaultResolver.PreferGo)
 	if len(host) == 0 {
 		host = "www.baidu.com"
 	}
