@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"github.com/ethanvc/evo/evolog"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
 	"net/http"
 	"os"
@@ -12,7 +11,7 @@ import (
 
 func main() {
 	go func() {
-		err := http.ListenAndServe(":8080", promhttp.Handler())
+		err := http.ListenAndServe("127.0.0.1:9100", evolog.DefaultReporter().HttpHandler())
 		if err != nil {
 			panic(err)
 		}
