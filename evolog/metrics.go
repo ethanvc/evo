@@ -43,7 +43,7 @@ func (r *Reporter) init() {
 	r.serverEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name:        "evo_server_event_total",
 		ConstLabels: globalLabels,
-	}, []string{"method", "event"})
+	}, []string{"svr", "method", "event"})
 	r.register.MustRegister(r.serverEventTotal)
 
 	r.clientEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -67,7 +67,7 @@ func (r *Reporter) init() {
 
 func (r *Reporter) ReportEvent(c context.Context, event string) {
 	lc := GetLogContext(c)
-	r.serverEventTotal.WithLabelValues(lc.GetMethod(), event).Inc()
+	r.serverEventTotal.WithLabelValues(r.config.ReportSvr, lc.GetMethod(), event).Inc()
 }
 
 func (r *Reporter) ReportErrEvent(c context.Context, event string) {

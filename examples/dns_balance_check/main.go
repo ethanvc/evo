@@ -10,6 +10,8 @@ import (
 )
 
 func main() {
+	host := os.Getenv("HOST")
+	fmt.Printf("test host %s\n", host)
 	go func() {
 		err := http.ListenAndServe("127.0.0.1:9100", evolog.DefaultReporter().HttpHandler())
 		if err != nil {
@@ -18,16 +20,16 @@ func main() {
 	}()
 	c := evolog.WithLogContext(nil, &evolog.LogContextConfig{Method: "query_dns"})
 	for {
-		QueryDns(c)
+		QueryDns(c, host)
 	}
 }
 
-func QueryDns(c context.Context) (err error) {
+func QueryDns(c context.Context, host string) (err error) {
 	var ip string
 	defer func() {
 		evolog.ReportEvent(c, ip)
 	}()
-	ips, err := net.LookupIP("google.com")
+	ips, err := net.LookupIP(host)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Could not get IPs: %v\n", err)
 		return
