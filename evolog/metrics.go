@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc/codes"
+	"net/http"
 	"time"
 )
 
@@ -14,7 +16,7 @@ type Reporter struct {
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
 	clientEventDurationSeconds *prometheus.HistogramVec
-	register                   prometheus.Registerer
+	register                   *prometheus.Registry
 }
 
 func NewReporter(conf *ReporterConfig) *Reporter {
@@ -91,6 +93,10 @@ func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration
 
 func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method string, duration time.Duration) {
 	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
+}
+
+func (r *Reporter) HttpHandler() http.Handler {
+	return promhttp.HandlerFor(r.register, promhttp.HandlerOpts{Registry: r.register})
 }
 
 func ReportEvent(c context.Context, event string) {
