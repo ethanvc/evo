@@ -12,6 +12,9 @@ import (
 func main() {
 	host := os.Getenv("HOST")
 	fmt.Printf("test host %s\n", host)
+	if len(host) == 0 {
+		host = "www.baidu.com"
+	}
 	go func() {
 		err := http.ListenAndServe("127.0.0.1:9100", evolog.DefaultReporter().HttpHandler())
 		if err != nil {
