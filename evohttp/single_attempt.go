@@ -1,6 +1,7 @@
 package evohttp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -64,9 +65,21 @@ func (si *SingleAttemptInterceptor) preHandle(c context.Context, req any, info *
 	if req == nil || info.Request.Body != nil {
 		return
 	}
-	switch realReq := req.(type) {
-	case string:
-		info.Request.Body = io.NopCloser(strings.NewReader(realReq))
+	contentType := info.Request.Header.Get("Content-Type")
+	if len(contentType) == 0 {
+		switch realReq := req.(type) {
+		case string:
+			info.Request.Body = io.NopCloser(strings.NewReader(realReq))
+		case []byte:
+			info.Request.Body = io.NopCloser(bytes.NewReader(realReq))
+		default:
+			buf, err := json.Marshal(req)
+			if err != nil {
+				return nil, err
+			}
+			info.Request.Body = io.NopCloser(bytes.NewReader(buf))
+		}
+		return
 	}
 	return
 }
@@ -87,7 +100,7 @@ func (si *SingleAttemptInterceptor) postHandle(c context.Context, req any, info 
 		if err != nil {
 			return
 		}
-	case "text/plain":
+	case "text/plain", "text/html":
 		switch realResp := info.Resp.(type) {
 		case *string:
 			*realResp = string(buf)
