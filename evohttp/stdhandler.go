@@ -47,9 +47,9 @@ type EmptyRequest struct {
 type EmptyResponse struct {
 }
 
-type HttpResp struct {
+type HttpResp[T any] struct {
 	Code  codes.Code `json:"code"`
 	Msg   string     `json:"msg"`
 	Event string     `json:"event"`
-	Data  any        `json:"data"`
+	Data  T          `json:"data"`
 }
