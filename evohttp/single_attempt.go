@@ -1,174 +1,54 @@
 package evohttp
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"github.com/ethanvc/evo/base"
-	"google.golang.org/grpc/codes"
-	"io"
 	"net/http"
 )
 
 type SingleAttempt struct {
-	Req          *http.Request
-	Resp         *http.Response
-	interceptors []AttemptInterceptor
-	index        int
+	Request  *http.Request
+	Response *http.Response
+	Resp     any
+	chain    base.Chain[*SingleAttempt]
 }
 
-func NewSingleAttempt(httpMethod, url string) *SingleAttempt {
+func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt {
 	sa := &SingleAttempt{}
+	sa.chain = defaultSingleAttemptInterceptors
 	var err error
-	sa.Req, err = http.NewRequest(httpMethod, url, nil)
+	sa.Request, err = http.NewRequestWithContext(c, httpMethod, url, nil)
 	if err != nil {
-		sa.Req, _ = http.NewRequest(http.MethodGet, "http://error.when.new.request", nil)
-		return sa
+		sa.Request, _ = http.NewRequestWithContext(c, httpMethod, "http://badurl_or_method_offered", nil)
 	}
 	return sa
 }
 
-func NewJsonSingleAttempt(httpMethod, url string) *SingleAttempt {
-	sa := NewSingleAttempt(httpMethod, url)
-	sa.AppendInterceptorsF(AttemptCodecJson)
-	return sa
+func (sa *SingleAttempt) Do(req any, resp any) (err error) {
+	sa.Resp = resp
+	_, err = sa.chain.Do(sa.Request.Context(), req, sa)
+	return
 }
 
-func NewStdSingleAttempt(httpMethod, url string) *SingleAttempt {
-	sa := NewSingleAttempt(httpMethod, url)
-	sa.AppendInterceptorsF(AttemptStdCodecJson, AttemptCodecJson)
-	return sa
+type SingleAttemptInterceptor struct {
 }
 
-func (sa *SingleAttempt) AppendInterceptors(interceptors ...AttemptInterceptor) {
-	sa.interceptors = append(sa.interceptors, interceptors...)
+func NewSingleAttemptInterceptor() *SingleAttemptInterceptor {
+	return &SingleAttemptInterceptor{}
 }
 
-func (sa *SingleAttempt) AppendInterceptorsF(interceptors ...AttemptInterceptorFunc) {
-	var ints []AttemptInterceptor
-	for _, v := range interceptors {
-		ints = append(ints, v)
-	}
-	sa.AppendInterceptors(ints...)
-}
-
-func (sa *SingleAttempt) Next(c context.Context, req, resp any) error {
-	index := sa.index
-	sa.index++
-	if index < len(sa.interceptors) {
-		return sa.interceptors[index].HandleRequest(c, req, resp, sa)
-	}
-	if index == len(sa.interceptors) {
-		return sa.do(c, req, resp)
-	}
-	return nil
-}
-
-func (sa *SingleAttempt) do(c context.Context, req, resp any) error {
-	var err error
-	if req != nil && sa.Req.Body == nil {
-		switch v := req.(type) {
-		case []byte:
-			sa.Req.Body = io.NopCloser(bytes.NewReader(v))
-		case io.ReadCloser:
-			sa.Req.Body = v
-		case io.Reader:
-			sa.Req.Body = io.NopCloser(v)
-		}
-	}
-	sa.Resp, err = http.DefaultClient.Do(sa.Req)
+func (si *SingleAttemptInterceptor) Handle(c context.Context, req any, info *SingleAttempt, nexter base.Nexter[*SingleAttempt]) (resp any, err error) {
+	info.Response, err = http.DefaultClient.Do(info.Request)
 	if err != nil {
-		return err
+		return
 	}
-	if resp != nil {
-		switch v := resp.(type) {
-		case *[]byte:
-			buf, err := io.ReadAll(sa.Resp.Body)
-			sa.Resp.Body.Close()
-			if err != nil {
-				return err
-			}
-			*v = buf
-		case *string:
-			buf, err := io.ReadAll(sa.Resp.Body)
-			sa.Resp.Body.Close()
-			if err != nil {
-				return err
-			}
-			*v = string(buf)
-		}
+	if info.Response.StatusCode != http.StatusOK {
+		return resp, ErrStatusNotOk
 	}
-	if sa.Resp.StatusCode/100 != 2 {
-		return ErrStatusCodeNotOk
-	}
-	return nil
+	return
 }
 
-func (sa *SingleAttempt) Invoke(c context.Context, req, resp any) error {
-	return sa.Next(c, req, resp)
-}
+var ErrStatusNotOk = errors.New("httpclient: status code not ok")
 
-type AttemptInterceptor interface {
-	HandleRequest(c context.Context, req, resp any, sa *SingleAttempt) error
-}
-
-type AttemptInterceptorFunc func(c context.Context, req, resp any, sa *SingleAttempt) error
-
-func (f AttemptInterceptorFunc) HandleRequest(c context.Context, req, resp any, sa *SingleAttempt) error {
-	return f(c, req, resp, sa)
-}
-
-func AttemptCodecJson(c context.Context, req, resp any, sa *SingleAttempt) error {
-	var err error
-	if req != nil && sa.Req.Body == nil {
-		buf, err := json.Marshal(req)
-		if err != nil {
-			return err
-		}
-		sa.Req.Body = io.NopCloser(bytes.NewReader(buf))
-		sa.Req.Header.Set("Content-Type", "application/json")
-	}
-	err = sa.Next(c, req, resp)
-	if err != nil {
-		return err
-	}
-	buf, err := io.ReadAll(sa.Resp.Body)
-	if err != nil {
-		return err
-	}
-	err = json.Unmarshal(buf, resp)
-	if err != nil {
-		return err
-	}
-	if sa.Resp.StatusCode != http.StatusOK {
-		return ErrStatusNotOk
-	}
-	return nil
-}
-
-func AttemptStdCodecJson(c context.Context, req, resp any, sa *SingleAttempt) error {
-	var realResp HttpResp
-	realResp.Data = resp
-	err := sa.Next(c, req, &realResp)
-	if err != nil {
-		return err
-	}
-	if realResp.Code == codes.OK {
-		return nil
-	}
-	realErr := base.New(realResp.Code, realResp.Event).SetMsg(realResp.Msg).Err()
-	return realErr
-}
-
-var ErrStatusNotOk = fmt.Errorf("ErrStatusNotOk")
-
-type HttpResp struct {
-	Code  codes.Code `json:"code"`
-	Msg   string     `json:"msg"`
-	Event string     `json:"event"`
-	Data  any        `json:"data"`
-}
-
-var ErrStatusCodeNotOk = errors.New("StatusCodeNotOk")
+var defaultSingleAttemptInterceptors = []base.Interceptor[*SingleAttempt]{NewSingleAttemptInterceptor()}
