@@ -46,7 +46,10 @@ func TestServer_GetJsonEcho(t *testing.T) {
 		Msg: "hello",
 	}
 	resp := &Echo{}
-	err := st.Do(req, resp)
+	httpResp := &HttpResp{
+		Data: resp,
+	}
+	err := st.Do(req, httpResp)
 	require.NoError(t, err)
 	require.Equal(t, req.Msg, resp.Msg)
 }
