@@ -23,8 +23,8 @@ func TestServer_Simple(t *testing.T) {
 		return nil, nil
 	}
 	svr.POSTF("/test", test)
-	st := NewSingleAttempt(http.MethodPost, url+"/test")
-	err := st.Invoke(context.Background(), nil, nil)
+	st := NewSingleAttempt(context.Background(), http.MethodPost, url+"/test")
+	err := st.Do(nil, nil)
 	require.NoError(t, err)
 }
 
@@ -41,12 +41,12 @@ func TestServer_GetJsonEcho(t *testing.T) {
 		return req, nil
 	}
 	svr.POST("/test", NewStdHandlerF(test))
-	st := NewStdSingleAttempt(http.MethodPost, url+"/test")
+	st := NewSingleAttempt(context.Background(), http.MethodPost, url+"/test")
 	req := &Echo{
 		Msg: "hello",
 	}
 	resp := &Echo{}
-	err := st.Invoke(context.Background(), req, resp)
+	err := st.Do(req, resp)
 	require.NoError(t, err)
 	require.Equal(t, req.Msg, resp.Msg)
 }
@@ -59,11 +59,11 @@ func TestServer_Static(t *testing.T) {
 	os.WriteFile(path.Join(tmpDir, "test.txt"), []byte("hello"), 0644)
 
 	svr.Static("/static", tmpDir)
-	st := NewSingleAttempt(http.MethodGet, url+"/static/test.txt")
+	st := NewSingleAttempt(context.Background(), http.MethodGet, url+"/static/test.txt")
 	var content []byte
-	err := st.Invoke(nil, nil, &content)
+	err := st.Do(nil, &content)
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, st.Resp.StatusCode)
+	require.Equal(t, http.StatusOK, st.Response.StatusCode)
 	require.Equal(t, "hello", string(content))
 }
 
@@ -75,9 +75,9 @@ func TestServer_Root(t *testing.T) {
 	os.WriteFile(path.Join(tmpDir, "index.html"), []byte("hello"), 0644)
 
 	svr.Static("/", tmpDir)
-	st := NewSingleAttempt(http.MethodGet, url)
+	st := NewSingleAttempt(context.Background(), http.MethodGet, url)
 	var content string
-	err := st.Invoke(nil, nil, &content)
+	err := st.Do(nil, &content)
 	require.NoError(t, err)
 	require.Equal(t, "hello", content)
 }
@@ -87,11 +87,11 @@ func Test_Default404(t *testing.T) {
 	url, httpSvr := startTestServer(svr)
 	defer httpSvr.Shutdown(context.Background())
 
-	st := NewSingleAttempt(http.MethodGet, url+"/abc")
+	st := NewSingleAttempt(context.Background(), http.MethodGet, url+"/abc")
 	var content string
-	err := st.Invoke(nil, nil, &content)
-	require.Equal(t, ErrStatusCodeNotOk, err)
-	require.Equal(t, http.StatusNotFound, st.Resp.StatusCode)
+	err := st.Do(nil, &content)
+	require.Equal(t, ErrStatusNotOk, err)
+	require.Equal(t, http.StatusNotFound, st.Response.StatusCode)
 }
 
 func startTestServer(handler http.Handler) (string, *http.Server) {

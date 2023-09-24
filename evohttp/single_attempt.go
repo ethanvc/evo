@@ -2,9 +2,12 @@ package evohttp
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"github.com/ethanvc/evo/base"
+	"io"
 	"net/http"
+	"strings"
 )
 
 type SingleAttempt struct {
@@ -39,7 +42,15 @@ func NewSingleAttemptInterceptor() *SingleAttemptInterceptor {
 }
 
 func (si *SingleAttemptInterceptor) Handle(c context.Context, req any, info *SingleAttempt, nexter base.Nexter[*SingleAttempt]) (resp any, err error) {
+	resp, err = si.preHandle(c, req, info, nexter)
+	if err != nil {
+		return
+	}
 	info.Response, err = http.DefaultClient.Do(info.Request)
+	if err != nil {
+		return
+	}
+	resp, err = si.postHandle(c, req, info, nexter)
 	if err != nil {
 		return
 	}
@@ -47,6 +58,54 @@ func (si *SingleAttemptInterceptor) Handle(c context.Context, req any, info *Sin
 		return resp, ErrStatusNotOk
 	}
 	return
+}
+
+func (si *SingleAttemptInterceptor) preHandle(c context.Context, req any, info *SingleAttempt, nexter base.Nexter[*SingleAttempt]) (resp any, err error) {
+	if req == nil || info.Request.Body != nil {
+		return
+	}
+	switch realReq := req.(type) {
+	case string:
+		info.Request.Body = io.NopCloser(strings.NewReader(realReq))
+	}
+	return
+}
+
+func (si *SingleAttemptInterceptor) postHandle(c context.Context, req any, info *SingleAttempt, nexter base.Nexter[*SingleAttempt]) (resp any, err error) {
+	if info.Resp == nil {
+		return
+	}
+	buf, err := io.ReadAll(info.Response.Body)
+	info.Response.Body.Close()
+	if err != nil {
+		return
+	}
+	contentType := info.Response.Header.Get("Content-Type")
+	switch mimeType := GetMimeType(contentType); mimeType {
+	case "application/json":
+		err = json.Unmarshal(buf, info.Resp)
+		if err != nil {
+			return
+		}
+	case "text/plain":
+		switch realResp := info.Resp.(type) {
+		case *string:
+			*realResp = string(buf)
+		case *[]byte:
+			*realResp = buf
+		}
+	}
+	return info.Resp, nil
+}
+
+func GetMimeType(contentType string) string {
+	i := 0
+	for ; i < len(contentType); i++ {
+		if contentType[i] == ';' {
+			break
+		}
+	}
+	return contentType[0:i]
 }
 
 var ErrStatusNotOk = errors.New("httpclient: status code not ok")
