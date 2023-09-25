@@ -19,6 +19,9 @@ type SingleAttempt struct {
 }
 
 func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt {
+	if c == nil {
+		c = context.Background()
+	}
 	sa := &SingleAttempt{}
 	sa.chain = defaultSingleAttemptInterceptors
 	var err error
