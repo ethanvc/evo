@@ -2,6 +2,7 @@ package evohttp
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"net/http"
 	"testing"
 
@@ -74,6 +75,6 @@ type routeContent struct {
 	p      string
 }
 
-func hf(c context.Context, req any, info *RequestInfo) (any, error) {
+func hf(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (any, error) {
 	return nil, nil
 }

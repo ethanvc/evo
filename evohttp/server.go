@@ -2,6 +2,7 @@ package evohttp
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"net/http"
 	"time"
 
@@ -67,14 +68,12 @@ func (svr *Server) route(c context.Context, info *RequestInfo) {
 	}()
 	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.UrlParams)
 	if n == nil {
-		info.ResetHandlers(svr.noRouteHandlers)
-		_, err = info.Next(c, nil)
+		_, err = svr.noRouteHandlers.Do(c, nil, info)
 		return
 	}
-	info.ResetHandlers(n.handlers)
 	info.PatternPath = n.fullPath
 	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	_, err = info.Next(c, nil)
+	_, err = n.handlers.Do(c, nil, info)
 }
 
 func (svr *Server) rebuild404Handlers() {
@@ -85,20 +84,14 @@ func (svr *Server) rebuild404Handlers() {
 	}
 }
 
-type Handler interface {
-	HandleRequest(c context.Context, req any, info *RequestInfo) (any, error)
-}
+type Handler = base.Interceptor[*RequestInfo]
 
-type HandlerChain []Handler
+type HandlerChain = base.Chain[*RequestInfo]
 
-type HandlerFunc func(context.Context, any, *RequestInfo) (any, error)
+type HandlerFunc = base.InterceptorFunc[*RequestInfo]
 
-func (h HandlerFunc) HandleRequest(c context.Context, req any, info *RequestInfo) (any, error) {
-	return h(c, req, info)
-}
-
-func finalNoRouteHandler(c context.Context, req any, info *RequestInfo) (resp any, err error) {
-	resp, err = info.Next(c, req)
+func finalNoRouteHandler(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
+	resp, err = nexter.Next(c, req, info)
 	if info.Writer.GetStatus() == 0 {
 		info.Writer.WriteHeader(http.StatusNotFound)
 	}

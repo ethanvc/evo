@@ -15,10 +15,10 @@ func NewCodecHandler() Handler {
 	return &codecHandler{}
 }
 
-func (h *codecHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (resp any, err error) {
-	stdH, ok := info.Handler().(*StdHandler)
+func (h *codecHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
+	stdH, ok := nexter.LastHandler().(*StdHandler)
 	if !ok {
-		return info.Next(c, req)
+		return nexter.Next(c, req, info)
 	}
 	req = stdH.NewReq()
 	info.ParsedRequest = req
@@ -36,7 +36,7 @@ func (h *codecHandler) HandleRequest(c context.Context, req any, info *RequestIn
 	if err != nil {
 		return setStdResponse(info, err, nil)
 	}
-	resp, err = info.Next(c, req)
+	resp, err = nexter.Next(c, req, info)
 	return setStdResponse(info, err, resp)
 }
 

@@ -10,9 +10,7 @@ type RequestInfo struct {
 	Request       *http.Request
 	Writer        ResponseWriter
 	UrlParams     map[string]string
-	handlers      HandlerChain
 	PatternPath   string
-	handlerIndex  int
 	ParsedRequest any
 
 	RequestTime time.Time
@@ -24,28 +22,6 @@ func NewRequestInfo() *RequestInfo {
 		UrlParams: make(map[string]string),
 	}
 	return info
-}
-
-func (info *RequestInfo) Next(c context.Context, req any) (any, error) {
-	index := info.handlerIndex
-	info.handlerIndex++
-	if index >= len(info.handlers) {
-		return nil, nil
-	}
-	return info.handlers[index].HandleRequest(c, req, info)
-}
-
-func (info *RequestInfo) Handler() Handler {
-	l := len(info.handlers)
-	if l == 0 {
-		return nil
-	}
-	return info.handlers[l-1]
-}
-
-func (info *RequestInfo) ResetHandlers(handlers HandlerChain) {
-	info.handlers = handlers
-	info.handlerIndex = 0
 }
 
 func (info *RequestInfo) UrlParam(key string) string {

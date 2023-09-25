@@ -18,7 +18,7 @@ func TestServer_Simple(t *testing.T) {
 	url, httpSvr := startTestServer(svr)
 	defer httpSvr.Shutdown(context.Background())
 
-	test := func(c context.Context, req any, info *RequestInfo) (any, error) {
+	test := func(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (any, error) {
 		info.Writer.WriteHeader(http.StatusOK)
 		return nil, nil
 	}
@@ -140,7 +140,7 @@ func Test_PanicRecover(t *testing.T) {
 
 func TestPanic2(t *testing.T) {
 	svr := NewServer()
-	h := func(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+	h := func(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 		panic(base.New(codes.NotFound, ""))
 		return
 	}

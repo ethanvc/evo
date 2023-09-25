@@ -2,6 +2,7 @@ package evohttp
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evolog"
 	"log/slog"
 	"time"
@@ -15,8 +16,8 @@ func NewLogHandler() *LogHandler {
 	return h
 }
 
-func (h *LogHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (resp any, err error) {
-	resp, err = info.Next(c, req)
+func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
+	resp, err = nexter.Next(c, req, info)
 	evolog.LogRequest(c,
 		&evolog.RequestLogInfo{
 			Err:      err,

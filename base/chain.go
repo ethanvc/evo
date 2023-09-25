@@ -18,6 +18,15 @@ func (n Nexter[T]) newNext() Nexter[T] {
 	}
 }
 
+func (n Nexter[T]) LastHandler() Interceptor[T] {
+	l := len(n.chain)
+	if l == 0 {
+		return nil
+	} else {
+		return n.chain[l-1]
+	}
+}
+
 func (n Nexter[T]) Next(c context.Context, req any, info T) (resp any, err error) {
 	if n.index >= len(n.chain) {
 		return nil, nil

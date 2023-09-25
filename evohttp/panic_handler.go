@@ -15,7 +15,7 @@ func NewPanicHandler() *PanicHandler {
 	return h
 }
 
-func (h *PanicHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+func (h *PanicHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	func() {
 		defer func() {
 			r := recover()
@@ -30,7 +30,7 @@ func (h *PanicHandler) HandleRequest(c context.Context, req any, info *RequestIn
 				err = base.New(codes.Internal, "ServerPanicked").Err()
 			}
 		}()
-		resp, err = info.Next(c, req)
+		resp, err = nexter.Next(c, req, info)
 	}()
 	return
 }

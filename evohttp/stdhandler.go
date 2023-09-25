@@ -34,7 +34,7 @@ func (h StdHandler) NewReq() any {
 	return h.newReq()
 }
 
-func (h StdHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (any, error) {
+func (h StdHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (any, error) {
 	if h.realHandler == nil {
 		return nil, base.New(codes.Internal, "HandlerEmpty").Err()
 	}

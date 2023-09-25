@@ -2,6 +2,7 @@ package evohttp
 
 import (
 	"context"
+	"github.com/ethanvc/evo/base"
 	"net/http"
 	"os"
 	"path"
@@ -87,7 +88,7 @@ func (b *RouterBuilder) createStaticHandler(relativePath string, fs http.FileSys
 	absolutePath := path.Join(b.basePath, relativePath)
 	fileServer := http.StripPrefix(absolutePath, http.FileServer(fs))
 
-	return func(c context.Context, req any, info *RequestInfo) (any, error) {
+	return func(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (any, error) {
 		fileServer.ServeHTTP(&info.Writer, info.Request)
 		return nil, nil
 	}

@@ -14,7 +14,7 @@ func NewRecoverHandler() Handler {
 	return &recoverHandler{}
 }
 
-func (h *recoverHandler) HandleRequest(c context.Context, req any, info *RequestInfo) (resp any, err error) {
+func (h *recoverHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	func() {
 		panicked := true
 		defer func() {
@@ -32,7 +32,7 @@ func (h *recoverHandler) HandleRequest(c context.Context, req any, info *Request
 				err = base.New(codes.Internal, "UnknownPanicErr").Err()
 			}
 		}()
-		resp, err = info.Next(c, req)
+		resp, err = nexter.Next(c, req, info)
 		panicked = false
 	}()
 	return
