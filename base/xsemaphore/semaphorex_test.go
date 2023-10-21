@@ -1,4 +1,4 @@
-package semaphorex
+package xsemaphore
 
 import (
 	"context"
