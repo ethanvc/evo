@@ -41,6 +41,10 @@ func (h *Heap[T]) Remove(i int) T {
 	return v.(T)
 }
 
+func (h *Heap[T]) Range(f func(v T, i int) bool) {
+	panic("not implement")
+}
+
 type heapInternal[T any] struct {
 	t    []T
 	less func(t0, t1 T) bool
