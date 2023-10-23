@@ -1,4 +1,13 @@
 # evo [![Godoc](https://godoc.org/github.com/ethanvc/evo?status.svg)](https://godoc.org/github.com/ethanvc/evo)
+# Usage
+Add dependency to your golang project:
+```shell
+go get github.com/ethanvc/evo
+```
+Import in your golang project:
+```go
+import "github.com/ethanvc/evo"
+```
 # evohttp
 Example: auto parse url param and body to request struct:
 ```golang
