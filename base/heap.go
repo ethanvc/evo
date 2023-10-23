@@ -6,14 +6,14 @@ type Heap[T any] struct {
 	x heapInternal[T]
 }
 
-func NewHeap[T any](less func(t0, t1 T) bool, swap func(t0, t1 T, i, j int)) *Heap[T] {
+func NewHeap[T any](less func(t0, t1 T) bool, swaped func(t0, t1 T, i, j int)) *Heap[T] {
 	if less == nil {
 		panic("less must not be nil")
 	}
 	return &Heap[T]{
 		x: heapInternal[T]{
 			less: less,
-			swap: swap,
+			swap: swaped,
 		},
 	}
 }
