@@ -67,7 +67,7 @@ func (h *heapInternal[T]) Swap(i, j int) {
 }
 
 func (h *heapInternal[T]) Push(x any) {
-	h.t = append(h.t, x)
+	h.t = append(h.t, x.(T))
 }
 
 func (h *heapInternal[T]) Pop() any {
