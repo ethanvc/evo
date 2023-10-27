@@ -6,7 +6,6 @@ import (
 	"github.com/ethanvc/evo/base"
 	"google.golang.org/grpc/codes"
 	"log/slog"
-	"path"
 	"runtime"
 	"time"
 )
@@ -88,5 +87,19 @@ func GetPC(skip int) uintptr {
 func GetCallerLocation(pc uintptr) string {
 	fs := runtime.CallersFrames([]uintptr{pc})
 	f, _ := fs.Next()
-	return fmt.Sprintf("%s:%d", path.Base(f.File), f.Line)
+	return fmt.Sprintf("%s:%d", extractTailPart(f.File), f.Line)
+}
+
+func extractTailPart(f string) string {
+	i := len(f) - 1
+	slashCount := 2
+	for ; i >= 0; i-- {
+		if f[i] == '/' || f[i] == '\\' {
+			slashCount--
+			if slashCount == 0 {
+				return f[i+1:]
+			}
+		}
+	}
+	return f
 }
