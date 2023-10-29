@@ -4,13 +4,15 @@ import (
 	"bytes"
 	"context"
 	"sync"
+	"time"
 )
 
 type LogContext struct {
-	traceId string
-	method  string
-	mux     sync.Mutex
-	events  bytes.Buffer
+	traceId   string
+	method    string
+	startTime time.Time
+	mux       sync.Mutex
+	events    bytes.Buffer
 }
 
 func (lc *LogContext) AddEvent(event string) *LogContext {
@@ -57,6 +59,10 @@ func (lc *LogContext) GetEvents() string {
 	return lc.events.String()
 }
 
+func (lc *LogContext) GetStartTime() time.Time {
+	return lc.startTime
+}
+
 func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 	if c == nil {
 		c = context.Background()
@@ -68,6 +74,7 @@ func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 	if len(lc.traceId) == 0 {
 		lc.traceId = NewTraceId()
 	}
+	lc.startTime = time.Now()
 	return context.WithValue(c, contextKeyLogContext{}, lc)
 }
 

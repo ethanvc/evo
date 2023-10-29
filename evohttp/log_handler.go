@@ -5,25 +5,26 @@ import (
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evolog"
 	"log/slog"
-	"time"
 )
 
 type LogHandler struct {
+	rl *evolog.RequestLogger
 }
 
 func NewLogHandler() *LogHandler {
-	h := &LogHandler{}
+	h := &LogHandler{
+		rl: evolog.NewRequestLogger(),
+	}
 	return h
 }
 
 func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	resp, err = nexter.Next(c, req, info)
-	evolog.LogRequest(c,
+	h.rl.Log(c,
 		&evolog.RequestLogInfo{
-			Err:      err,
-			Req:      info.ParsedRequest,
-			Resp:     resp,
-			Duration: time.Now().Sub(info.RequestTime),
+			Err:  err,
+			Req:  info.ParsedRequest,
+			Resp: resp,
 		}, slog.Int("http_code", info.Writer.GetStatus()),
 		slog.String("path", info.Request.URL.Path),
 	)

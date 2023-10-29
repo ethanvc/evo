@@ -8,7 +8,7 @@ import (
 
 func TestGetPC(t *testing.T) {
 	loc := GetCallerLocation(GetPC(0))
-	require.Truef(t, strings.HasPrefix(loc, "util_test.go:"), loc)
+	require.Truef(t, strings.HasPrefix(loc, "evolog/util_test.go:"), loc)
 }
 
 func Test_extractTailPart(t *testing.T) {
