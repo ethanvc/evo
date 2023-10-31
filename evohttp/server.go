@@ -57,6 +57,14 @@ func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	svr.route(c, info)
 }
 
+func (svr *Server) FindRoute(method, urlPath string, params map[string]string) *RouteNode {
+	return svr.router.Find(method, urlPath, params)
+}
+
+func (svr *Server) ServeHTTPRouted(n *RouteNode, params map[string]string, w http.ResponseWriter, req *http.Request) {
+
+}
+
 func (svr *Server) route(c context.Context, info *RequestInfo) {
 	var err error
 	defer func() {
