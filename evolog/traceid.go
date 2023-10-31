@@ -4,6 +4,8 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"math"
+	"math/big"
 	math_rand "math/rand"
 	"net"
 	"sync/atomic"
@@ -21,7 +23,7 @@ func NewTraceId() string {
 	// 3 bytes time
 	binary.LittleEndian.PutUint32(result[7:11], uint32(now.Unix()))
 	// 3 bytes index
-	binary.LittleEndian.PutUint32(result[10:14], uint32(idx))
+	binary.LittleEndian.PutUint32(result[10:14], idx)
 	// 3 bytes random number
 	binary.LittleEndian.PutUint32(result[13:], math_rand.Uint32())
 	return hex.EncodeToString(result[0:16])
@@ -33,7 +35,7 @@ func GetLocalIp() string {
 
 type traceIdInternal struct {
 	traceIdSeed []byte
-	traceIndex  int32
+	traceIndex  uint32
 	reserveConn net.Conn
 	sIp         string
 }
@@ -44,11 +46,12 @@ func newTraceIdInternal() *traceIdInternal {
 	return tii
 }
 
-func (tii *traceIdInternal) NextTraceIndex() int32 {
-	return atomic.AddInt32(&tii.traceIndex, 1)
+func (tii *traceIdInternal) NextTraceIndex() uint32 {
+	return atomic.AddUint32(&tii.traceIndex, 1)
 }
 
 func (tii *traceIdInternal) init() {
+	tii.initTraceIndex()
 	var ipBytes []byte
 	var portBytes []byte
 	conn, err := net.Dial("udp", "8.8.8.8:53")
@@ -73,6 +76,15 @@ func (tii *traceIdInternal) init() {
 	tii.traceIdSeed = nil
 	tii.traceIdSeed = append(tii.traceIdSeed, ipBytes...)
 	tii.traceIdSeed = append(tii.traceIdSeed, portBytes...)
+}
+
+func (tii *traceIdInternal) initTraceIndex() {
+	n, err := rand.Int(rand.Reader, big.NewInt(math.MaxUint32))
+	if err != nil {
+		tii.traceIndex = math_rand.Uint32()
+		return
+	}
+	tii.traceIndex = uint32(n.Int64())
 }
 
 var sTraceIdInternal *traceIdInternal
