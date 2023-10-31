@@ -6,7 +6,7 @@ import (
 )
 
 type Router struct {
-	methodNodes []*methodNode
+	methodNodes []*MethodRouteNode
 }
 
 func NewRouter() *Router {
@@ -15,9 +15,9 @@ func NewRouter() *Router {
 }
 
 func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *RouteNode {
-	var mn *methodNode
+	var mn *MethodRouteNode
 	for _, mn = range r.methodNodes {
-		if mn.httpMethod == httpMethod {
+		if mn.HttpMethod == httpMethod {
 			break
 		}
 	}
@@ -76,7 +76,7 @@ func (r *Router) ListAll() []*RouterItem {
 		n.node.visit(func(nn *RouteNode) bool {
 			if len(nn.Handlers) > 0 {
 				result = append(result, &RouterItem{
-					HttpMethod: n.httpMethod,
+					HttpMethod: n.HttpMethod,
 					Handlers:   nn.Handlers,
 					FullPath:   nn.FullPath,
 				})
@@ -88,7 +88,7 @@ func (r *Router) ListAll() []*RouterItem {
 }
 
 func (r *Router) addRoute(httpMethod, urlPath string, handlers HandlerChain) {
-	assert(len(httpMethod) > 0, "httpMethod invalid")
+	assert(len(httpMethod) > 0, "HttpMethod invalid")
 	assert(urlPath[0] == '/', "urlPathInvalid")
 	assert(len(handlers) > 0, "handlers empty")
 	node := r.mustGetRootNode(httpMethod)
@@ -97,12 +97,12 @@ func (r *Router) addRoute(httpMethod, urlPath string, handlers HandlerChain) {
 
 func (r *Router) mustGetRootNode(httpMethod string) *RouteNode {
 	for _, n := range r.methodNodes {
-		if n.httpMethod == httpMethod {
+		if n.HttpMethod == httpMethod {
 			return n.node
 		}
 	}
-	n := &methodNode{
-		httpMethod: httpMethod,
+	n := &MethodRouteNode{
+		HttpMethod: httpMethod,
 		node:       newHandlerNode(),
 	}
 	r.methodNodes = append(r.methodNodes, n)
@@ -234,8 +234,8 @@ func (n *RouteNode) isWildChar(ch byte) bool {
 	return ch == '*' || ch == ':'
 }
 
-type methodNode struct {
-	httpMethod string
+type MethodRouteNode struct {
+	HttpMethod string
 	node       *RouteNode
 }
 
