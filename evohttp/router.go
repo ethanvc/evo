@@ -14,7 +14,7 @@ func NewRouter() *Router {
 	return r
 }
 
-func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *handlerNode {
+func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *RouteNode {
 	var mn *methodNode
 	for _, mn = range r.methodNodes {
 		if mn.httpMethod == httpMethod {
@@ -48,7 +48,7 @@ func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *han
 			p = p[len(n.pathPart):]
 		}
 		if len(p) == 0 {
-			if n.handlers != nil {
+			if n.Handlers != nil {
 				return n
 			} else {
 				// for abc.com/abc/*filepath, we want a match and filepath = ""
@@ -73,12 +73,12 @@ func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *han
 func (r *Router) ListAll() []*RouterItem {
 	var result []*RouterItem
 	for _, n := range r.methodNodes {
-		n.node.visit(func(nn *handlerNode) bool {
-			if len(nn.handlers) > 0 {
+		n.node.visit(func(nn *RouteNode) bool {
+			if len(nn.Handlers) > 0 {
 				result = append(result, &RouterItem{
 					HttpMethod: n.httpMethod,
-					Handlers:   nn.handlers,
-					FullPath:   nn.fullPath,
+					Handlers:   nn.Handlers,
+					FullPath:   nn.FullPath,
 				})
 			}
 			return true
@@ -95,7 +95,7 @@ func (r *Router) addRoute(httpMethod, urlPath string, handlers HandlerChain) {
 	node.addRoute(urlPath, handlers)
 }
 
-func (r *Router) mustGetRootNode(httpMethod string) *handlerNode {
+func (r *Router) mustGetRootNode(httpMethod string) *RouteNode {
 	for _, n := range r.methodNodes {
 		if n.httpMethod == httpMethod {
 			return n.node
@@ -109,26 +109,26 @@ func (r *Router) mustGetRootNode(httpMethod string) *handlerNode {
 	return n.node
 }
 
-type handlerNode struct {
+type RouteNode struct {
 	pathPart string
-	handlers HandlerChain
-	children []*handlerNode
-	fullPath string
+	Handlers HandlerChain
+	children []*RouteNode
+	FullPath string
 }
 
-func newHandlerNode() *handlerNode {
-	n := &handlerNode{}
+func newHandlerNode() *RouteNode {
+	n := &RouteNode{}
 	return n
 }
 
-func (n *handlerNode) isParamNode() bool {
+func (n *RouteNode) isParamNode() bool {
 	if len(n.pathPart) == 0 {
 		return false
 	}
 	return n.isWildChar(n.pathPart[0])
 }
 
-func (n *handlerNode) visit(f func(n *handlerNode) bool) bool {
+func (n *RouteNode) visit(f func(n *RouteNode) bool) bool {
 	if ok := f(n); !ok {
 		return false
 	}
@@ -140,12 +140,12 @@ func (n *handlerNode) visit(f func(n *handlerNode) bool) bool {
 	return true
 }
 
-func (n *handlerNode) addRoute(urlPath string, handlers HandlerChain) {
+func (n *RouteNode) addRoute(urlPath string, handlers HandlerChain) {
 	parts := splitPatternPath(urlPath)
 	n.addRouteInternal(urlPath, parts, handlers)
 }
 
-func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers HandlerChain) {
+func (n *RouteNode) addRouteInternal(fullPath string, parts []string, handlers HandlerChain) {
 	if len(n.pathPart) == 0 {
 		n.insertNodes(fullPath, parts, handlers)
 		return
@@ -157,7 +157,7 @@ func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers
 	if part == n.pathPart {
 		child := n.findIntersectionChild(parts[1])
 		if child == nil {
-			child = &handlerNode{}
+			child = &RouteNode{}
 			n.children = append(n.children, child)
 		}
 		child.addRouteInternal(fullPath, parts[1:], handlers)
@@ -178,7 +178,7 @@ func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers
 				return
 			}
 		}
-		newNode := &handlerNode{}
+		newNode := &RouteNode{}
 		n.children = append(n.children, newNode)
 		newNode.insertNodes(fullPath, append([]string{part[prefixLen:]}, parts[1:]...), handlers)
 		return
@@ -186,10 +186,10 @@ func (n *handlerNode) addRouteInternal(fullPath string, parts []string, handlers
 	newRoot := *n
 	newRoot.pathPart = n.pathPart[prefixLen:]
 	n.pathPart = part[0:prefixLen]
-	n.handlers = nil
+	n.Handlers = nil
 	n.children = nil
-	n.fullPath = ""
-	newNode := &handlerNode{}
+	n.FullPath = ""
+	newNode := &RouteNode{}
 	n.children = append(n.children, &newRoot, newNode)
 	newNode.insertNodes(fullPath, append([]string{part[prefixLen:]}, parts[1:]...), handlers)
 }
@@ -208,7 +208,7 @@ func getCommonPrefixLength(s1, s2 string) int {
 	return l
 }
 
-func (n *handlerNode) findIntersectionChild(part string) *handlerNode {
+func (n *RouteNode) findIntersectionChild(part string) *RouteNode {
 	for _, child := range n.children {
 		if child.pathPart[0] == part[0] {
 			return child
@@ -217,26 +217,26 @@ func (n *handlerNode) findIntersectionChild(part string) *handlerNode {
 	return nil
 }
 
-func (n *handlerNode) insertNodes(fullPath string, parts []string, handlers HandlerChain) {
+func (n *RouteNode) insertNodes(fullPath string, parts []string, handlers HandlerChain) {
 	if len(parts) == 1 {
 		n.pathPart = parts[0]
-		n.handlers = handlers
-		n.fullPath = fullPath
+		n.Handlers = handlers
+		n.FullPath = fullPath
 		return
 	}
 	n.pathPart = parts[0]
-	newNode := &handlerNode{}
+	newNode := &RouteNode{}
 	n.children = append(n.children, newNode)
 	newNode.insertNodes(fullPath, parts[1:], handlers)
 }
 
-func (n *handlerNode) isWildChar(ch byte) bool {
+func (n *RouteNode) isWildChar(ch byte) bool {
 	return ch == '*' || ch == ':'
 }
 
 type methodNode struct {
 	httpMethod string
-	node       *handlerNode
+	node       *RouteNode
 }
 
 func splitPatternPath(patternPath string) []string {

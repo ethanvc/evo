@@ -71,9 +71,9 @@ func (svr *Server) route(c context.Context, info *RequestInfo) {
 		_, err = svr.noRouteHandlers.Do(c, nil, info)
 		return
 	}
-	info.PatternPath = n.fullPath
-	evolog.GetLogContext(c).SetMethod(n.fullPath)
-	_, err = n.handlers.Do(c, nil, info)
+	info.PatternPath = n.FullPath
+	evolog.GetLogContext(c).SetMethod(n.FullPath)
+	_, err = n.Handlers.Do(c, nil, info)
 }
 
 func (svr *Server) rebuild404Handlers() {

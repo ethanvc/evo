@@ -66,7 +66,7 @@ func Test_3(t *testing.T) {
 	for _, d := range data {
 		urlParam := make(map[string]string)
 		n := rootB.router.Find(d.method, d.p, urlParam)
-		require.Equal(t, d.p, n.fullPath)
+		require.Equal(t, d.p, n.FullPath)
 	}
 }
 
