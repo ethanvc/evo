@@ -24,7 +24,7 @@ func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *Rou
 	if mn == nil {
 		return nil
 	}
-	n := mn.node
+	n := mn.Node
 	p := urlPath
 	for n != nil {
 		if n.isParamNode() {
@@ -70,15 +70,14 @@ func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *Rou
 	return nil
 }
 
-func (r *Router) ListAll() []*RouterItem {
-	var result []*RouterItem
+func (r *Router) ListAll() []*MethodRouteNode {
+	var result []*MethodRouteNode
 	for _, n := range r.methodNodes {
-		n.node.visit(func(nn *RouteNode) bool {
+		n.Node.visit(func(nn *RouteNode) bool {
 			if len(nn.Handlers) > 0 {
-				result = append(result, &RouterItem{
+				result = append(result, &MethodRouteNode{
 					HttpMethod: n.HttpMethod,
-					Handlers:   nn.Handlers,
-					FullPath:   nn.FullPath,
+					Node:       nn,
 				})
 			}
 			return true
@@ -98,15 +97,15 @@ func (r *Router) addRoute(httpMethod, urlPath string, handlers HandlerChain) {
 func (r *Router) mustGetRootNode(httpMethod string) *RouteNode {
 	for _, n := range r.methodNodes {
 		if n.HttpMethod == httpMethod {
-			return n.node
+			return n.Node
 		}
 	}
 	n := &MethodRouteNode{
 		HttpMethod: httpMethod,
-		node:       newHandlerNode(),
+		Node:       newHandlerNode(),
 	}
 	r.methodNodes = append(r.methodNodes, n)
-	return n.node
+	return n.Node
 }
 
 type RouteNode struct {
@@ -236,7 +235,7 @@ func (n *RouteNode) isWildChar(ch byte) bool {
 
 type MethodRouteNode struct {
 	HttpMethod string
-	node       *RouteNode
+	Node       *RouteNode
 }
 
 func splitPatternPath(patternPath string) []string {
@@ -262,9 +261,3 @@ func splitPatternPath(patternPath string) []string {
 }
 
 var regexWildPart = regexp.MustCompile(`/([:*][a-zA-Z0-9-_]+)/?`)
-
-type RouterItem struct {
-	HttpMethod string
-	FullPath   string
-	Handlers   HandlerChain
-}

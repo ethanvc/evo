@@ -41,7 +41,7 @@ func Test_2(t *testing.T) {
 	g.POSTF("/a/b/c", hf)
 	item := rootB.router.ListAll()
 	require.Equal(t, 1, len(item))
-	require.Equal(t, 2, len(item[0].Handlers))
+	require.Equal(t, 2, len(item[0].Node.Handlers))
 }
 
 func Test_3(t *testing.T) {
