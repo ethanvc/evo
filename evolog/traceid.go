@@ -12,12 +12,12 @@ import (
 
 func NewTraceId() string {
 	now := time.Now()
-	idx := atomic.AddInt32(&traceIndex, 1)
+	idx := sTraceIdInternal.NextTraceIndex()
 	var result [16 + 8]byte
 
 	day := byte(now.Day())
 	result[0] = (day / 10 << 4) + (day % 10)
-	copy(result[1:7], traceIdSeed)
+	copy(result[1:7], sTraceIdInternal.traceIdSeed)
 	// 3 bytes time
 	binary.LittleEndian.PutUint32(result[7:11], uint32(now.Unix()))
 	// 3 bytes index
@@ -27,22 +27,40 @@ func NewTraceId() string {
 	return hex.EncodeToString(result[0:16])
 }
 
-var traceIdSeed []byte
-var traceIndex int32
-var reserveConn net.Conn
+func GetLocalIp() string {
+	return sTraceIdInternal.sIp
+}
 
-func initTraceIdSeed() {
+type traceIdInternal struct {
+	traceIdSeed []byte
+	traceIndex  int32
+	reserveConn net.Conn
+	sIp         string
+}
+
+func newTraceIdInternal() *traceIdInternal {
+	tii := &traceIdInternal{}
+	tii.init()
+	return tii
+}
+
+func (tii *traceIdInternal) NextTraceIndex() int32 {
+	return atomic.AddInt32(&tii.traceIndex, 1)
+}
+
+func (tii *traceIdInternal) init() {
 	var ipBytes []byte
 	var portBytes []byte
 	conn, err := net.Dial("udp", "8.8.8.8:53")
-	if err != nil {
+	if err == nil {
 		conn.Write([]byte("hello"))
 		localAddr, _ := conn.LocalAddr().(*net.UDPAddr)
 		if localAddr != nil && len(localAddr.IP) >= 4 {
 			// reserve the port until process exit.
-			reserveConn = conn
+			tii.reserveConn = conn
 			ipBytes = localAddr.IP[0:4]
 			portBytes = make([]byte, 2)
+			tii.sIp = localAddr.IP.String()
 			binary.LittleEndian.PutUint16(portBytes, uint16(localAddr.Port))
 		}
 	}
@@ -52,7 +70,9 @@ func initTraceIdSeed() {
 		rand.Read(ipBytes)
 		rand.Read(portBytes)
 	}
-	traceIdSeed = nil
-	traceIdSeed = append(traceIdSeed, ipBytes...)
-	traceIdSeed = append(traceIdSeed, portBytes...)
+	tii.traceIdSeed = nil
+	tii.traceIdSeed = append(tii.traceIdSeed, ipBytes...)
+	tii.traceIdSeed = append(tii.traceIdSeed, portBytes...)
 }
+
+var sTraceIdInternal *traceIdInternal

@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	initTraceIdSeed()
+	sTraceIdInternal = newTraceIdInternal()
 	globalLogContext = &LogContext{
 		traceId: NewTraceId(),
 		method:  "Global",
