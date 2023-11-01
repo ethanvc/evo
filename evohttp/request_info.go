@@ -3,7 +3,6 @@ package evohttp
 import (
 	"context"
 	"net/http"
-	"time"
 )
 
 type RequestInfo struct {
@@ -12,9 +11,6 @@ type RequestInfo struct {
 	UrlParams     map[string]string
 	PatternPath   string
 	ParsedRequest any
-
-	RequestTime time.Time
-	FinishTime  time.Time
 }
 
 func NewRequestInfo() *RequestInfo {

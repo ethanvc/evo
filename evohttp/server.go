@@ -4,7 +4,6 @@ import (
 	"context"
 	"github.com/ethanvc/evo/base"
 	"net/http"
-	"time"
 )
 
 type Server struct {
@@ -56,7 +55,6 @@ func (svr *Server) FindRoute(method, urlPath string, params map[string]string) *
 func (svr *Server) ServeHTTPRouted(n *RouteNode, params map[string]string, w http.ResponseWriter, req *http.Request) {
 	info := NewRequestInfo()
 	info.Request = req
-	info.RequestTime = time.Now()
 	info.Writer.Reset(w)
 	info.UrlParams = params
 	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
