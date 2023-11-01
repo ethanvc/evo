@@ -16,12 +16,11 @@ func NewRecoverHandler() Handler {
 
 func (h *recoverHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	func() {
-		panicked := true
 		defer func() {
-			if !panicked {
+			r := recover()
+			if r == nil {
 				return
 			}
-			r := recover()
 			switch realR := r.(type) {
 			case error:
 				err = realR
@@ -33,7 +32,6 @@ func (h *recoverHandler) Handle(c context.Context, req any, info *RequestInfo, n
 			}
 		}()
 		resp, err = nexter.Next(c, req, info)
-		panicked = false
 	}()
 	return
 }

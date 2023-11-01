@@ -5,19 +5,17 @@ import (
 	"github.com/ethanvc/evo/base"
 	"net/http"
 	"time"
-
-	"github.com/ethanvc/evo/evolog"
 )
 
 type Server struct {
 	*RouterBuilder
-	noRouteHandlers     HandlerChain
-	userNoRouteHandlers HandlerChain
+	noRouteChain     HandlerChain
+	userNoRouteChain HandlerChain
 }
 
 func NewServer() *Server {
 	svr := &Server{
-		noRouteHandlers: []Handler{HandlerFunc(finalNoRouteHandler)},
+		noRouteChain: []Handler{HandlerFunc(defaultNotFoundHandler)},
 	}
 	svr.RouterBuilder = NewRouterBuilder()
 	svr.Use(NewLogHandler(), NewCodecHandler(), NewRecoverHandler())
@@ -34,7 +32,7 @@ func (svr *Server) UseF(handlers ...HandlerFunc) {
 }
 
 func (svr *Server) NoRoute(handler ...Handler) {
-	svr.userNoRouteHandlers = append(svr.userNoRouteHandlers, handler...)
+	svr.userNoRouteChain = append(svr.userNoRouteChain, handler...)
 	svr.rebuild404Handlers()
 }
 
@@ -46,15 +44,9 @@ func (svr *Server) Run(addr string) {
 }
 
 func (svr *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	info := NewRequestInfo()
-	info.Request = req
-	info.RequestTime = time.Now()
-	info.Writer.Reset(w)
-	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
-	c = evolog.WithLogContext(c, &evolog.LogContextConfig{
-		TraceId: req.Header.Get("x-trace-id"),
-	})
-	svr.route(c, info)
+	params := make(map[string]string)
+	n := svr.FindRoute(req.Method, req.URL.Path, params)
+	svr.ServeHTTPRouted(n, params, w, req)
 }
 
 func (svr *Server) FindRoute(method, urlPath string, params map[string]string) *RouteNode {
@@ -62,33 +54,33 @@ func (svr *Server) FindRoute(method, urlPath string, params map[string]string) *
 }
 
 func (svr *Server) ServeHTTPRouted(n *RouteNode, params map[string]string, w http.ResponseWriter, req *http.Request) {
-
-}
-
-func (svr *Server) route(c context.Context, info *RequestInfo) {
-	var err error
-	defer func() {
-		if err == nil || info.Writer.GetStatus() != 0 {
-			return
-		}
+	info := NewRequestInfo()
+	info.Request = req
+	info.RequestTime = time.Now()
+	info.Writer.Reset(w)
+	info.UrlParams = params
+	c := context.WithValue(req.Context(), contextKeyRequestInfo{}, info)
+	var h HandlerChain
+	if n != nil {
+		h = n.Handlers
+		info.PatternPath = n.FullPath
+	} else {
+		h = svr.noRouteChain
+	}
+	h.Do(c, nil, info)
+	if info.Writer.GetStatus() == 0 {
 		info.Writer.WriteHeader(http.StatusInternalServerError)
 		info.Writer.Write([]byte("internal server error"))
-	}()
-	n := svr.router.Find(info.Request.Method, info.Request.URL.Path, info.UrlParams)
-	if n == nil {
-		_, err = svr.noRouteHandlers.Do(c, nil, info)
-		return
 	}
-	info.PatternPath = n.FullPath
-	evolog.GetLogContext(c).SetMethod(n.FullPath)
-	_, err = n.Handlers.Do(c, nil, info)
 }
 
 func (svr *Server) rebuild404Handlers() {
-	if len(svr.userNoRouteHandlers) == 0 {
-		svr.noRouteHandlers = append([]Handler{HandlerFunc(finalNoRouteHandler)}, svr.RouterBuilder.handlers...)
+	svr.noRouteChain = nil
+	svr.noRouteChain = append(svr.noRouteChain, svr.RouterBuilder.handlers...)
+	if len(svr.userNoRouteChain) == 0 {
+		svr.noRouteChain = append(svr.noRouteChain, HandlerFunc(defaultNotFoundHandler))
 	} else {
-		svr.noRouteHandlers = joinSlice(svr.RouterBuilder.handlers, svr.userNoRouteHandlers)
+		svr.noRouteChain = append(svr.noRouteChain, svr.userNoRouteChain...)
 	}
 }
 
@@ -98,7 +90,7 @@ type HandlerChain = base.Chain[*RequestInfo]
 
 type HandlerFunc = base.InterceptorFunc[*RequestInfo]
 
-func finalNoRouteHandler(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
+func defaultNotFoundHandler(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	resp, err = nexter.Next(c, req, info)
 	if info.Writer.GetStatus() == 0 {
 		info.Writer.WriteHeader(http.StatusNotFound)
