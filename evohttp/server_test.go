@@ -151,3 +151,13 @@ func TestPanic2(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, recorder.Code)
 	require.Equal(t, "internal server error", recorder.Body.String())
 }
+
+func TestFindGlobalHandler(t *testing.T) {
+	s := NewServer()
+	h := FindGlobalHandler[*LogHandler](s)
+	require.NotNil(t, h)
+	h1 := FindGlobalHandler[*codecHandler](s)
+	require.NotNil(t, h1)
+	h2 := FindGlobalHandler[*recoverHandler](s)
+	require.NotNil(t, h2)
+}

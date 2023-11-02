@@ -82,6 +82,17 @@ func (svr *Server) rebuildNoRouteHandlers() {
 	}
 }
 
+func FindGlobalHandler[T Handler](s *Server) T {
+	for _, v := range s.RouterBuilder.handlers {
+		vv, ok := v.(T)
+		if ok {
+			return vv
+		}
+	}
+	var nilVal T
+	return nilVal
+}
+
 type Handler = base.Interceptor[*RequestInfo]
 
 type HandlerChain = base.Chain[*RequestInfo]
