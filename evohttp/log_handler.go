@@ -12,9 +12,7 @@ type LogHandler struct {
 }
 
 func NewLogHandler() *LogHandler {
-	h := &LogHandler{
-		rl: evolog.NewRequestLogger(),
-	}
+	h := &LogHandler{}
 	return h
 }
 
@@ -24,7 +22,7 @@ func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexte
 		TraceId: info.Request.Header.Get("x-trace-id"),
 	})
 	resp, err = nexter.Next(c, req, info)
-	h.rl.Log(c,
+	h.logger().Log(c,
 		&evolog.RequestLogInfo{
 			Err:  err,
 			Req:  info.ParsedRequest,
@@ -33,4 +31,12 @@ func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexte
 		slog.String("path", info.Request.URL.Path),
 	)
 	return
+}
+
+func (h *LogHandler) logger() *evolog.RequestLogger {
+	if h.rl != nil {
+		return h.rl
+	} else {
+		return evolog.DefaultRequestLogger()
+	}
 }
