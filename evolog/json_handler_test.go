@@ -13,7 +13,7 @@ import (
 func Test_getFileSource(t *testing.T) {
 	pc, _, _, _ := runtime.Caller(0)
 	s := GetCallerLocation(pc)
-	require.Equal(t, "evolog/jsonhandler_test.go:14", s)
+	require.Equal(t, "evolog/json_handler_test.go:14", s)
 }
 
 func TestNewJsonHandler(t *testing.T) {

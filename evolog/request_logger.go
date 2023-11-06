@@ -7,11 +7,17 @@ import (
 import "context"
 
 type RequestLogger struct {
-	filter func(c context.Context, err error, req, resp any) bool
+	filter func(c context.Context, err error, req, resp any) slog.Level
+	logger *slog.Logger
 }
 
-func NewRequestLogger() *RequestLogger {
-	rl := &RequestLogger{}
+func NewRequestLogger(
+	filter func(c context.Context, err error, req, resp any) slog.Level,
+	logger *slog.Logger) *RequestLogger {
+	rl := &RequestLogger{
+		filter: filter,
+		logger: logger,
+	}
 	return rl
 }
 
@@ -19,11 +25,12 @@ func (rl *RequestLogger) Log(c context.Context, logInfo *RequestLogInfo, extra .
 	if logInfo == nil {
 		logInfo = &RequestLogInfo{}
 	}
-	if !rl.callFilter(c, logInfo.Err, logInfo.Req, logInfo.Resp) {
+	lvl := rl.callFilter(c, logInfo.Err, logInfo.Req, logInfo.Resp)
+	if !rl.Enabled(c, lvl) {
 		return
 	}
+
 	lc := GetLogContext(c)
-	lvl := slog.LevelInfo
 	var args []any
 	args = append(args, slog.String("method", lc.GetMethod()))
 
@@ -45,12 +52,19 @@ func (rl *RequestLogger) Log(c context.Context, logInfo *RequestLogInfo, extra .
 	Log(c, lvl, 1, "REQ_END", args...)
 }
 
-func (rl *RequestLogger) callFilter(c context.Context, err error, req, resp any) bool {
+func (rl *RequestLogger) callFilter(c context.Context, err error, req, resp any) slog.Level {
 	if rl.filter != nil {
 		return rl.filter(c, err, req, resp)
 	} else {
-		return true
+		return slog.LevelInfo
 	}
+}
+
+func (rl *RequestLogger) Enabled(c context.Context, lvl slog.Level) bool {
+	if rl.logger != nil {
+		return rl.logger.Enabled(c, lvl)
+	}
+	return slog.Default().Enabled(c, lvl)
 }
 
 type RequestLogInfo struct {
@@ -59,8 +73,15 @@ type RequestLogInfo struct {
 	Resp any
 }
 
-var defaultRequestLogger = NewRequestLogger()
+var defaultRequestLogger = NewRequestLogger(nil, nil)
 
 func DefaultRequestLogger() *RequestLogger {
 	return defaultRequestLogger
+}
+
+func SetDefaultRequestLogger(l *RequestLogger) {
+	if l == nil {
+		return
+	}
+	defaultRequestLogger = l
 }
