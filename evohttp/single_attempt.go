@@ -127,4 +127,4 @@ func GetMimeType(contentType string) string {
 
 var ErrStatusNotOk = errors.New("httpclient: status code not ok")
 
-var defaultSingleAttemptInterceptors = []base.Interceptor[*SingleAttempt]{NewSingleAttemptInterceptor()}
+var defaultSingleAttemptInterceptors = base.Chain[*SingleAttempt]{NewSingleAttemptInterceptor()}
