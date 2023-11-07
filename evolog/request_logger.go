@@ -1,6 +1,7 @@
 package evolog
 
 import (
+	"github.com/ethanvc/evo/base"
 	"log/slog"
 	"time"
 )
@@ -26,6 +27,8 @@ func (rl *RequestLogger) Log(c context.Context, logInfo *RequestLogInfo, extra .
 	if logInfo == nil {
 		logInfo = &RequestLogInfo{}
 	}
+	s := base.Convert(logInfo.Err)
+	DefaultReporter().ReportRequest(c, s.GetCode(), s.GetEvent())
 	lvl := rl.callFilter(c, logInfo.Err, logInfo.Req, logInfo.Resp)
 	if !rl.Enabled(c, lvl) {
 		return
