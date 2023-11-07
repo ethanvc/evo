@@ -16,6 +16,10 @@ func NewLogHandler() *LogHandler {
 	return h
 }
 
+func (h *LogHandler) SetRequestLogger(rl *evolog.RequestLogger) {
+	h.rl = rl
+}
+
 func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexter base.Nexter[*RequestInfo]) (resp any, err error) {
 	c = evolog.WithLogContext(c, &evolog.LogContextConfig{
 		Method:  info.PatternPath,
