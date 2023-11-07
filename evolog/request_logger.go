@@ -2,6 +2,7 @@ package evolog
 
 import (
 	"github.com/ethanvc/evo/base"
+	"google.golang.org/grpc/codes"
 	"log/slog"
 	"time"
 )
@@ -85,7 +86,7 @@ type RequestLogInfo struct {
 	Resp any
 }
 
-var defaultRequestLogger = NewRequestLogger(nil, nil)
+var defaultRequestLogger = NewRequestLogger(DefaultFilter, nil)
 
 func DefaultRequestLogger() *RequestLogger {
 	return defaultRequestLogger
@@ -96,4 +97,15 @@ func SetDefaultRequestLogger(l *RequestLogger) {
 		return
 	}
 	defaultRequestLogger = l
+}
+
+func DefaultFilter(c context.Context, err error, req, resp any) slog.Level {
+	s := base.Convert(err)
+	if base.In(s.GetCode(),
+		codes.Unimplemented, codes.Unknown, codes.Unavailable, codes.Internal, codes.DataLoss,
+	) {
+		return slog.LevelError
+	} else {
+		return slog.LevelInfo
+	}
 }
