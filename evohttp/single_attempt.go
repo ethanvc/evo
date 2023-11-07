@@ -25,6 +25,7 @@ func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt 
 	sa := &SingleAttempt{}
 	sa.chain = defaultSingleAttemptInterceptors
 	var err error
+	// make error processing easier
 	sa.Request, err = http.NewRequestWithContext(c, httpMethod, url, nil)
 	if err != nil {
 		sa.Request, _ = http.NewRequestWithContext(c, httpMethod, "http://badurl_or_method_offered", nil)
