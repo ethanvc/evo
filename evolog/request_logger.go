@@ -7,8 +7,9 @@ import (
 import "context"
 
 type RequestLogger struct {
-	filter func(c context.Context, err error, req, resp any) slog.Level
-	logger *slog.Logger
+	filter   func(c context.Context, err error, req, resp any) slog.Level
+	logger   *slog.Logger
+	reporter *Reporter
 }
 
 func NewRequestLogger(
@@ -65,6 +66,14 @@ func (rl *RequestLogger) Enabled(c context.Context, lvl slog.Level) bool {
 		return rl.logger.Enabled(c, lvl)
 	}
 	return slog.Default().Enabled(c, lvl)
+}
+
+func (rl *RequestLogger) getReporter() *Reporter {
+	if rl.reporter != nil {
+		return rl.reporter
+	} else {
+		return DefaultReporter()
+	}
 }
 
 type RequestLogInfo struct {

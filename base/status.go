@@ -96,7 +96,7 @@ func (se StatusError) Error() string {
 	return ""
 }
 
-func StatusFromError(err error) *Status {
+func Convert(err error) *Status {
 	if err == nil {
 		return nil
 	}

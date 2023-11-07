@@ -65,7 +65,7 @@ func setStdResponse(info *RequestInfo, err error, data any) (any, error) {
 	if info.Writer.GetStatus() != 0 {
 		return data, err
 	}
-	s := base.StatusFromError(err)
+	s := base.Convert(err)
 	info.Writer.Header().Set("content-type", "application/json")
 	var httpResp HttpResp[any]
 	httpResp.Code = s.GetCode()
