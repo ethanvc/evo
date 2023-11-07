@@ -2,8 +2,8 @@ package base
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
-
 	"google.golang.org/grpc/codes"
 )
 
@@ -52,8 +52,11 @@ func (s *Status) GetEvent() string {
 	return s.s.Event
 }
 
-func (s *Status) Err() StatusError {
-	se := StatusError{
+func (s *Status) Err() error {
+	if s.GetCode() == codes.OK {
+		return nil
+	}
+	se := &statusError{
 		s: s,
 	}
 	return se
@@ -67,11 +70,8 @@ func (s *Status) MarshalJSON() ([]byte, error) {
 }
 
 func Code(err error) codes.Code {
-	se, ok := err.(StatusError)
-	if !ok {
-		return codes.Unknown
-	}
-	return se.s.GetCode()
+	s := Convert(err)
+	return s.GetCode()
 }
 
 func NotFound(err error) bool {
@@ -84,24 +84,29 @@ type internalStatus struct {
 	Event string     `json:"event,omitempty"`
 }
 
-type StatusError struct {
+type statusError struct {
 	s *Status
 }
 
-func (se StatusError) Status() *Status {
-	return se.s
-}
-
-func (se StatusError) Error() string {
-	return ""
+func (se *statusError) Error() string {
+	return se.s.GetMsg()
 }
 
 func Convert(err error) *Status {
+	s, ok := FromError(err)
+	if ok {
+		return s
+	}
+	return New(codes.Unknown, "UnknownStatus").SetMsg(err.Error())
+}
+
+func FromError(err error) (*Status, bool) {
 	if err == nil {
-		return nil
+		return nil, true
 	}
-	if s, ok := err.(StatusError); ok {
-		return s.s
+	var realErr *statusError
+	if ok := errors.As(err, &realErr); ok {
+		return realErr.s, true
 	}
-	return New(codes.Internal, "NonStandardError")
+	return nil, false
 }

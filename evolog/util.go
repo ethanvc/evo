@@ -17,12 +17,10 @@ func NamedError(k string, err error) slog.Attr {
 	if err == nil {
 		return slog.Any("err", nil)
 	}
-	switch realErr := err.(type) {
-	case base.StatusError:
-		return slog.Any(k, realErr.Status())
-	default:
-		return slog.String(k, err.Error())
+	if s, ok := base.FromError(err); ok {
+		return slog.Any(k, s)
 	}
+	return slog.String(k, err.Error())
 }
 
 // Log for increase performance, we use skip as argument.
