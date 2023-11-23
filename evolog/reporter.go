@@ -14,6 +14,7 @@ type Reporter struct {
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
 	clientEventDurationSeconds *prometheus.HistogramVec
+	gauge                      *prometheus.GaugeVec
 }
 
 type ReporterConfig struct {
@@ -68,6 +69,11 @@ func (r *Reporter) init() {
 		ConstLabels: globalLabels,
 	}, []string{"svr", "method"})
 	reg.MustRegister(r.clientEventDurationSeconds)
+
+	r.gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name: r.metricName("xx"),
+	}, []string{"type", "id"})
+	reg.MustRegister(r.gauge)
 }
 
 func (r *Reporter) Clean() {
