@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/ethanvc/evo/base"
 	"log/slog"
-	"runtime"
 	"time"
 )
 
@@ -29,7 +28,7 @@ func Log(c context.Context, lvl slog.Level, skip int, event string, args ...any)
 	if !l.Enabled(c, lvl) {
 		return
 	}
-	r := slog.NewRecord(time.Now(), lvl, event, base.GetPc(skip+1))
+	r := slog.NewRecord(time.Now(), lvl, event, base.GetCaller(skip+1))
 	r.Add(args...)
 	if c == nil {
 		c = context.Background()
@@ -38,8 +37,7 @@ func Log(c context.Context, lvl slog.Level, skip int, event string, args ...any)
 }
 
 func GetCallerLocation(pc uintptr) string {
-	fs := runtime.CallersFrames([]uintptr{pc})
-	f, _ := fs.Next()
+	f := base.GetCallerFrame(pc)
 	return fmt.Sprintf("%s:%d", extractTailPart(f.File), f.Line)
 }
 

@@ -4,9 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc/codes"
-	"net/http"
 	"time"
 )
 
@@ -16,10 +14,20 @@ type Reporter struct {
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
 	clientEventDurationSeconds *prometheus.HistogramVec
-	register                   *prometheus.Registry
+}
+
+type ReporterConfig struct {
+	ReportSvr    string
+	ReportInst   string
+	Component    string
+	MetricPrefix string
+	GlobalLabels prometheus.Labels
 }
 
 func NewReporter(conf *ReporterConfig) *Reporter {
+	if conf.MetricPrefix == "" {
+		conf.MetricPrefix = "evo"
+	}
 	r := &Reporter{
 		config: conf,
 	}
@@ -27,42 +35,43 @@ func NewReporter(conf *ReporterConfig) *Reporter {
 	return r
 }
 
-func (r *Reporter) GetRegisterer() prometheus.Registerer {
-	return r.register
-}
-
 func (r *Reporter) init() {
-	r.register = prometheus.NewRegistry()
+	reg := prometheus.DefaultRegisterer
 	globalLabels := prometheus.Labels{
 		"report_svr":  r.config.ReportSvr,
 		"report_inst": r.config.ReportInst,
+		"component":   r.config.Component,
 	}
 	for k, v := range r.config.GlobalLabels {
 		globalLabels[k] = v
 	}
 	r.serverEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:        "evo_server_event_total",
+		Name:        r.metricName("server_event_total"),
 		ConstLabels: globalLabels,
 	}, []string{"svr", "method", "event"})
-	r.register.MustRegister(r.serverEventTotal)
+	reg.MustRegister(r.serverEventTotal)
 
 	r.clientEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
-		Name:        "evo_client_event_total",
+		Name:        r.metricName("client_event_total"),
 		ConstLabels: globalLabels,
 	}, []string{"svr", "method", "event"})
-	r.register.MustRegister(r.clientEventTotal)
+	reg.MustRegister(r.clientEventTotal)
 
 	r.serverEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "evo_server_event_duration_seconds",
+		Name:        r.metricName("server_event_duration_seconds"),
 		ConstLabels: globalLabels,
 	}, []string{"method"})
-	r.register.MustRegister(r.serverEventDurationSeconds)
+	reg.MustRegister(r.serverEventDurationSeconds)
 
 	r.clientEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
-		Name:        "evo_client_event_duration_seconds",
+		Name:        r.metricName("client_event_duration_seconds"),
 		ConstLabels: globalLabels,
 	}, []string{"svr", "method"})
-	r.register.MustRegister(r.clientEventDurationSeconds)
+	reg.MustRegister(r.clientEventDurationSeconds)
+}
+
+func (r *Reporter) metricName(name string) string {
+	return fmt.Sprintf("%s_%s", r.config.MetricPrefix, name)
 }
 
 func (r *Reporter) ReportEvent(c context.Context, event string) {
@@ -95,16 +104,6 @@ func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method stri
 	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
 }
 
-func (r *Reporter) HttpHandler() http.Handler {
-	return promhttp.HandlerFor(r.register, promhttp.HandlerOpts{Registry: r.register})
-}
-
 func ReportEvent(c context.Context, event string) {
 	DefaultReporter().ReportEvent(c, event)
-}
-
-type ReporterConfig struct {
-	ReportSvr    string
-	ReportInst   string
-	GlobalLabels prometheus.Labels
 }

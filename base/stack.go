@@ -2,7 +2,7 @@ package base
 
 import "runtime"
 
-func GetPc(skip int) uintptr {
+func GetCaller(skip int) uintptr {
 	var pcs [1]uintptr
 	runtime.Callers(skip+2, pcs[:])
 	return pcs[0]

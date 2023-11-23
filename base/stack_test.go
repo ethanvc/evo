@@ -6,6 +6,6 @@ import (
 )
 
 func TestGetCallerFrame(t *testing.T) {
-	f := GetCallerFrame(GetPc(0))
+	f := GetCallerFrame(GetCaller(0))
 	require.Equal(t, "github.com/ethanvc/evo/base.TestGetCallerFrame", f.Function)
 }
