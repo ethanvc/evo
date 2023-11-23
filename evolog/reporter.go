@@ -70,6 +70,14 @@ func (r *Reporter) init() {
 	reg.MustRegister(r.clientEventDurationSeconds)
 }
 
+func (r *Reporter) Clean() {
+	reg := prometheus.DefaultRegisterer
+	reg.Unregister(r.clientEventTotal)
+	reg.Unregister(r.clientEventDurationSeconds)
+	reg.Unregister(r.serverEventTotal)
+	reg.Unregister(r.serverEventDurationSeconds)
+}
+
 func (r *Reporter) metricName(name string) string {
 	return fmt.Sprintf("%s_%s", r.config.MetricPrefix, name)
 }

@@ -31,9 +31,9 @@ func DefaultReporter() *Reporter {
 	return defaultReporter.Load()
 }
 
-func SetDefaultReporter(r *Reporter) {
+func SetDefaultReporter(r *Reporter) *Reporter {
 	if r == nil {
-		return
+		return nil
 	}
-	defaultReporter.Store(r)
+	return defaultReporter.Swap(r)
 }
