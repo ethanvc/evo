@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/ethanvc/evo/evolog"
+	"github.com/ethanvc/evo/plog"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net"
 	"net/http"
@@ -22,7 +22,7 @@ func main() {
 			panic(err)
 		}
 	}()
-	c := evolog.WithLogContext(nil, &evolog.LogContextConfig{Method: "query_dns"})
+	c := plog.WithLogContext(nil, &plog.LogContextConfig{Method: "query_dns"})
 	for {
 		QueryDns(c, host)
 	}
@@ -31,7 +31,7 @@ func main() {
 func QueryDns(c context.Context, host string) (err error) {
 	var ip string
 	defer func() {
-		evolog.ReportEvent(c, ip)
+		plog.ReportEvent(c, ip)
 	}()
 	ips, err := net.LookupIP(host)
 	if err != nil {

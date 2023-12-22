@@ -1,4 +1,4 @@
-package evolog
+package plog
 
 import (
 	"crypto/rand"

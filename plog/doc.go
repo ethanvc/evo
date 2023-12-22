@@ -1,4 +1,4 @@
-package evolog
+package plog
 
 /*
 For RPC or http request, report `evo_server_event_total` when execution finished. The report event format is:

@@ -1,4 +1,4 @@
-package evolog
+package plog
 
 import (
 	"github.com/stretchr/testify/require"
