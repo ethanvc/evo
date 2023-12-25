@@ -1,8 +1,6 @@
 package plog
 
 import (
-	"sync/atomic"
-
 	"log/slog"
 )
 
@@ -12,10 +10,6 @@ func init() {
 		traceId: NewTraceId(),
 		method:  "Global",
 	}
-	SetDefaultReporter(NewReporter(&ReporterConfig{
-		ReportSvr:  "not_set",
-		ReportInst: "not_set",
-	}))
 	initDefaultLog()
 }
 
@@ -25,15 +19,8 @@ func initDefaultLog() {
 	slog.SetDefault(l)
 }
 
-var defaultReporter atomic.Pointer[Reporter]
+var defaultReporter = NewReporter()
 
 func DefaultReporter() *Reporter {
-	return defaultReporter.Load()
-}
-
-func SetDefaultReporter(r *Reporter) *Reporter {
-	if r == nil {
-		return nil
-	}
-	return defaultReporter.Swap(r)
+	return defaultReporter
 }
