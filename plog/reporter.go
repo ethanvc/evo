@@ -3,6 +3,7 @@ package plog
 import (
 	"context"
 	"fmt"
+	"github.com/golang/protobuf/proto"
 	"github.com/jinzhu/copier"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
@@ -15,6 +16,7 @@ type Reporter struct {
 	mux                        sync.Mutex
 	reg                        *prometheus.Registry
 	config                     *ReporterConfig
+	globalLabels               []*dto.LabelPair
 	serverEventTotal           *prometheus.CounterVec
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
@@ -106,21 +108,35 @@ func (r *Reporter) UpdateConfig(f func(conf *ReporterConfig)) {
 	var newConfig ReporterConfig
 	copier.Copy(&newConfig, r.config)
 	f(&newConfig)
+	var globalLabels []*dto.LabelPair
+	globalLabels = append(globalLabels, &dto.LabelPair{
+		Name:  proto.String("report_inst"),
+		Value: proto.String(newConfig.ReportInst),
+	})
+	globalLabels = append(globalLabels, &dto.LabelPair{
+		Name:  proto.String("report_svr"),
+		Value: proto.String(newConfig.ReportSvr),
+	})
+	globalLabels = append(globalLabels, &dto.LabelPair{
+		Name:  proto.String("component"),
+		Value: proto.String(newConfig.Component),
+	})
+	for k, v := range newConfig.GlobalLabels {
+		globalLabels = append(globalLabels, &dto.LabelPair{
+			Name:  &k,
+			Value: &v,
+		})
+	}
 	r.config = &newConfig
+	r.globalLabels = globalLabels
 }
 
 func (r *Reporter) Gather() ([]*dto.MetricFamily, error) {
-	conf := r.config
+	globalLabels := r.globalLabels
 	families, err := r.reg.Gather()
 	for _, family := range families {
 		for _, metric := range family.Metric {
-			for name, val := range conf.GlobalLabels {
-				pair := &dto.LabelPair{
-					Name:  &name,
-					Value: &val,
-				}
-				metric.Label = append(metric.Label, pair)
-			}
+			metric.Label = append(metric.Label, globalLabels...)
 		}
 	}
 	return families, err
