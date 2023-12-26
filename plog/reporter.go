@@ -102,7 +102,7 @@ func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method stri
 	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
 }
 
-func (r *Reporter) UpdateConfig(f func(conf *ReporterConfig)) {
+func (r *Reporter) UpdateConfig(f func(conf *ReporterConfig)) error {
 	r.mux.Lock()
 	defer r.mux.Lock()
 	var newConfig ReporterConfig
@@ -129,6 +129,7 @@ func (r *Reporter) UpdateConfig(f func(conf *ReporterConfig)) {
 	}
 	r.config = &newConfig
 	r.globalLabels = globalLabels
+	return nil
 }
 
 // https://prometheus.io/docs/instrumenting/writing_clientlibs/
