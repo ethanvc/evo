@@ -131,6 +131,9 @@ func (r *Reporter) UpdateConfig(f func(conf *ReporterConfig)) {
 	r.globalLabels = globalLabels
 }
 
+// https://prometheus.io/docs/instrumenting/writing_clientlibs/
+// https://prometheus.io/docs/instrumenting/exposition_formats/
+
 func (r *Reporter) Gather() ([]*dto.MetricFamily, error) {
 	globalLabels := r.globalLabels
 	families, err := r.reg.Gather()
