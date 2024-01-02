@@ -1,4 +1,4 @@
-package evohttp
+package httpcli
 
 import (
 	"bytes"
@@ -16,6 +16,7 @@ type SingleAttempt struct {
 	Response *http.Response
 	Resp     any
 	chain    base.Chain[*SingleAttempt]
+	err      error
 }
 
 func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt {
