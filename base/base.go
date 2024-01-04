@@ -17,3 +17,8 @@ func Zero[T any]() T {
 	var d T
 	return d
 }
+
+func ZeroFromValue[T any](t T) T {
+	var zero T
+	return zero
+}
