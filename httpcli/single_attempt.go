@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/ethanvc/evo/base"
 	"google.golang.org/grpc/codes"
 	"io"
@@ -12,22 +13,25 @@ import (
 )
 
 type SingleAttempt struct {
-	Request  *http.Request
-	Response *http.Response
-	err      error
-	RespBody []byte
-	Template *HttpTemplate
+	patternUrl string
+	Request    *http.Request
+	Response   *http.Response
+	err        error
+	RespBody   []byte
+	Template   *HttpTemplate
 }
 
-func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt {
+func NewSingleAttempt(c context.Context, httpMethod, patternUrl string, args ...any) *SingleAttempt {
 	if c == nil {
 		c = context.Background()
 	}
-	sa := &SingleAttempt{}
-	sa.Template = DefaultTemplate
+	sa := &SingleAttempt{
+		patternUrl: patternUrl,
+		Template:   DefaultTemplate,
+	}
 	var err error
 	// make error processing easier
-	sa.Request, err = http.NewRequestWithContext(c, httpMethod, url, nil)
+	sa.Request, err = http.NewRequestWithContext(c, httpMethod, fmt.Sprintf(patternUrl, args...), nil)
 	if err != nil {
 		sa.err = err
 		sa.Request, _ = http.NewRequestWithContext(c, httpMethod, "http://127.0.0.1:1/badurl_or_method_offered", nil)
@@ -36,9 +40,6 @@ func NewSingleAttempt(c context.Context, httpMethod, url string) *SingleAttempt 
 }
 
 func (sa *SingleAttempt) Do(req any, resp any) (err error) {
-	if sa.err != nil {
-		return sa.err
-	}
 	return sa.Template.Do(sa.Request.Context(), req, resp, sa)
 }
 
@@ -63,6 +64,9 @@ func NewHttpTemplate() *HttpTemplate {
 }
 
 func (template *HttpTemplate) Do(c context.Context, req, resp any, sa *SingleAttempt) error {
+	if sa.err != nil {
+		return sa.err
+	}
 	err := template.encoder(c, req, sa)
 	if err != nil {
 		return err
