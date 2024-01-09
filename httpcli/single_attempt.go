@@ -4,40 +4,46 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"github.com/ethanvc/evo/base"
+	"github.com/ethanvc/evo/plog"
 	"google.golang.org/grpc/codes"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type SingleAttempt struct {
-	patternUrl string
-	Request    *http.Request
-	Response   *http.Response
-	err        error
-	RespBody   []byte
-	Template   *HttpTemplate
+	Request  *http.Request
+	Response *http.Response
+	err      error
+	RespBody []byte
+	Template *HttpTemplate
+	Conf     *Config
 }
 
-func NewSingleAttempt(c context.Context, httpMethod, patternUrl string, args ...any) *SingleAttempt {
-	if c == nil {
-		c = context.Background()
-	}
+func NewSingleAttempt(c context.Context, httpMethod, url string, conf *Config) *SingleAttempt {
 	sa := &SingleAttempt{
-		patternUrl: patternUrl,
-		Template:   DefaultTemplate,
+		Template: DefaultTemplate,
+		Conf:     conf,
 	}
-	var err error
+	c = plog.WithLogContext(c, &plog.LogContextConfig{
+		Method: conf.GetPatternUrl(url),
+	})
 	// make error processing easier
-	sa.Request, err = http.NewRequestWithContext(c, httpMethod, fmt.Sprintf(patternUrl, args...), nil)
-	if err != nil {
-		sa.err = err
+	sa.Request, sa.err = http.NewRequestWithContext(c, httpMethod, url, nil)
+	if sa.err != nil {
 		sa.Request, _ = http.NewRequestWithContext(c, httpMethod, "http://127.0.0.1:1/badurl_or_method_offered", nil)
 	}
 	return sa
+}
+
+func (sa *SingleAttempt) GetResponseCode() int {
+	if sa.Response != nil {
+		return sa.Response.StatusCode
+	} else {
+		return 0
+	}
 }
 
 func (sa *SingleAttempt) Do(req any, resp any) (err error) {
@@ -56,7 +62,7 @@ type HttpTemplate struct {
 	Client  *http.Client
 	Encoder func(req any, sa *SingleAttempt) error
 	Decoder func(sa *SingleAttempt) error
-	Report  func(startTime time.Time, err error, sa *SingleAttempt, req, resp any)
+	Report  func(err error, sa *SingleAttempt, req, resp any)
 }
 
 func NewHttpTemplate() *HttpTemplate {
@@ -66,17 +72,21 @@ func NewHttpTemplate() *HttpTemplate {
 }
 
 func (template *HttpTemplate) Do(req, resp any, sa *SingleAttempt) (err error) {
-	startTime := time.Now()
 	err = template.realDo(req, resp, sa)
-	template.report(startTime, err, sa, req, resp)
+	template.report(err, sa, req, resp)
 	return err
 }
 
-func (template *HttpTemplate) report(startTime time.Time, err error, sa *SingleAttempt, req, resp any) {
+func (template *HttpTemplate) report(err error, sa *SingleAttempt, req, resp any) {
 	if template.Report != nil {
-		template.Report(startTime, err, sa, req, resp)
+		template.Report(err, sa, req, resp)
 		return
 	}
+	plog.DefaultRequestLogger().Log(sa.Request.Context(), &plog.RequestLogInfo{
+		Err:  err,
+		Req:  req,
+		Resp: resp,
+	}, slog.String("code", http.StatusText(sa.GetResponseCode())))
 }
 
 func (template *HttpTemplate) realDo(req, resp any, sa *SingleAttempt) (err error) {
@@ -143,4 +153,25 @@ func (template *HttpTemplate) decoder(resp any, sa *SingleAttempt) error {
 		}
 	}
 	return nil
+}
+
+type Config struct {
+	patternUrl string
+}
+
+func NewConfig() *Config {
+	return &Config{}
+}
+
+func (conf *Config) SetPatternUrl(url string) *Config {
+	conf.patternUrl = url
+	return conf
+}
+
+func (conf *Config) GetPatternUrl(url string) string {
+	if conf != nil && conf.patternUrl != "" {
+		return conf.patternUrl
+	} else {
+		return url
+	}
 }

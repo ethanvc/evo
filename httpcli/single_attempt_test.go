@@ -8,7 +8,7 @@ import (
 )
 
 func TestSingleAttempt_Basic(t *testing.T) {
-	sa := NewSingleAttempt(context.Background(), http.MethodGet, "https://www.baidu.com")
+	sa := NewSingleAttempt(context.Background(), http.MethodGet, "https://www.baidu.com", nil)
 	buf, err := Do[string](sa, "")
 	require.NoError(t, err)
 	require.Contains(t, buf, "baidu")
