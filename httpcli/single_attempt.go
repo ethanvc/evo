@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 type SingleAttempt struct {
@@ -40,7 +41,7 @@ func NewSingleAttempt(c context.Context, httpMethod, patternUrl string, args ...
 }
 
 func (sa *SingleAttempt) Do(req any, resp any) (err error) {
-	return sa.Template.Do(sa.Request.Context(), req, resp, sa)
+	return sa.Template.Do(req, resp, sa)
 }
 
 func Do[Resp any](sa *SingleAttempt, req any) (Resp, error) {
@@ -53,8 +54,9 @@ var DefaultTemplate *HttpTemplate = NewHttpTemplate()
 
 type HttpTemplate struct {
 	Client  *http.Client
-	Encoder func(ctx context.Context, req any, sa *SingleAttempt) error
-	Decoder func(ctx context.Context, sa *SingleAttempt) error
+	Encoder func(req any, sa *SingleAttempt) error
+	Decoder func(sa *SingleAttempt) error
+	Report  func(startTime time.Time, err error, sa *SingleAttempt, req, resp any)
 }
 
 func NewHttpTemplate() *HttpTemplate {
@@ -63,21 +65,35 @@ func NewHttpTemplate() *HttpTemplate {
 	}
 }
 
-func (template *HttpTemplate) Do(c context.Context, req, resp any, sa *SingleAttempt) error {
+func (template *HttpTemplate) Do(req, resp any, sa *SingleAttempt) (err error) {
+	startTime := time.Now()
+	err = template.realDo(req, resp, sa)
+	template.report(startTime, err, sa, req, resp)
+	return err
+}
+
+func (template *HttpTemplate) report(startTime time.Time, err error, sa *SingleAttempt, req, resp any) {
+	if template.Report != nil {
+		template.Report(startTime, err, sa, req, resp)
+		return
+	}
+}
+
+func (template *HttpTemplate) realDo(req, resp any, sa *SingleAttempt) (err error) {
 	if sa.err != nil {
 		return sa.err
 	}
-	err := template.encoder(c, req, sa)
+	err = template.encoder(req, sa)
 	if err != nil {
 		return err
 	}
 	sa.Response, err = template.Client.Do(sa.Request)
-	return template.decoder(c, resp, sa)
+	return template.decoder(resp, sa)
 }
 
-func (template *HttpTemplate) encoder(c context.Context, req any, sa *SingleAttempt) error {
+func (template *HttpTemplate) encoder(req any, sa *SingleAttempt) error {
 	if template.Encoder != nil {
-		return template.Encoder(c, req, sa)
+		return template.Encoder(req, sa)
 	}
 	if req == nil || sa.Request.Body != nil {
 		return nil
@@ -102,12 +118,12 @@ func (template *HttpTemplate) encoder(c context.Context, req any, sa *SingleAtte
 	return nil
 }
 
-func (template *HttpTemplate) decoder(c context.Context, resp any, sa *SingleAttempt) error {
+func (template *HttpTemplate) decoder(resp any, sa *SingleAttempt) error {
 	if resp == nil {
 		return nil
 	}
 	if template.Decoder != nil {
-		return template.Decoder(c, sa)
+		return template.Decoder(sa)
 	}
 	buf, err := io.ReadAll(sa.Response.Body)
 	sa.Response.Body.Close()
