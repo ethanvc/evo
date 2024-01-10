@@ -130,6 +130,7 @@ func (template *HttpTemplate) encoder(req any, sa *SingleAttempt) error {
 
 func (template *HttpTemplate) decoder(resp any, sa *SingleAttempt) error {
 	if resp == nil {
+		sa.Response.Body.Close()
 		return nil
 	}
 	if template.Decoder != nil {

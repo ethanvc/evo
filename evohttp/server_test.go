@@ -24,7 +24,7 @@ func TestServer_Simple(t *testing.T) {
 		return nil, nil
 	}
 	svr.POSTF("/test", test)
-	st := httpcli.NewSingleAttempt(context.Background(), http.MethodPost, url+"/test")
+	st := httpcli.NewSingleAttempt(context.Background(), http.MethodPost, url+"/test", nil)
 	err := st.Do(nil, nil)
 	require.NoError(t, err)
 }
@@ -42,7 +42,7 @@ func TestServer_GetJsonEcho(t *testing.T) {
 		return req, nil
 	}
 	svr.POST("/test", NewStdHandlerF(test))
-	st := httpcli.NewSingleAttempt(context.Background(), http.MethodPost, url+"/test")
+	st := httpcli.NewSingleAttempt(context.Background(), http.MethodPost, url+"/test", nil)
 	req := &Echo{
 		Msg: "hello",
 	}
@@ -60,7 +60,7 @@ func TestServer_Static(t *testing.T) {
 	os.WriteFile(path.Join(tmpDir, "test.txt"), []byte("hello"), 0644)
 
 	svr.Static("/static", tmpDir)
-	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url+"/static/test.txt")
+	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url+"/static/test.txt", nil)
 	var content []byte
 	err := st.Do(nil, &content)
 	require.NoError(t, err)
@@ -76,7 +76,7 @@ func TestServer_Root(t *testing.T) {
 	os.WriteFile(path.Join(tmpDir, "index.html"), []byte("hello"), 0644)
 
 	svr.Static("/", tmpDir)
-	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url)
+	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url, nil)
 	var content string
 	err := st.Do(nil, &content)
 	require.NoError(t, err)
@@ -88,10 +88,10 @@ func Test_Default404(t *testing.T) {
 	url, httpSvr := startTestServer(svr)
 	defer httpSvr.Shutdown(context.Background())
 
-	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url+"/abc")
+	st := httpcli.NewSingleAttempt(context.Background(), http.MethodGet, url+"/abc", nil)
 	var content string
 	err := st.Do(nil, &content)
-	require.Equal(t, httpcli.ErrStatusNotOk, err)
+	require.Equal(t, nil, err)
 	require.Equal(t, http.StatusNotFound, st.Response.StatusCode)
 }
 
