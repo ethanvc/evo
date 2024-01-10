@@ -9,6 +9,7 @@ import (
 	"go.uber.org/fx"
 	"google.golang.org/grpc/codes"
 	"log/slog"
+	"time"
 )
 
 func main() {
@@ -30,7 +31,7 @@ type userController struct {
 }
 
 func (controller *userController) QueryUser(c context.Context, req *QueryUserReq) (resp *UserDto, err error) {
-	// query redis cache, case can downgrade
+	resp, err = controller.queryUserFromCache(c, req)
 	switch base.Code(err) {
 	case codes.OK:
 		plog.ReportEvent(c, "UserFoundInCache")
@@ -38,13 +39,16 @@ func (controller *userController) QueryUser(c context.Context, req *QueryUserReq
 	case codes.NotFound:
 		plog.ReportEvent(c, "UserNotFoundInCache")
 	default:
-		plog.ReportErrEvent(c, "UserCacheUnknownErr")
-		slog.ErrorContext(c, "UserCacheUnknownErr")
+		slog.ErrorContext(c, "UserCacheUnknownErr", plog.Error(err))
 	}
 	return
 }
 
 func (controller *userController) queryUserFromCache(c context.Context, req *QueryUserReq) (resp *UserDto, err error) {
+	c = plog.WithLogContext(c, nil)
+	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
+		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
+	defer cancel()
 	cmd := controller.redisCli.Get(c, fmt.Sprintf("a_%d", req.Uid))
 	if cmd.Err() != nil {
 		return nil, cmd.Err()
