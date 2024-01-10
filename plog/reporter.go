@@ -149,3 +149,7 @@ func (r *Reporter) Gather() ([]*dto.MetricFamily, error) {
 func ReportEvent(c context.Context, event string) {
 	DefaultReporter().ReportEvent(c, event)
 }
+
+func ReportErrEvent(c context.Context, event string) {
+	DefaultReporter().ReportErrEvent(c, event)
+}
