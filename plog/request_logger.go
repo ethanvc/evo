@@ -24,13 +24,10 @@ func NewRequestLogger(
 	return rl
 }
 
-func (rl *RequestLogger) Log(c context.Context, logInfo *RequestLogInfo, extra ...any) {
-	if logInfo == nil {
-		logInfo = &RequestLogInfo{}
-	}
-	s := base.Convert(logInfo.Err)
+func (rl *RequestLogger) Log(c context.Context, err error, req, resp any, extra ...any) {
+	s := base.Convert(err)
 	DefaultReporter().ReportRequest(c, s.GetCode(), s.GetEvent())
-	lvl := rl.callFilter(c, logInfo.Err, logInfo.Req, logInfo.Resp)
+	lvl := rl.callFilter(c, err, req, resp)
 	if !rl.Enabled(c, lvl) {
 		return
 	}
@@ -39,14 +36,14 @@ func (rl *RequestLogger) Log(c context.Context, logInfo *RequestLogInfo, extra .
 	var args []any
 	args = append(args, slog.String("method", lc.GetMethod()))
 
-	if logInfo.Err != nil {
-		args = append(args, Error(logInfo.Err))
+	if err != nil {
+		args = append(args, Error(err))
 	}
-	if logInfo.Req != nil {
-		args = append(args, slog.Any("req", logInfo.Req))
+	if req != nil {
+		args = append(args, slog.Any("req", req))
 	}
-	if logInfo.Resp != nil {
-		args = append(args, slog.Any("resp", logInfo.Resp))
+	if resp != nil {
+		args = append(args, slog.Any("resp", resp))
 	}
 
 	args = append(args, extra...)
@@ -108,4 +105,8 @@ func DefaultFilter(c context.Context, err error, req, resp any) slog.Level {
 	} else {
 		return slog.LevelInfo
 	}
+}
+
+func RequestLog(c context.Context, err error, req, resp any, extra ...any) {
+	DefaultRequestLogger().Log(c, err, req, resp, extra...)
 }

@@ -3,6 +3,8 @@ package plog
 import (
 	"bytes"
 	"context"
+	"github.com/ethanvc/evo/base"
+	"strings"
 	"sync"
 	"time"
 )
@@ -74,6 +76,9 @@ func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 	if len(lc.traceId) == 0 {
 		lc.traceId = NewTraceId()
 	}
+	if len(lc.method) == 0 {
+		lc.method = getCallerName(1)
+	}
 	lc.startTime = time.Now()
 	return context.WithValue(c, contextKeyLogContext{}, lc)
 }
@@ -97,4 +102,16 @@ type contextKeyLogContext struct{}
 type LogContextConfig struct {
 	Method  string
 	TraceId string
+}
+
+func getCallerName(skip int) string {
+	pc := base.GetCaller(skip + 1)
+	frame := base.GetCallerFrame(pc)
+	// frame.Function like:
+	// github.com/ethanvc/evo/plog.Test_getCallerName
+	pos := strings.LastIndexByte(frame.Function, '.')
+	if pos != -1 {
+		return frame.Function[pos+1:]
+	}
+	return frame.Function
 }
