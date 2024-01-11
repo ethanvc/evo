@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evohttp"
@@ -87,15 +88,13 @@ func (controller *userController) QueryUser(c context.Context, req *QueryUserReq
 func (controller *userController) queryUserFromCache(c context.Context, req *QueryUserReq) (resp *UserDto, err error) {
 	// for request resolved network, have to record time cost and response content.
 	c = plog.WithLogContext(c, nil)
-	defer func() {
-		plog.RequestLog(c, err, req, resp)
-	}()
+	defer func() { plog.RequestLog(c, err, req, resp) }()
 	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
 		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
 	defer cancel()
 	cmd := controller.redisCli.Get(c, fmt.Sprintf("a_%d", req.Uid))
 	if cmd.Err() != nil {
-		return nil, cmd.Err()
+		return nil, errors.Join(base.New(codes.Internal, "UnknownRedisGetErr").Err(), cmd.Err())
 	}
 	return
 }

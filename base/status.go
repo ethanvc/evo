@@ -92,21 +92,23 @@ func (se *statusError) Error() string {
 	return se.s.GetMsg()
 }
 
+func (se *statusError) EvoStatus() *Status {
+	return se.s
+}
+
 func Convert(err error) *Status {
-	s, ok := FromError(err)
-	if ok {
-		return s
-	}
-	return New(codes.Unknown, "UnknownStatus").SetMsg(err.Error())
+	s, _ := FromError(err)
+	return s
 }
 
 func FromError(err error) (*Status, bool) {
 	if err == nil {
 		return nil, true
 	}
-	var realErr *statusError
-	if ok := errors.As(err, &realErr); ok {
-		return realErr.s, true
+	type evostatus interface{ EvoStatus() *Status }
+	var es evostatus
+	if ok := errors.As(err, &es); ok {
+		return es.EvoStatus(), true
 	}
-	return nil, false
+	return New(codes.Unknown, "").SetMsg(err.Error()), false
 }
