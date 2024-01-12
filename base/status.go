@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"google.golang.org/grpc/codes"
+	"strings"
 )
 
 type Status struct {
@@ -89,8 +90,18 @@ type statusError struct {
 }
 
 func (se *statusError) Error() string {
-	return fmt.Sprintf("code=%s|event=%s|msg=%s",
-		se.s.GetCode().String(), se.s.GetEvent(), se.s.GetMsg())
+	var buf strings.Builder
+	buf.WriteString("code=")
+	buf.WriteString(se.s.GetCode().String())
+	if se.s.GetEvent() != "" {
+		buf.WriteString("|event=")
+		buf.WriteString(se.s.GetEvent())
+	}
+	if se.s.GetMsg() != "" {
+		buf.WriteString("|msg=")
+		buf.WriteString(se.s.GetMsg())
+	}
+	return buf.String()
 }
 
 func (se *statusError) EvoStatus() *Status {
