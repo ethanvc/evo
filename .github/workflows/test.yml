@@ -8,6 +8,8 @@ jobs:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Start Redis Server
+        uses: supercharge/redis-github-action@1.7.0
       - name: Install Go
         uses: actions/setup-go@v4
         with:
