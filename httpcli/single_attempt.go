@@ -82,11 +82,7 @@ func (template *HttpTemplate) report(err error, sa *SingleAttempt, req, resp any
 		template.Report(err, sa, req, resp)
 		return
 	}
-	plog.DefaultRequestLogger().Log(sa.Request.Context(), &plog.RequestLogInfo{
-		Err:  err,
-		Req:  req,
-		Resp: resp,
-	}, slog.String("code", http.StatusText(sa.GetResponseCode())))
+	plog.DefaultRequestLogger().Log(sa.Request.Context(), err, req, resp, slog.String("code", http.StatusText(sa.GetResponseCode())))
 }
 
 func (template *HttpTemplate) realDo(req, resp any, sa *SingleAttempt) (err error) {

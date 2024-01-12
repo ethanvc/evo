@@ -25,6 +25,10 @@ func NewRequestLogger(
 }
 
 func (rl *RequestLogger) Log(c context.Context, err error, req, resp any, extra ...any) {
+	rl.LogWithSkip(c, 1, err, req, resp, extra...)
+}
+
+func (rl *RequestLogger) LogWithSkip(c context.Context, skip int, err error, req, resp any, extra ...any) {
 	s := base.Convert(err)
 	DefaultReporter().ReportRequest(c, s.GetCode(), s.GetEvent())
 	lvl := rl.callFilter(c, err, req, resp)
@@ -51,7 +55,7 @@ func (rl *RequestLogger) Log(c context.Context, err error, req, resp any, extra 
 	if events := lc.GetEvents(); len(events) > 0 {
 		args = append(args, slog.String("events", events))
 	}
-	Log(c, lvl, 1, "REQ_END", args...)
+	Log(c, lvl, skip+1, "REQ_END", args...)
 }
 
 func (rl *RequestLogger) callFilter(c context.Context, err error, req, resp any) slog.Level {
@@ -108,5 +112,5 @@ func DefaultFilter(c context.Context, err error, req, resp any) slog.Level {
 }
 
 func RequestLog(c context.Context, err error, req, resp any, extra ...any) {
-	DefaultRequestLogger().Log(c, err, req, resp, extra...)
+	DefaultRequestLogger().LogWithSkip(c, 1, err, req, resp, extra...)
 }

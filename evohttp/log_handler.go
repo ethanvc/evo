@@ -26,7 +26,7 @@ func (h *LogHandler) Handle(c context.Context, req any, info *RequestInfo, nexte
 		TraceId: info.Request.Header.Get("x-trace-id"),
 	})
 	resp, err = nexter.Next(c, req, info)
-	h.logger().Log(c, err, info.ParsedRequest, resp,
+	h.logger().LogWithSkip(c, 0, err, info.ParsedRequest, resp,
 		slog.Int("http_code", info.Writer.GetStatus()),
 		slog.String("path", info.Request.URL.Path),
 	)
