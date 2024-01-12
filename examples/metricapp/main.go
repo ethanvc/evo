@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evohttp"
+	"github.com/ethanvc/evo/examples/metricapp/redishelper"
 	"github.com/ethanvc/evo/plog"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
@@ -92,9 +93,13 @@ func (controller *userController) queryUserFromCache(c context.Context, req *Que
 	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
 		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
 	defer cancel()
-	cmd := controller.redisCli.Get(c, fmt.Sprintf("a_%d", req.Uid))
-	if cmd.Err() != nil {
-		return nil, errors.Join(base.New(codes.Internal, "UnknownRedisGetErr").Err(), cmd.Err())
+	resp, err = redishelper.Get[UserDto](c, controller.redisCli, fmt.Sprintf("a_%d", req.Uid))
+	switch err {
+	case redis.Nil:
+		return nil, base.New(codes.NotFound, "UserNotFoundInCache").Err()
+	case nil:
+		return resp, nil
+	default:
+		return nil, errors.Join(base.New(codes.Internal, "UnknownRedisGetErr").Err(), err)
 	}
-	return
 }
