@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evohttp"
-	"github.com/ethanvc/evo/examples/metricapp/redishelper"
 	"github.com/ethanvc/evo/plog"
+	"github.com/ethanvc/evo/rediscli"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"google.golang.org/grpc/codes"
@@ -48,10 +48,10 @@ func newHttpServer(lc fx.Lifecycle, user *userController) *http.Server {
 	return srv
 }
 
-func newRedisClient() redis.UniversalClient {
+func newRedisClient() *rediscli.RedisClient {
 	opt := &redis.UniversalOptions{}
 	cli := redis.NewUniversalClient(opt)
-	return cli
+	return rediscli.NewRedisClient(cli, nil)
 }
 
 // https://learn.microsoft.com/en-gb/aspnet/web-api/overview/data/using-web-api-with-entity-framework/part-5
@@ -66,10 +66,10 @@ type UserDto struct {
 }
 
 type userController struct {
-	redisCli redis.UniversalClient
+	redisCli *rediscli.RedisClient
 }
 
-func newUserController(redisCli redis.UniversalClient) *userController {
+func newUserController(redisCli *rediscli.RedisClient) *userController {
 	return &userController{
 		redisCli: redisCli,
 	}
@@ -93,7 +93,7 @@ func (controller *userController) queryUserFromCache(c context.Context, req *Que
 	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
 		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
 	defer cancel()
-	resp, err = redishelper.Get[UserDto](c, controller.redisCli, fmt.Sprintf("a_%d", req.Uid))
+	err = controller.redisCli.Get(c, fmt.Sprintf("a_%d", req.Uid), resp)
 	switch err {
 	case redis.Nil:
 		return nil, base.New(codes.NotFound, "UserNotFoundInCache").Err()
