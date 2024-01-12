@@ -89,7 +89,8 @@ type statusError struct {
 }
 
 func (se *statusError) Error() string {
-	return se.s.GetMsg()
+	return fmt.Sprintf("code=%s|event=%s|msg=%s",
+		se.s.GetCode().String(), se.s.GetEvent(), se.s.GetMsg())
 }
 
 func (se *statusError) EvoStatus() *Status {

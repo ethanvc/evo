@@ -16,9 +16,6 @@ func NamedError(k string, err error) slog.Attr {
 	if err == nil {
 		return slog.Any("err", nil)
 	}
-	if s, ok := base.FromError(err); ok {
-		return slog.Any(k, s)
-	}
 	return slog.String(k, err.Error())
 }
 
