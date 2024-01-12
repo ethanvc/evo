@@ -32,9 +32,13 @@ func (cli *RedisClient) Get(c context.Context, key string, resp any) error {
 }
 
 func (cli *RedisClient) Set(c context.Context, key string, value any, expire time.Duration) error {
-	err := cli.cli.Set(c, key, value, expire)
-	if err.Err() != nil {
-		return err.Err()
+	realVal, err := cli.encode(c, key, value)
+	if err != nil {
+		return err
+	}
+	cmd := cli.cli.Set(c, key, realVal, expire)
+	if cmd.Err() != nil {
+		return cmd.Err()
 	}
 	return nil
 }
@@ -54,7 +58,25 @@ func (cli *RedisClient) decode(c context.Context, key string, cmd *redis.StringC
 	return nil
 }
 
+func (cli *RedisClient) encode(c context.Context, key string, value any) (any, error) {
+	if cli.conf.Encoder != nil {
+		return cli.conf.Encoder(c, key, value)
+	}
+	buf, err := json.Marshal(value)
+	if err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+func IsBasicType(v any) bool {
+	if v == nil {
+		return true
+	}
+	return false
+}
+
 type RedisClientConfig struct {
-	Encoder func(c context.Context, key string, value any) error
+	Encoder func(c context.Context, key string, value any) (any, error)
 	Decoder func(c context.Context, key string, cmd *redis.StringCmd, resp any) error
 }
