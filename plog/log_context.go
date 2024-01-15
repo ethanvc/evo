@@ -69,12 +69,20 @@ func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 	if c == nil {
 		c = context.Background()
 	}
+	parentLogContext, _ := GetLogContextIfExist(c)
+	if parentLogContext == nil {
+		parentLogContext = &LogContext{}
+	}
 	if lcc == nil {
 		lcc = &LogContextConfig{}
 	}
 	lc := &LogContext{traceId: lcc.TraceId, method: lcc.Method}
 	if len(lc.traceId) == 0 {
-		lc.traceId = NewTraceId()
+		if parentLogContext.GetTraceId() != "" {
+			lc.traceId = parentLogContext.GetTraceId()
+		} else {
+			lc.traceId = NewTraceId()
+		}
 	}
 	if len(lc.method) == 0 {
 		lc.method = getCallerName(1)
@@ -84,15 +92,20 @@ func WithLogContext(c context.Context, lcc *LogContextConfig) context.Context {
 }
 
 func GetLogContext(c context.Context) *LogContext {
-	// we never crash app, even user give me nil context
-	if c == nil {
-		return globalLogContext
-	}
-	v, _ := c.Value(contextKeyLogContext{}).(*LogContext)
-	if v != nil {
-		return v
+	lc, _ := GetLogContextIfExist(c)
+	if lc != nil {
+		return lc
 	}
 	return globalLogContext
+}
+
+func GetLogContextIfExist(c context.Context) (*LogContext, bool) {
+	// we never crash app, even user give me nil context
+	if c == nil {
+		return nil, false
+	}
+	v, ok := c.Value(contextKeyLogContext{}).(*LogContext)
+	return v, ok
 }
 
 var globalLogContext *LogContext

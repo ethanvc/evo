@@ -11,6 +11,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/fx"
 	"google.golang.org/grpc/codes"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 	"net"
 	"net/http"
 	"time"
@@ -18,6 +20,7 @@ import (
 
 func main() {
 	fx.New(
+		fx.Provide(NewGormDb),
 		fx.Provide(newRedisClient),
 		fx.Provide(newUserController),
 		fx.Provide(newHttpServer),
@@ -67,11 +70,16 @@ type UserDto struct {
 
 type userController struct {
 	redisCli *rediscli.RedisClient
+	db       *gorm.DB
 }
 
-func newUserController(redisCli *rediscli.RedisClient) *userController {
+func newUserController(
+	redisCli *rediscli.RedisClient,
+	db *gorm.DB,
+) *userController {
 	return &userController{
 		redisCli: redisCli,
+		db:       db,
 	}
 }
 
@@ -81,9 +89,11 @@ func (controller *userController) QueryUser(c context.Context, req *QueryUserReq
 	if err == nil {
 		return resp, nil
 	}
-	return &UserDto{
-		Uid: 1,
-	}, nil
+	resp, err = controller.queryUserFromDb(c, req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }
 
 func (controller *userController) queryUserFromCache(c context.Context, req *QueryUserReq) (resp *UserDto, err error) {
@@ -102,4 +112,33 @@ func (controller *userController) queryUserFromCache(c context.Context, req *Que
 	default:
 		return nil, errors.Join(base.New(codes.Internal, "UnknownRedisGetErr").Err(), err)
 	}
+}
+
+func (controller *userController) queryUserFromDb(c context.Context, req *QueryUserReq) (resp *UserDto, err error) {
+	c = plog.WithLogContext(c, nil)
+	defer func() { plog.RequestLog(c, err, req, resp) }()
+	if req.Uid == 0 {
+		return nil, base.New(codes.InvalidArgument, "UidZero").Err()
+	}
+	filter := &UserDto{
+		Uid: req.Uid,
+	}
+	err = controller.db.Where(filter).First(&resp).Error
+	switch err {
+	case gorm.ErrRecordNotFound:
+		return nil, base.New(codes.NotFound, "UserNotFoundInDb").Err()
+	case nil:
+		return
+	default:
+		return nil, errors.Join(base.New(codes.Internal, "UserDbError").Err(), err)
+	}
+}
+
+func NewGormDb() (*gorm.DB, error) {
+	dsn := "root:@tcp(127.0.0.1:3306)/test_db?charset=utf8mb4"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+	if err != nil {
+		return nil, err
+	}
+	return db, nil
 }
