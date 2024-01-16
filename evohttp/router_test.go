@@ -1,7 +1,9 @@
 package evohttp
 
 import (
+	"context"
 	"github.com/stretchr/testify/require"
+	"net/http"
 	"testing"
 )
 
@@ -23,4 +25,15 @@ func splitPatternPathTest(t *testing.T, s string, expect []string) {
 func Test_getCommonPrefixLength(t *testing.T) {
 	require.Equal(t, 2, getCommonPrefixLength("nihao", "ni"))
 	require.Equal(t, 0, getCommonPrefixLength("nihao", "0"))
+}
+
+func TestRouter_Find(t *testing.T) {
+	b := NewRouterBuilder()
+	b.POST("/api/abc", NewStdHandlerF(
+		func(ctx context.Context, req *int) (*int, error) { return nil, nil }))
+	params := make(map[string]string)
+	n := b.router.Find(http.MethodGet, "/api/abc", params)
+	require.Nil(t, n)
+	n = b.router.Find(http.MethodPost, "/api/abc", params)
+	require.Equal(t, "/api/abc", n.FullPath)
 }

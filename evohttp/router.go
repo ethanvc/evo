@@ -16,8 +16,9 @@ func NewRouter() *Router {
 
 func (r *Router) Find(httpMethod, urlPath string, params map[string]string) *RouteNode {
 	var mn *MethodRouteNode
-	for _, mn = range r.methodNodes {
-		if mn.HttpMethod == httpMethod {
+	for _, n := range r.methodNodes {
+		if n.HttpMethod == httpMethod {
+			mn = n
 			break
 		}
 	}

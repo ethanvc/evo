@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/ethanvc/evo/base"
 	"github.com/ethanvc/evo/evohttp"
+	"github.com/ethanvc/evo/examples/metricapp/rediskey"
 	"github.com/ethanvc/evo/plog"
 	"github.com/ethanvc/evo/rediscli"
 	"github.com/redis/go-redis/v9"
@@ -103,7 +104,7 @@ func (controller *userController) queryUserFromCache(c context.Context, req *Que
 	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
 		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
 	defer cancel()
-	err = controller.redisCli.Get(c, fmt.Sprintf("a_%d", req.Uid), resp)
+	err = controller.redisCli.Get(c, rediskey.UserCacheKey(req.Uid), resp)
 	switch err {
 	case redis.Nil:
 		return nil, base.New(codes.NotFound, "UserNotFoundInCache").Err()
@@ -131,6 +132,18 @@ func (controller *userController) queryUserFromDb(c context.Context, req *QueryU
 		return
 	default:
 		return nil, errors.Join(base.New(codes.Internal, "UserDbError").Err(), err)
+	}
+}
+
+func (controller *userController) saveUserToCache(c context.Context, user *UserDto) (err error) {
+	c = plog.WithLogContext(c, nil)
+	defer func() { plog.RequestLog(c, err, user, nil) }()
+	err = controller.redisCli.Set(c, rediskey.UserCacheKey(user.Uid), user, 0)
+	switch err {
+	case nil:
+		return
+	default:
+		return errors.Join(base.New(codes.Unknown, "SaveUserToRedisErr").Err(), err)
 	}
 }
 
