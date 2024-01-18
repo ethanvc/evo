@@ -65,8 +65,26 @@ type QueryUserReq struct {
 	Uid int64
 }
 
+type Gender int
+
+const (
+	GenderMale   Gender = 1
+	GenderFemale Gender = 2
+)
+
+type UserStatus int
+
+const (
+	UserStatusNormal UserStatus = 1
+)
+
 type UserDto struct {
-	Uid int64
+	Uid        int64
+	Gender     Gender
+	Status     UserStatus
+	CreateTime int64
+	UpdateTime int64
+	Name       string
 }
 
 func (u *UserDto) TableName() string {
@@ -98,6 +116,7 @@ func (controller *userController) QueryUser(c context.Context, req *QueryUserReq
 	if err != nil {
 		return nil, err
 	}
+	controller.saveUserToCache(c, resp)
 	return resp, nil
 }
 
@@ -108,7 +127,7 @@ func (controller *userController) queryUserFromCache(c context.Context, req *Que
 	c, cancel := context.WithTimeoutCause(c, time.Millisecond*100,
 		base.New(codes.DeadlineExceeded, "GetFromRedisTimeout").Err())
 	defer cancel()
-	err = controller.redisCli.Get(c, rediskey.UserCacheKey(req.Uid), resp)
+	err = controller.redisCli.Get(c, rediskey.UserCacheKey(req.Uid), &resp)
 	switch err {
 	case redis.Nil:
 		return nil, base.New(codes.NotFound, "UserNotFoundInCache").Err()
