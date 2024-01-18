@@ -62,7 +62,7 @@ func newRedisClient() *rediscli.RedisClient {
 // DTO对象，用于传输和对外输出实体属性
 
 type QueryUserReq struct {
-	Uid int64
+	Uid int64 `json:"uid"`
 }
 
 type Gender int
@@ -79,12 +79,12 @@ const (
 )
 
 type UserDto struct {
-	Uid        int64
-	Gender     Gender
-	Status     UserStatus
-	CreateTime int64
-	UpdateTime int64
-	Name       string
+	Uid        int64      `json:"uid"`
+	Gender     Gender     `json:"gender"`
+	Status     UserStatus `json:"status"`
+	CreateTime int64      `json:"create_time"`
+	UpdateTime int64      `json:"update_time"`
+	Name       string     `json:"name"`
 }
 
 func (u *UserDto) TableName() string {
