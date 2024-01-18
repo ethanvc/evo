@@ -32,7 +32,7 @@ func main() {
 func newHttpServer(lc fx.Lifecycle, user *userController) *http.Server {
 	srv := &http.Server{Addr: ":8080"}
 	evoSvr := evohttp.NewServer()
-	userGroup := evoSvr.SubBuilder("/api/user")
+	userGroup := evoSvr.SubBuilder("/api/users")
 	userGroup.POST("/get", evohttp.NewStdHandlerF(user.QueryUser))
 	srv.Handler = evoSvr
 	lc.Append(fx.Hook{
@@ -67,6 +67,10 @@ type QueryUserReq struct {
 
 type UserDto struct {
 	Uid int64
+}
+
+func (u *UserDto) TableName() string {
+	return "user_tab"
 }
 
 type userController struct {
