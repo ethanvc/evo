@@ -21,7 +21,6 @@ type Reporter struct {
 	clientEventTotal           *prometheus.CounterVec
 	serverEventDurationSeconds *prometheus.HistogramVec
 	clientEventDurationSeconds *prometheus.HistogramVec
-	gauge                      *prometheus.GaugeVec
 }
 
 type ReporterConfig struct {
@@ -40,16 +39,28 @@ func NewReporter() *Reporter {
 	return r
 }
 
+type MonitorLevel string
+
+const (
+	MonitorLevelErr  MonitorLevel = "err"
+	MonitorLevelWar  MonitorLevel = "warn"
+	MonitorLevelInfo MonitorLevel = "info"
+)
+
+func (lvl MonitorLevel) String() string {
+	return string(lvl)
+}
+
 func (r *Reporter) init() {
 	reg := r.reg
 	r.serverEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: r.metricName("server_event_total"),
-	}, []string{"svr", "method", "event"})
+	}, []string{"lvl", "method", "event"})
 	reg.MustRegister(r.serverEventTotal)
 
 	r.clientEventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: r.metricName("client_event_total"),
-	}, []string{"svr", "method", "event"})
+	}, []string{"lvl", "svr", "method", "event"})
 	reg.MustRegister(r.clientEventTotal)
 
 	r.serverEventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
@@ -61,11 +72,6 @@ func (r *Reporter) init() {
 		Name: r.metricName("client_event_duration_seconds"),
 	}, []string{"svr", "method"})
 	reg.MustRegister(r.clientEventDurationSeconds)
-
-	r.gauge = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: r.metricName("xx"),
-	}, []string{"type", "id"})
-	reg.MustRegister(r.gauge)
 }
 
 func (r *Reporter) metricName(name string) string {
@@ -73,32 +79,43 @@ func (r *Reporter) metricName(name string) string {
 }
 
 func (r *Reporter) ReportEvent(c context.Context, event string) {
-	lc := GetLogContext(c)
-	r.serverEventTotal.WithLabelValues(r.config.ReportSvr, lc.GetMethod(), event).Inc()
+	r.ReportEventWithLevel(c, MonitorLevelInfo, event)
 }
 
 func (r *Reporter) ReportErrEvent(c context.Context, event string) {
-	r.ReportEvent(c, "ERR:"+event)
+	r.ReportEventWithLevel(c, MonitorLevelErr, event)
 }
 
-func (r *Reporter) ReportRequest(c context.Context, code codes.Code, event string) {
-	r.ReportEvent(c, fmt.Sprintf("REQ:%s:%s", code.String(), event))
+func (r *Reporter) ReportRequest(c context.Context, code codes.Code, event string, extra ...string) {
+	lvl := GetMonitorLevel(code)
+	r.ReportEventWithLevel(c, lvl, "REQ_END:"+code.String()+":"+event, extra...)
 }
 
-func (r *Reporter) ReportClientEvent(c context.Context, svr, method, event string) {
-	r.clientEventTotal.WithLabelValues(svr, method, event).Inc()
+func (r *Reporter) ReportEventWithLevel(
+	c context.Context, lvl MonitorLevel, event string, extra ...string) {
+	lc := GetLogContext(c)
+	lvs := append(extra, lvl.String(), lc.GetMethod(), event)
+	r.serverEventTotal.WithLabelValues(lvs...).Inc()
 }
 
-func (r *Reporter) ReportClientRequest(c context.Context, svr, method, event string) {
-	r.ReportClientEvent(c, svr, method, "REQ:"+event)
-}
-
-func (r *Reporter) ReportEventDuration(c context.Context, duration time.Duration) {
+func (r *Reporter) ReportDuration(c context.Context, duration time.Duration) {
 	lc := GetLogContext(c)
 	r.serverEventDurationSeconds.WithLabelValues(lc.method).Observe(duration.Seconds())
 }
 
-func (r *Reporter) ReportClientEventDuration(c context.Context, svr, method string, duration time.Duration) {
+func (r *Reporter) ReportClientRequest(c context.Context, code codes.Code, svr, event string, extra ...string) {
+	lvl := GetMonitorLevel(code)
+	r.ReportClientEventWithLevel(c, lvl, svr, "REQ_END:"+code.String()+":"+event, extra...)
+}
+
+func (r *Reporter) ReportClientEventWithLevel(c context.Context,
+	lvl MonitorLevel, svr, event string, extra ...string) {
+	lc := GetLogContext(c)
+	lvs := append(extra, lvl.String(), lc.GetMethod(), event)
+	r.clientEventTotal.WithLabelValues(lvs...).Inc()
+}
+
+func (r *Reporter) ReportClientDuration(c context.Context, svr, method string, duration time.Duration) {
 	r.clientEventDurationSeconds.WithLabelValues(svr, method).Observe(duration.Seconds())
 }
 
@@ -146,10 +163,13 @@ func (r *Reporter) Gather() ([]*dto.MetricFamily, error) {
 	return families, err
 }
 
-func ReportEvent(c context.Context, event string) {
-	DefaultReporter().ReportEvent(c, event)
-}
-
-func ReportErrEvent(c context.Context, event string) {
-	DefaultReporter().ReportErrEvent(c, event)
+func GetMonitorLevel(code codes.Code) MonitorLevel {
+	switch code {
+	case codes.OK, codes.Canceled, codes.InvalidArgument,
+		codes.NotFound, codes.AlreadyExists, codes.PermissionDenied,
+		codes.FailedPrecondition, codes.OutOfRange, codes.Unauthenticated:
+		return MonitorLevelInfo
+	default:
+		return MonitorLevelErr
+	}
 }
