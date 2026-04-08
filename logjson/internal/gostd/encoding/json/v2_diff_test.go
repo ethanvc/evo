@@ -12,9 +12,9 @@ import (
 	"testing"
 	"time"
 
-	jsonv1 "github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
-	jsonv2 "github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	jsonv1 "github.com/ethanvc/evo/logjson/internal/gostd/encoding/json"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	jsonv2 "github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // NOTE: This file serves as a list of semantic differences between v1 and v2.

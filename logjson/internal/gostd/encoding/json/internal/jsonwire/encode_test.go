@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
 )
 
 func TestAppendQuote(t *testing.T) {

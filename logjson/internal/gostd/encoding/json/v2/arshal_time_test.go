@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
 )
 
 func baseLabel(base uint64) string {

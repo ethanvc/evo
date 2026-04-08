@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ethanvc/study/golangproj/xobs"
+	"github.com/ethanvc/evo/xobs"
 	"google.golang.org/grpc/codes"
 )
 

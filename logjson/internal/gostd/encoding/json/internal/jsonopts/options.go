@@ -5,8 +5,8 @@
 package jsonopts
 
 import (
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
 )
 
 // Options is the common options type shared across json packages.

@@ -12,7 +12,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsontest"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsontest"
 )
 
 func FuzzCoder(f *testing.F) {

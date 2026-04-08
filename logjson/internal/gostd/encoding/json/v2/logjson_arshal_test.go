@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"testing"
 
-	json "github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	json "github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 func md5Val(s string) string {

@@ -3,7 +3,7 @@ package httpsvr
 import (
 	"fmt"
 
-	"github.com/ethanvc/study/golangproj/httpsvr/ginradix"
+	"github.com/ethanvc/evo/httpsvr/ginradix"
 )
 
 type Router struct {

@@ -12,7 +12,7 @@ import os
 import shutil
 import sys
 
-MODULE = "github.com/ethanvc/study/golangproj"
+MODULE = "github.com/ethanvc/evo"
 GOSTD_PREFIX = f"{MODULE}/logjson/internal/gostd"
 
 # Directories to copy (relative to encoding/json/).

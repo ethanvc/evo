@@ -12,9 +12,9 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsontest"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsontest"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
 )
 
 // TestEncoder tests whether we can produce JSON with either tokens or raw values.

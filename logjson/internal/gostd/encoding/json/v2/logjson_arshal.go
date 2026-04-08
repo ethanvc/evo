@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strconv"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonopts"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
 )
 
 func logjsonWrapArshaler(f *structField) {

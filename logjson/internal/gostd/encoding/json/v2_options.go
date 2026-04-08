@@ -175,10 +175,10 @@ package json
 import (
 	"encoding"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonopts"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
-	jsonv2 "github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	jsonv2 "github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // Reference encoding, jsonv2, and jsontext packages to assist pkgsite

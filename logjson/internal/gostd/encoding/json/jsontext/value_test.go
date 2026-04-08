@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsontest"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsontest"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
 )
 
 type valueTestdataEntry struct {

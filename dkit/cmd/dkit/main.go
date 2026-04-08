@@ -4,14 +4,14 @@ import (
 	"context"
 	"os"
 
-	"github.com/ethanvc/study/golangproj/dkit"
-	"github.com/ethanvc/study/golangproj/xobs"
+	"github.com/ethanvc/evo/dkit"
+	"github.com/ethanvc/evo/xobs"
 	"github.com/spf13/cobra"
 )
 
 // GOOS=linux GOARCH=amd64 go build -o dkit main.go
-// GOBIN=$(pwd) go install github.com/ethanvc/study/golangproj/dkit/cmd/dkit@latest
-// GOPROXY=direct GOBIN=$(pwd) go install github.com/ethanvc/study/golangproj/dkit/cmd/dkit@latest
+// GOBIN=$(pwd) go install github.com/ethanvc/evo/dkit/cmd/dkit@latest
+// GOPROXY=direct GOBIN=$(pwd) go install github.com/ethanvc/evo/dkit/cmd/dkit@latest
 func main() {
 	ctx := context.Background()
 	xobs.LogInfo(ctx, "dkit start")

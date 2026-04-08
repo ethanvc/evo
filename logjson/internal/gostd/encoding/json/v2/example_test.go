@@ -19,8 +19,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // If a type implements [encoding.TextMarshaler] and/or [encoding.TextUnmarshaler],

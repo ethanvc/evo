@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/ethanvc/study/golangproj/dkit/dgit"
+	"github.com/ethanvc/evo/dkit/dgit"
 	"github.com/spf13/cobra"
 )
 

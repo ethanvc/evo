@@ -1,4 +1,4 @@
-module github.com/ethanvc/study/golangproj
+module github.com/ethanvc/evo
 
 go 1.26.0
 

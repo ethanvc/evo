@@ -10,8 +10,8 @@ import (
 	"math"
 	"strconv"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
 )
 
 // NOTE: Token is analogous to v1 json.Token.

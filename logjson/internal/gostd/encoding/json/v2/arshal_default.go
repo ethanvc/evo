@@ -20,11 +20,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonopts"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
 )
 
 // optimizeCommon specifies whether to use optimizations targeted for certain

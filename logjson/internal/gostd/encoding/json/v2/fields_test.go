@@ -10,8 +10,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsontest"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsontest"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
 )
 
 type unexported struct{}

@@ -7,9 +7,9 @@ package json
 import (
 	"fmt"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonopts"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
 )
 
 // Options configure [Marshal], [MarshalWrite], [MarshalEncode],

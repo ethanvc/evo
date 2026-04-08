@@ -8,7 +8,7 @@ import (
 	"bytes"
 	"strings"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
 )
 
 // HTMLEscape appends to dst the JSON-encoded src with <, >, &, U+2028 and U+2029

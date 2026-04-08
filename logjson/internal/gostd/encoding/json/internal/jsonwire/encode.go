@@ -11,7 +11,7 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
 )
 
 // escapeASCII reports whether the ASCII character needs to be escaped.

@@ -11,8 +11,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // This example demonstrates the use of the [Encoder] and [Decoder] to

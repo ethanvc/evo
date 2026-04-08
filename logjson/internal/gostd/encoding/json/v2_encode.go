@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"strconv"
 
-	jsonv2 "github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	jsonv2 "github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // Marshal returns the JSON encoding of v.

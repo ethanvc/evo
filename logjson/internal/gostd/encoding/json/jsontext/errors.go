@@ -9,7 +9,7 @@ import (
 	"io"
 	"strconv"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
 )
 
 const errorPrefix = "jsontext: "

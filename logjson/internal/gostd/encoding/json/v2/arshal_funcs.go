@@ -11,10 +11,10 @@ import (
 	"reflect"
 	"sync"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonflags"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/internal/jsonopts"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
 )
 
 // SkipFunc may be returned by [MarshalToFunc] and [UnmarshalFromFunc] functions.

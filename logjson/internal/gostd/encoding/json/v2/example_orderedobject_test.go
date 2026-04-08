@@ -9,8 +9,8 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/jsontext"
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json/v2"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/v2"
 )
 
 // OrderedObject is an ordered sequence of name/value members in a JSON object.

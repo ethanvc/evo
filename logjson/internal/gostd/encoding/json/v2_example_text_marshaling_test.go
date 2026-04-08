@@ -9,7 +9,7 @@ import (
 	"log"
 	"strings"
 
-	"github.com/ethanvc/study/golangproj/logjson/internal/gostd/encoding/json"
+	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json"
 )
 
 type Size int

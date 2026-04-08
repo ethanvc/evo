@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ethanvc/study/golangproj/httpsvr/ginradix"
+	"github.com/ethanvc/evo/httpsvr/ginradix"
 )
 
 type Server struct {

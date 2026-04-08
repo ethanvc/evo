@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ethanvc/study/golangproj/logjson"
+	"github.com/ethanvc/evo/logjson"
 )
 
 type JsonHandler struct {

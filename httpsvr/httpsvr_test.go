@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ethanvc/study/golangproj/httpcli"
+	"github.com/ethanvc/evo/httpcli"
 	"github.com/stretchr/testify/require"
 )
 
