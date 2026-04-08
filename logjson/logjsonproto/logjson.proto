@@ -7,5 +7,5 @@ import "google/protobuf/descriptor.proto";
 option go_package = "github.com/ethanvc/evo/logjson/logjsonproto;logjsonproto";
 
 extend google.protobuf.FieldOptions {
-  optional string log_json = 98721;
+  optional string logjson = 98721;
 }
