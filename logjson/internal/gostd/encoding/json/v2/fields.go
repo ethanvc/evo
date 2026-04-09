@@ -111,6 +111,7 @@ func makeStructFields(root reflect.Type) (fs structFields, serr *SemanticError) 
 			if ignored {
 				continue
 			}
+			logjsonResolveFieldOptions(t, i, &options)
 			hasAnyJSONField = true
 			f := structField{
 				// Allocate a new slice (len=N+1) to hold both

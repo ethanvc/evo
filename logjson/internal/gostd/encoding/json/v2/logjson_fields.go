@@ -14,6 +14,21 @@ func parseLogjsonFieldOptions(sf reflect.StructField, out *fieldOptions) {
 	if !hasTag {
 		return
 	}
+	applyLogjsonTag(sf, tag, out)
+}
+
+func logjsonResolveFieldOptions(structType reflect.Type, fieldIndex int, out *fieldOptions) {
+	if out.md5 {
+		return
+	}
+	tag := logjsonResolveProtoTag(structType, fieldIndex)
+	if tag == "" {
+		return
+	}
+	applyLogjsonTag(structType.Field(fieldIndex), tag, out)
+}
+
+func applyLogjsonTag(sf reflect.StructField, tag string, out *fieldOptions) {
 	for _, opt := range strings.Split(tag, ",") {
 		opt = strings.TrimSpace(opt)
 		switch opt {
