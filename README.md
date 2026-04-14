@@ -6,4 +6,5 @@
 2. 简短的英文描述，能够直观的说明问题。
 
 ## 错误
-错误均使用xobs.Error表示。
+1. 错误均使用xobs.Error表示。
+2. 在领域边界处将error转换成xobs.Error。
