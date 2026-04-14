@@ -14,7 +14,7 @@ import (
 // GOPROXY=direct GOBIN=$(pwd) go install github.com/ethanvc/evo/dkit/cmd/dkit@latest
 func main() {
 	ctx := context.Background()
-	xobs.LogInfo(ctx, "dkit start")
+	xobs.LogInfo(ctx, "DkitStart")
 	rootCmd := &cobra.Command{
 		Use:          "dkit",
 		Short:        "dkit",

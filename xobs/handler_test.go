@@ -20,17 +20,17 @@ func TestJsonHandler_Handle(t *testing.T) {
 	var writer nopWriteCloser
 	handler := NewJsonHandler(&writer)
 	ctx := WithObsContext(context.Background(), &ObsConfig{Handler: handler})
-	LogInfo(ctx, "test")
-	require.Equal(t, "2026-01-01T00:00:00Z|info|xobs/handler_test.go:23|1234567890:1234567890:1234567890|test\n", writer.String())
+	LogInfo(ctx, "Test")
+	require.Equal(t, "2026-01-01T00:00:00Z|info|xobs/handler_test.go:23|1234567890:1234567890:1234567890|Test\n", writer.String())
 	writer.Reset()
-	LogInfo(ctx, "test", String("key", "value"))
-	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:26|1234567890:1234567890:1234567890|test|{"key":"value"}`+"\n", writer.String())
+	LogInfo(ctx, "Test", String("key", "value"))
+	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:26|1234567890:1234567890:1234567890|Test|{"key":"value"}`+"\n", writer.String())
 	writer.Reset()
 	type Abc struct {
 		Name string
 	}
-	LogInfo(ctx, "test", Any("abc", &Abc{Name: "value"}))
-	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:32|1234567890:1234567890:1234567890|test|{"abc":{"Name":"value"}}`+"\n", writer.String())
+	LogInfo(ctx, "Test", Any("abc", &Abc{Name: "value"}))
+	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:32|1234567890:1234567890:1234567890|Test|{"abc":{"Name":"value"}}`+"\n", writer.String())
 }
 
 func TestDefaultLogLevel(t *testing.T) {
@@ -42,7 +42,7 @@ func TestDefaultLogLevel(t *testing.T) {
 	ctx := WithObsContext(context.Background(), &ObsConfig{Handler: handler})
 
 	// Default level is Info, so Dbg should be filtered out.
-	LogInfo(ctx, "visible")
+	LogInfo(ctx, "Visible")
 	assert.NotEmpty(t, writer.String())
 	writer.Reset()
 
@@ -53,12 +53,12 @@ func TestDefaultLogLevel(t *testing.T) {
 	// Raise default level to Err: Info should now be filtered out.
 	SetDefaultLogLevel(LevelErr)
 	writer.Reset()
-	LogInfo(ctx, "should_not_appear")
+	LogInfo(ctx, "ShouldNotAppear")
 	assert.Empty(t, writer.String())
 
-	LogErr(ctx, "visible_err")
+	LogErr(ctx, "VisibleErr")
 	assert.NotEmpty(t, writer.String())
-	assert.Contains(t, writer.String(), "visible_err")
+	assert.Contains(t, writer.String(), "VisibleErr")
 
 	// Lower default level to Dbg: everything should pass.
 	SetDefaultLogLevel(LevelDbg)
