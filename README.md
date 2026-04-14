@@ -1,2 +1,6 @@
-# evo
-golang library for serivce development
+# 简介
+
+## event规范
+打印日志需要提供一个event参数，这个参数需要满足如下规范：
+1. 大驼峰格式。
+2. 简短的英文描述，能够直观的说明问题。
