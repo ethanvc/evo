@@ -20,16 +20,16 @@ func TestJsonHandler_Handle(t *testing.T) {
 	var writer nopWriteCloser
 	handler := NewJsonHandler(&writer)
 	ctx := WithObsContext(context.Background(), &ObsConfig{Handler: handler})
-	LogInfo(ctx, "Test")
+	Info(ctx, "Test")
 	require.Equal(t, "2026-01-01T00:00:00Z|info|xobs/handler_test.go:23|1234567890:1234567890:1234567890|Test\n", writer.String())
 	writer.Reset()
-	LogInfo(ctx, "Test", String("key", "value"))
+	Info(ctx, "Test", String("key", "value"))
 	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:26|1234567890:1234567890:1234567890|Test|{"key":"value"}`+"\n", writer.String())
 	writer.Reset()
 	type Abc struct {
 		Name string
 	}
-	LogInfo(ctx, "Test", Any("abc", &Abc{Name: "value"}))
+	Info(ctx, "Test", Any("abc", &Abc{Name: "value"}))
 	require.Equal(t, `2026-01-01T00:00:00Z|info|xobs/handler_test.go:32|1234567890:1234567890:1234567890|Test|{"abc":{"Name":"value"}}`+"\n", writer.String())
 }
 
@@ -42,7 +42,7 @@ func TestDefaultLogLevel(t *testing.T) {
 	ctx := WithObsContext(context.Background(), &ObsConfig{Handler: handler})
 
 	// Default level is Info, so Dbg should be filtered out.
-	LogInfo(ctx, "Visible")
+	Info(ctx, "Visible")
 	assert.NotEmpty(t, writer.String())
 	writer.Reset()
 
@@ -53,10 +53,10 @@ func TestDefaultLogLevel(t *testing.T) {
 	// Raise default level to Err: Info should now be filtered out.
 	SetDefaultLogLevel(LevelErr)
 	writer.Reset()
-	LogInfo(ctx, "ShouldNotAppear")
+	Info(ctx, "ShouldNotAppear")
 	assert.Empty(t, writer.String())
 
-	LogErr(ctx, "VisibleErr")
+	Err(ctx, "VisibleErr")
 	assert.NotEmpty(t, writer.String())
 	assert.Contains(t, writer.String(), "VisibleErr")
 

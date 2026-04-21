@@ -7,15 +7,15 @@ import (
 	"runtime"
 )
 
-func LogInfo(ctx context.Context, event string, args ...any) {
+func Info(ctx context.Context, event string, args ...any) {
 	obsCtx := GetObsContext(ctx)
 	obsCtx.LogRaw(ctx, obsCtx, 1, LevelInfo, event, args...)
 }
 
-func LogErrReport(ctx context.Context, event string, args ...any) {
+func ErrReport(ctx context.Context, event string, args ...any) {
 }
 
-func LogErr(ctx context.Context, event string, args ...any) {
+func Err(ctx context.Context, event string, args ...any) {
 	obsCtx := GetObsContext(ctx)
 	obsCtx.LogRaw(ctx, obsCtx, 1, LevelErr, event, args...)
 }
@@ -24,7 +24,7 @@ func ReportErr(ctx context.Context, event string, labels ...KV) {
 
 }
 
-func LogPanicReport(ctx context.Context, event string, args ...any) {}
+func PanicReport(ctx context.Context, event string, args ...any) {}
 
 type KV struct {
 	Key string

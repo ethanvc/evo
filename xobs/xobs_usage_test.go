@@ -57,7 +57,7 @@ func Test_Case(t *testing.T) {
 				Amount: req.Amount,
 			})
 			if err != nil {
-				LogErrReport(ctx, "GetVoucherErr", "err", err)
+				ErrReport(ctx, "GetVoucherErr", "err", err)
 			}
 			_ = voucher
 			// make below log level to error
