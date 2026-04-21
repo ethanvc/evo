@@ -12,7 +12,7 @@ func LogInfo(ctx context.Context, event string, args ...any) {
 	obsCtx.LogRaw(ctx, obsCtx, 1, LevelInfo, event, args...)
 }
 
-func LogReportErr(ctx context.Context, event string, args ...any) {
+func LogErrReport(ctx context.Context, event string, args ...any) {
 }
 
 func LogErr(ctx context.Context, event string, args ...any) {
@@ -23,6 +23,8 @@ func LogErr(ctx context.Context, event string, args ...any) {
 func ReportErr(ctx context.Context, event string, labels ...KV) {
 
 }
+
+func LogPanicReport(ctx context.Context, event string, args ...any) {}
 
 type KV struct {
 	Key string
