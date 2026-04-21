@@ -36,6 +36,7 @@ func DeleteMergedBranches(req *DeleteMergedBranchesReq) error {
 	}
 
 	for _, targetBranch := range productionBranches {
+		fmt.Printf("begin delete merged branches from %s\n", targetBranch)
 		exist, err := dgit.IsRemoteBranchExist(ctx, targetBranch)
 		if err != nil {
 			return err
