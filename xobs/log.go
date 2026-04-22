@@ -7,6 +7,8 @@ import (
 	"runtime"
 )
 
+func ReportInfo(ctx context.Context, event string, labels ...KV) {}
+
 func Info(ctx context.Context, event string, args ...any) {
 	obsCtx := GetObsContext(ctx)
 	obsCtx.LogRaw(ctx, 1, LevelInfo, event, args...)
