@@ -121,7 +121,7 @@ func (oc *ObsContext) Enabled(lvl Level) bool {
 	return lvl >= oc.GetLevel()
 }
 
-func (oc *ObsContext) LogRaw(ctx context.Context, obsCtx *ObsContext, skip int, lvl Level, event string, args ...any) {
+func (oc *ObsContext) LogRaw(ctx context.Context, skip int, lvl Level, event string, args ...any) {
 	if !oc.Enabled(lvl) {
 		return
 	}
@@ -130,8 +130,8 @@ func (oc *ObsContext) LogRaw(ctx context.Context, obsCtx *ObsContext, skip int, 
 		Time:     sNow(),
 		Level:    lvl,
 		Position: GetCallerPosition(skip + 1),
-		ObsCtx:   obsCtx,
+		ObsCtx:   oc,
 	}
 	item.Add(args...)
-	obsCtx.GetHandler().Handle(ctx, item)
+	oc.GetHandler().Handle(ctx, item)
 }
