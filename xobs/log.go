@@ -26,6 +26,8 @@ func ReportErr(ctx context.Context, event string, labels ...KV) {
 
 }
 
+func InvariantErrReport(ctx context.Context, event string, args ...any) {}
+
 func PanicReport(ctx context.Context, event string, args ...any) {
 	obsCtx := GetObsContext(ctx)
 	obsCtx.LogRaw(ctx, 1, LevelErr, event, args...)
