@@ -92,7 +92,7 @@ func (oc *ObsContext) getSpan() *Span {
 	return nil
 }
 
-func (oc *ObsContext) LogReportAccessLog(err error, req, resp any, labels []KV, args ...any) {
+func (oc *ObsContext) AccessLogReport(err error, req, resp any, labels []KV, args ...any) {
 }
 
 func (oc *ObsContext) SetAttr(key string, val any) {}

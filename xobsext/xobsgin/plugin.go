@@ -6,7 +6,8 @@ import (
 )
 
 type Plugin struct {
-	getName GetNameFuncT
+	getName       GetNameFuncT
+	getLogContent GetLogContentFuncT
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
@@ -30,7 +31,8 @@ func (p *Plugin) Handle(c *gin.Context) {
 	})
 	c.Request = c.Request.WithContext(ctx)
 	defer func() {
-		xobs.GetObsContext(ctx).LogReportAccessLog()
+		err, req, resp, extra := p.getLogContentWrapper(c)
+		xobs.GetObsContext(ctx).LogReportAccessLog(err, req, resp, nil, extra...)
 	}()
 	c.Next()
 }
@@ -42,9 +44,26 @@ func (p *Plugin) getNameWrapper(c *gin.Context) string {
 	return c.FullPath()
 }
 
+func toAnySlice[T any](arr []T) []any {
+	res := make([]any, len(arr))
+	for i, v := range arr {
+		res[i] = v
+	}
+	return res
+}
+
+func (p *Plugin) getLogContentWrapper(c *gin.Context) (error, any, any, []any) {
+	if p.getLogContent != nil {
+		err, req, resp, extra := p.getLogContent(c)
+		return err, req, resp, toAnySlice(extra)
+	}
+	return nil, nil, nil, nil
+}
+
 type PluginConfig struct {
-	GetName GetNameFuncT
+	GetName       GetNameFuncT
+	GetLogContent GetLogContentFuncT
 }
 
 type GetNameFuncT func(c *gin.Context) string
-type GetResultFuncT func(c *gin.Context) (err error, req, resp any)
+type GetLogContentFuncT func(c *gin.Context) (err error, req, resp any, extras []xobs.Attr)

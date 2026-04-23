@@ -70,7 +70,7 @@ func Test_Case(t *testing.T) {
 		req := &CreateOrderReq{}
 		resp, err := f(ctx, req)
 		// in real case, you should get report kvs after verified.
-		GetObsContext(ctx).LogReportAccessLog(err, req, resp, []KV{{Key: "business_id", Val: "333"}})
+		GetObsContext(ctx).AccessLogReport(err, req, resp, []KV{{Key: "business_id", Val: "333"}})
 	}
 
 	{
@@ -90,6 +90,6 @@ func Test_Case(t *testing.T) {
 		ctx := WithSpanContext(ctx, &SpanConfig{Name: "RedisAccess", GetLogLevel: getLvl})
 		// do redis operation ...
 		err := New(codes.NotFound, "KeyNotFound")
-		GetObsContext(ctx).LogReportAccessLog(err, nil, nil, nil)
+		GetObsContext(ctx).AccessLogReport(err, nil, nil, nil)
 	}
 }
