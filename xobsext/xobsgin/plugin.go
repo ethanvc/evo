@@ -32,7 +32,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 	c.Request = c.Request.WithContext(ctx)
 	defer func() {
 		err, req, resp, extra := p.getLogContentWrapper(c)
-		xobs.GetObsContext(ctx).LogReportAccessLog(err, req, resp, nil, extra...)
+		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, nil, extra...)
 	}()
 	c.Next()
 }
