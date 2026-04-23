@@ -57,6 +57,9 @@ func (p *Plugin) getLogContentWrapper(c *gin.Context) (error, any, any, []any) {
 		err, req, resp, extra := p.getLogContent(c)
 		return err, req, resp, toAnySlice(extra)
 	}
+	if c.Writer.Status() >= 500 {
+
+	}
 	return nil, nil, nil, nil
 }
 
