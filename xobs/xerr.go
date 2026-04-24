@@ -158,3 +158,17 @@ func Convert(err error) *Error {
 	}
 	return New(codes.Unknown, "UnknownErr").SetMsg(err.Error())
 }
+
+func MakeKvEventStr(kvs ...any) string {
+	var buf bytes.Buffer
+	if len(kvs)%2 == 1 {
+		buf.WriteString("KVEventNotPaired")
+	}
+	for i := 0; i < len(kvs)-1; i += 2 {
+		if buf.Len() > 0 {
+			buf.WriteByte(delimiter)
+		}
+		_, _ = fmt.Fprintf(&buf, "%s:%v", kvs[i], kvs[i+1])
+	}
+	return buf.String()
+}

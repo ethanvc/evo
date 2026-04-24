@@ -1,6 +1,8 @@
 package xobsgin
 
 import (
+	"net/http"
+
 	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -8,6 +10,7 @@ import (
 
 type Plugin struct {
 	getName       GetNameFuncT
+	getErr        func(c *gin.Context, w *Writer) *xobs.Error
 	getLogContent GetLogContentFuncT
 }
 
@@ -34,10 +37,27 @@ func (p *Plugin) Handle(c *gin.Context) {
 	w := newWriter(c.Writer)
 	c.Writer = w
 	defer func() {
-		err, req, resp, extra := p.getLogContentWrapper(c, w)
-		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, nil, extra...)
+		req, resp, labels, extra := p.getLogContentWrapper(c, w)
+		err := p.getErrWrapper(c, w)
+		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, labels, extra...)
 	}()
 	c.Next()
+}
+
+func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *xobs.Error {
+	if p.getErr != nil {
+		return p.getErr(c, w)
+	}
+	status := w.Status()
+	if status == 0 {
+		return xobs.New(codes.Internal, "StatusMustNotZero")
+	} else if status >= http.StatusOK && status < http.StatusBadRequest {
+		xobs.ReportInfo(c.Request.Context())
+		return nil
+	} else if status >= http.StatusBadRequest && w.Status() < http.StatusInternalServerError {
+		return xobs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", w.Status())
+	}
+	return nil
 }
 
 func (p *Plugin) getNameWrapper(c *gin.Context) string {
@@ -47,29 +67,19 @@ func (p *Plugin) getNameWrapper(c *gin.Context) string {
 	return c.FullPath()
 }
 
-func toAnySlice[T any](arr []T) []any {
-	res := make([]any, len(arr))
-	for i, v := range arr {
-		res[i] = v
-	}
-	return res
-}
-
-func (p *Plugin) getLogContentWrapper(c *gin.Context, w *Writer) (err error, req any, resp any, labels []xobs.KV, extra []any) {
+func (p *Plugin) getLogContentWrapper(c *gin.Context, w *Writer) (req any, resp any, labels []xobs.KV, extra []any) {
 	if p.getLogContent != nil {
-		err, req, resp, labels, extra = p.getLogContent(c)
+		req, resp, labels, extra = p.getLogContent(c)
 		return
-	}
-	if c.Writer.Status() >= 500 {
-		realErr := xobs.New(codes.Internal, "")
 	}
 	return nil, nil, nil, nil
 }
 
 type PluginConfig struct {
 	GetName       GetNameFuncT
+	GetErr        func(c *gin.Context, w *Writer) (err *xobs.Error)
 	GetLogContent GetLogContentFuncT
 }
 
 type GetNameFuncT func(c *gin.Context) string
-type GetLogContentFuncT func(c *gin.Context) (err error, req, resp any, labels []xobs.KV, extras []any)
+type GetLogContentFuncT func(c *gin.Context) (req, resp any, labels []xobs.KV, extras []any)

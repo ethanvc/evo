@@ -10,9 +10,9 @@ import (
 type Writer struct {
 	gin.ResponseWriter
 	maxSize    int
-	StatusCode int
+	statusCode int
 	buf        bytes.Buffer
-	RealSize   int
+	realSize   int
 }
 
 func newWriter(w gin.ResponseWriter) *Writer {
@@ -23,10 +23,10 @@ func newWriter(w gin.ResponseWriter) *Writer {
 }
 
 func (w *Writer) Write(data []byte) (int, error) {
-	if w.StatusCode == 0 {
-		w.StatusCode = http.StatusOK
+	if w.statusCode == 0 {
+		w.statusCode = http.StatusOK
 	}
-	w.RealSize += len(data)
+	w.realSize += len(data)
 	if w.buf.Len() < w.maxSize {
 		s := min(w.maxSize-w.buf.Len(), len(data))
 		w.buf.Write(data[:s])
@@ -36,8 +36,28 @@ func (w *Writer) Write(data []byte) (int, error) {
 }
 
 func (w *Writer) WriteHeader(status int) {
-	if w.StatusCode < http.StatusOK {
-		w.StatusCode = status
+	if w.statusCode < http.StatusOK {
+		w.statusCode = status
 	}
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *Writer) Status() int {
+	return w.statusCode
+}
+
+func (w *Writer) GetRealSize() int {
+	return w.realSize
+}
+
+func (w *Writer) Bytes() []byte {
+	return w.buf.Bytes()
+}
+
+func (w *Writer) String() string {
+	return w.buf.String()
+}
+
+func (w *Writer) Truncated() bool {
+	return w.realSize != w.buf.Len()
 }
