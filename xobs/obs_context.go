@@ -121,7 +121,7 @@ func (oc *ObsContext) Enabled(lvl Level) bool {
 	return lvl >= oc.GetLevel()
 }
 
-func (oc *ObsContext) LogRaw(ctx context.Context, skip int, lvl Level, event string, args ...any) {
+func (oc *ObsContext) Log(ctx context.Context, skip int, lvl Level, event string, args ...any) {
 	if !oc.Enabled(lvl) {
 		return
 	}
