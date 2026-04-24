@@ -3,6 +3,7 @@ package xobsgin
 import (
 	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc/codes"
 )
 
 type Plugin struct {
@@ -30,8 +31,10 @@ func (p *Plugin) Handle(c *gin.Context) {
 		Name: p.getNameWrapper(c),
 	})
 	c.Request = c.Request.WithContext(ctx)
+	w := newWriter(c.Writer)
+	c.Writer = w
 	defer func() {
-		err, req, resp, extra := p.getLogContentWrapper(c)
+		err, req, resp, extra := p.getLogContentWrapper(c, w)
 		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, nil, extra...)
 	}()
 	c.Next()
@@ -52,13 +55,13 @@ func toAnySlice[T any](arr []T) []any {
 	return res
 }
 
-func (p *Plugin) getLogContentWrapper(c *gin.Context) (error, any, any, []any) {
+func (p *Plugin) getLogContentWrapper(c *gin.Context, w *Writer) (err error, req any, resp any, labels []xobs.KV, extra []any) {
 	if p.getLogContent != nil {
-		err, req, resp, extra := p.getLogContent(c)
-		return err, req, resp, toAnySlice(extra)
+		err, req, resp, labels, extra = p.getLogContent(c)
+		return
 	}
 	if c.Writer.Status() >= 500 {
-
+		realErr := xobs.New(codes.Internal, "")
 	}
 	return nil, nil, nil, nil
 }
@@ -69,4 +72,4 @@ type PluginConfig struct {
 }
 
 type GetNameFuncT func(c *gin.Context) string
-type GetLogContentFuncT func(c *gin.Context) (err error, req, resp any, extras []xobs.Attr)
+type GetLogContentFuncT func(c *gin.Context) (err error, req, resp any, labels []xobs.KV, extras []any)
