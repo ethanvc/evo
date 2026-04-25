@@ -36,8 +36,10 @@ func (p *Plugin) Handle(c *gin.Context) {
 	c.Request = c.Request.WithContext(ctx)
 	w := newWriter(c.Writer)
 	c.Writer = w
+	r := newReader(c.Request.Body)
+	c.Request.Body = r
 	defer func() {
-		req, resp, labels, extra := p.getLogContentWrapper(c, w)
+		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
 		err := p.getErrWrapper(c, w)
 		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, labels, extra...)
 	}()
@@ -67,12 +69,19 @@ func (p *Plugin) getNameWrapper(c *gin.Context) string {
 	return c.FullPath()
 }
 
-func (p *Plugin) getLogContentWrapper(c *gin.Context, w *Writer) (req any, resp any, labels []xobs.KV, extra []any) {
+func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req any, resp any, labels []xobs.KV, extra []any) {
 	if p.getLogContent != nil {
 		req, resp, labels, extra = p.getLogContent(c)
 		return
 	}
-	return nil, nil, nil, nil
+	req = r.Bytes()
+	resp = w.Bytes()
+	extra = append(extra, "http_url", c.Request.URL.String())
+	extra = append(extra, "http_status_code", w.Status())
+	extra = append(extra, "http_req_header", c.Request.Header)
+	extra = append(extra, "http_resp_header", w.Header())
+	extra = append(extra, "client_ip", c.Request.RemoteAddr)
+	return
 }
 
 type PluginConfig struct {
