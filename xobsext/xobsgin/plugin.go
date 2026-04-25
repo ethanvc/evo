@@ -9,9 +9,8 @@ import (
 )
 
 type Plugin struct {
-	getName       GetNameFuncT
-	getErr        func(c *gin.Context, w *Writer) *xobs.Error
-	getLogContent GetLogContentFuncT
+	getName GetNameFuncT
+	getErr  func(c *gin.Context, w *Writer) *xobs.Error
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
@@ -70,10 +69,6 @@ func (p *Plugin) getNameWrapper(c *gin.Context) string {
 }
 
 func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req any, resp any, labels []xobs.KV, extra []any) {
-	if p.getLogContent != nil {
-		req, resp, labels, extra = p.getLogContent(c)
-		return
-	}
 	req = r.Bytes()
 	resp = w.Bytes()
 	extra = append(extra, "http_url", c.Request.URL.String())
@@ -85,10 +80,8 @@ func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req
 }
 
 type PluginConfig struct {
-	GetName       GetNameFuncT
-	GetErr        func(c *gin.Context, w *Writer) (err *xobs.Error)
-	GetLogContent GetLogContentFuncT
+	GetName GetNameFuncT
+	GetErr  func(c *gin.Context, w *Writer) (err *xobs.Error)
 }
 
 type GetNameFuncT func(c *gin.Context) string
-type GetLogContentFuncT func(c *gin.Context) (req, resp any, labels []xobs.KV, extras []any)
