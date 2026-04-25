@@ -3,7 +3,6 @@ package xobs
 import (
 	"context"
 	"fmt"
-	"path/filepath"
 	"runtime"
 )
 
@@ -43,25 +42,10 @@ type Handler interface {
 	Handle(ctx context.Context, item LogItem)
 }
 
-// lastTwoPathParts 返回路径的最后两段（如 pkg/foo.go）；不足两段则只返回最后一段。
-func lastTwoPathParts(file string) string {
-	file = filepath.Clean(file)
-	base := filepath.Base(file)
-	dir := filepath.Dir(file)
-	if dir == "." {
-		return base
-	}
-	parent := filepath.Base(dir)
-	if parent == "." || parent == string(filepath.Separator) {
-		return base
-	}
-	return filepath.Join(parent, base)
-}
-
 func GetCallerPosition(skip int) string {
 	_, file, line, ok := runtime.Caller(skip + 1)
 	if !ok {
 		return "?:0"
 	}
-	return fmt.Sprintf("%s:%d", lastTwoPathParts(file), line)
+	return fmt.Sprintf("%s:%d", GetFilePathTailPart(file, 2), line)
 }

@@ -38,8 +38,14 @@ func (p *Plugin) Handle(c *gin.Context) {
 	r := newReader(c.Request.Body)
 	c.Request.Body = r
 	defer func() {
+		var err *xobs.Error
+		if r := recover(); r != nil {
+			err = xobs.New(codes.Internal, "")
+		}
 		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
-		err := p.getErrWrapper(c, w)
+		if err != nil {
+			err = p.getErrWrapper(c, w)
+		}
 		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, labels, extra...)
 	}()
 	c.Next()
