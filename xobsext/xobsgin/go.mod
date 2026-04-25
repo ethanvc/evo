@@ -3,7 +3,7 @@ module github.com/ethanvc/evo/xobsext/xobsgin
 go 1.26.0
 
 require (
-	github.com/ethanvc/evo v0.0.0-20260424235552-eac08b91bb5d
+	github.com/ethanvc/evo v0.0.0-20260425011129-5accf41d81d2
 	github.com/gin-gonic/gin v1.12.0
 	google.golang.org/grpc v1.77.0
 )

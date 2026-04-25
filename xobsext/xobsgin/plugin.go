@@ -40,7 +40,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 	defer func() {
 		var err *xobs.Error
 		if r := recover(); r != nil {
-			err = xobs.New(codes.Internal, "")
+			err = xobs.New(codes.Internal, "").AppendKvEvent("Panic", xobs.GetPanicPosition(0))
 		}
 		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
 		if err != nil {
