@@ -3,8 +3,9 @@ module github.com/ethanvc/evo/xobsext/xobsgin
 go 1.26.0
 
 require (
-	github.com/ethanvc/evo v0.0.0-20260423095851-48a02d6f5e39
+	github.com/ethanvc/evo v0.0.0-20260424235552-eac08b91bb5d
 	github.com/gin-gonic/gin v1.12.0
+	google.golang.org/grpc v1.77.0
 )
 
 require (
@@ -36,6 +37,5 @@ require (
 	golang.org/x/net v0.51.0 // indirect
 	golang.org/x/sys v0.41.0 // indirect
 	golang.org/x/text v0.34.0 // indirect
-	google.golang.org/grpc v1.77.0 // indirect
 	google.golang.org/protobuf v1.36.10 // indirect
 )

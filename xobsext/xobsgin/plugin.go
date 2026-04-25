@@ -52,12 +52,12 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *xobs.Error {
 	if status == 0 {
 		return xobs.New(codes.Internal, "StatusMustNotZero")
 	} else if status >= http.StatusOK && status < http.StatusBadRequest {
-		xobs.ReportInfo(c.Request.Context())
+		xobs.ReportInfo(c.Request.Context(), xobs.MakeKvEventStr("StatusCode", status))
 		return nil
 	} else if status >= http.StatusBadRequest && w.Status() < http.StatusInternalServerError {
-		return xobs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", w.Status())
+		return xobs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
 	}
-	return nil
+	return xobs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
 }
 
 func (p *Plugin) getNameWrapper(c *gin.Context) string {
