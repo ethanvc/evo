@@ -31,7 +31,7 @@ func (p *Plugin) init(conf *PluginConfig) {
 
 func (p *Plugin) Handle(c *gin.Context) {
 	ctx := xobs.WithSpanContext(c.Request.Context(), &xobs.SpanConfig{
-		Name: p.getNameWrapper(c),
+		Method: p.getNameWrapper(c),
 	})
 	c.Request = c.Request.WithContext(ctx)
 	w := newWriter(c.Writer)
@@ -47,7 +47,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 		if err == nil {
 			err = p.getErrWrapper(c, w)
 		}
-		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, labels, extra...)
+		xobs.GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, labels, extra...)
 	}()
 	c.Next()
 }

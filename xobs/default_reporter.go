@@ -15,7 +15,9 @@ type DefaultReporter struct {
 }
 
 func newDefaultReporter() *DefaultReporter {
-	return &DefaultReporter{}
+	reporter := &DefaultReporter{}
+	reporter.init()
+	return reporter
 }
 
 func (r *DefaultReporter) init() {
