@@ -19,14 +19,14 @@ var defaultHandler = NewJsonHandler(os.Stdout)
 
 var defaultLogLevel = LevelInfo
 
-var defaultGetLogLevel = GetLogLevel
+var defaultGetLogLevelAndEvent = GetLogLevelAndEvent
 
-func SetDefaultGetLogLevel(f GetAccessLogLevelFuncT) {
-	defaultGetLogLevel = f
+func SetDefaultGetLogLevel(f GetLogLvlAndEventFuncT) {
+	defaultGetLogLevelAndEvent = f
 }
 
-func GetDefaultGetLogLevel() GetAccessLogLevelFuncT {
-	return defaultGetLogLevel
+func GetDefaultGetLogLevelAndEvent() GetLogLvlAndEventFuncT {
+	return defaultGetLogLevelAndEvent
 }
 
 func SetDefaultLogLevel(lvl Level) {
@@ -75,19 +75,19 @@ func newDefaultSpan() *Span {
 	})
 }
 
-func GetLogLevel(err error) Level {
+func GetLogLevelAndEvent(err error) (Level, string) {
 	if err == nil {
-		return LevelInfo
+		return LevelInfo, codes.OK.String()
 	}
 	switch realErr := err.(type) {
 	case *Error:
 		switch realErr.GetCode() {
 		case codes.OK, codes.NotFound, codes.AlreadyExists, codes.InvalidArgument, codes.Unauthenticated, codes.FailedPrecondition:
-			return LevelInfo
+			return LevelInfo, realErr.GetCode().String()
 		default:
-			return LevelErr
+			return LevelErr, realErr.GetCode().String()
 		}
 	default:
-		return LevelErr
+		return LevelErr, codes.Internal.String()
 	}
 }

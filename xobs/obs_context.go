@@ -2,29 +2,29 @@ package xobs
 
 import "context"
 
-type GetAccessLogLevelFuncT func(err error) Level
+type GetLogLvlAndEventFuncT func(err error) (Level, string)
 
 type ObsContext struct {
-	parent            *ObsContext
-	span              *Span
-	handler           Handler
-	lvl               Level
-	getAccessLogLevel GetAccessLogLevelFuncT
+	parent                  *ObsContext
+	span                    *Span
+	handler                 Handler
+	lvl                     Level
+	getLogLevelAndEventFunc GetLogLvlAndEventFuncT
 }
 
 type ctxKeyObsContext struct{}
 
 type ObsConfig struct {
-	Handler     Handler
-	GetLogLevel GetAccessLogLevelFuncT
-	Level       Level
+	Handler             Handler
+	GetLogLevelAndEvent GetLogLvlAndEventFuncT
+	Level               Level
 }
 
 func WithObsContext(ctx context.Context, config *ObsConfig) context.Context {
 	obsCtx := &ObsContext{
-		getAccessLogLevel: config.GetLogLevel,
-		lvl:               config.Level,
-		handler:           config.Handler,
+		getLogLevelAndEventFunc: config.GetLogLevelAndEvent,
+		lvl:                     config.Level,
+		handler:                 config.Handler,
 	}
 	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx)
 }
@@ -77,7 +77,22 @@ func (oc *ObsContext) getSpan() *Span {
 }
 
 func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp any, labels []KV, args ...any) {
-	oc.Log(ctx, 1, LevelErr, "", args...)
+	lvl, event := oc.getLoggerLevelAndEventWrapper(err)
+	oc.Report(ctx, lvl, "REQ_END;"+event, labels...)
+	args2 := append([]any{}, "err", err, "req", req, "resp", resp)
+	args2 = append(args2, args...)
+	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
+}
+
+func (oc *ObsContext) getLoggerLevelAndEventWrapper(err error) (Level, string) {
+	occ := oc
+	for occ != nil {
+		if occ.getLogLevelAndEventFunc != nil {
+			return occ.getLogLevelAndEventFunc(err)
+		}
+		occ = occ.parent
+	}
+	return GetDefaultGetLogLevelAndEvent()(err)
 }
 
 func (oc *ObsContext) SetAttr(key string, val any) {}
@@ -119,4 +134,8 @@ func (oc *ObsContext) Log(ctx context.Context, skip int, lvl Level, event string
 	}
 	item.Add(args...)
 	oc.GetHandler().Handle(ctx, item)
+}
+
+func (oc *ObsContext) Report(ctx context.Context, lvl Level, event string, labels ...KV) {
+
 }
