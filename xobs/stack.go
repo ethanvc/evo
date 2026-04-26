@@ -6,6 +6,14 @@ import (
 	"strings"
 )
 
+func GetCallerPosition(skip int) string {
+	_, file, line, ok := runtime.Caller(skip + 1)
+	if !ok {
+		return "?:0"
+	}
+	return fmt.Sprintf("%s:%d", GetFilePathTailPart(file, 2), line)
+}
+
 func GetPanicPosition(skip int) string {
 	var pcs [10]uintptr
 	const ParentSkipCount = 4
