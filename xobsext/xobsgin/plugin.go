@@ -26,6 +26,7 @@ func (p *Plugin) init(conf *PluginConfig) {
 			return c.FullPath()
 		}
 	}
+	p.getErr = conf.GetErr
 }
 
 func (p *Plugin) Handle(c *gin.Context) {
@@ -43,7 +44,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 			err = xobs.New(codes.Internal, "").AppendKvEvent("Panic", xobs.GetPanicPosition(0))
 		}
 		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
-		if err != nil {
+		if err == nil {
 			err = p.getErrWrapper(c, w)
 		}
 		xobs.GetObsContext(ctx).AccessLogReport(err, req, resp, labels, extra...)

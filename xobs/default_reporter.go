@@ -29,6 +29,7 @@ func (r *DefaultReporter) init() {
 		Name: "xobs_duration_seconds",
 		Help: "Duration of requests",
 	}, r.secondsLabelNames)
+	prometheus.MustRegister(r.requestTotal, r.durationSeconds)
 }
 
 func (r *DefaultReporter) Report(ctx context.Context, lvl Level, event string, labels ...KV) {
