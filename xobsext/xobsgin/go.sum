@@ -15,6 +15,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/ethanvc/evo v0.0.0-20260426131926-9fad051fb372 h1:or7Y/OzJo1+uDL1BKdJYZvsbGIg5x1//wK02qrPsPxQ=
 github.com/ethanvc/evo v0.0.0-20260426131926-9fad051fb372/go.mod h1:ZQe3SjddxlVAmwV5AhoRrVfyxp3vcagXPnhe0pHNlN4=
+github.com/ethanvc/evo v0.0.0-20260426142121-382074e7e245 h1:AbZQ/ynYyIyWczqRcBT4QUeTRiq2DJmKdRuyeCOJbXQ=
+github.com/ethanvc/evo v0.0.0-20260426142121-382074e7e245/go.mod h1:ZQe3SjddxlVAmwV5AhoRrVfyxp3vcagXPnhe0pHNlN4=
 github.com/gabriel-vasile/mimetype v1.4.12 h1:e9hWvmLYvtp846tLHam2o++qitpguFiYCKbn0w9jyqw=
 github.com/gabriel-vasile/mimetype v1.4.12/go.mod h1:d+9Oxyo1wTzWdyVUPMmXFvp4F9tea18J8ufA774AB3s=
 github.com/gin-contrib/sse v1.1.0 h1:n0w2GMuUpWDVp7qSpvze6fAu9iRxJY4Hmj6AmBOU05w=
