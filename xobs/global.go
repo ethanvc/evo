@@ -73,7 +73,7 @@ func GenerateSpanId(rootSpan bool) string {
 
 func newDefaultSpan() *Span {
 	return NewSpan(context.Background(), &SpanConfig{
-		Name: "default",
+		Method: "default",
 	})
 }
 

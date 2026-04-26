@@ -6,7 +6,7 @@ import (
 )
 
 type Span struct {
-	name         string
+	method       string
 	startTime    time.Time
 	cost         time.Duration
 	traceId      string
@@ -15,7 +15,7 @@ type Span struct {
 }
 
 type SpanConfig struct {
-	Name         string
+	Method       string
 	TraceId      string
 	SpanId       string
 	ParentSpanId string
@@ -36,7 +36,7 @@ func NewSpan(ctx context.Context, config *SpanConfig) *Span {
 }
 
 func (s *Span) init(ctx context.Context, config *SpanConfig) {
-	s.name = config.Name
+	s.method = config.Method
 	s.startTime = time.Now()
 	if config.TraceId != "" {
 		s.traceId = config.TraceId
@@ -53,8 +53,8 @@ func (s *Span) init(ctx context.Context, config *SpanConfig) {
 	}
 }
 
-func (s *Span) GetName() string {
-	return s.name
+func (s *Span) GetMethod() string {
+	return s.method
 }
 
 func (s *Span) GetStartTime() time.Time {

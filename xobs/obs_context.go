@@ -148,7 +148,7 @@ func (oc *ObsContext) Log(ctx context.Context, skip int, lvl Level, event string
 func (oc *ObsContext) reportAccessLog(ctx context.Context, lvl Level, event string, labels ...KV) {
 	reporter := oc.getReporter()
 	span := oc.GetSpan()
-	labels = append(labels, KV{Key: "name", Val: span.GetName()})
+	labels = append(labels, KV{Key: "method", Val: span.GetMethod()})
 	labels = append(labels, KV{Key: "lvl", Val: lvl.String()})
 	reporter.Report(ctx, lvl, "REQ_END;"+event, labels...)
 	reporter.ReportDuration(ctx, time.Since(span.GetStartTime()), labels...)
