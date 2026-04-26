@@ -14,6 +14,21 @@ type Span struct {
 	parentSpanId string
 }
 
+type SpanConfig struct {
+	Name         string
+	TraceId      string
+	SpanId       string
+	ParentSpanId string
+}
+
+func WithSpanContext(ctx context.Context, config *SpanConfig) context.Context {
+	span := &Span{}
+	span.init(ctx, config)
+	ctx, obsCtx := withObsContext(ctx)
+	obsCtx.span = span
+	return ctx
+}
+
 func NewSpan(ctx context.Context, config *SpanConfig) *Span {
 	span := &Span{}
 	span.init(ctx, config)

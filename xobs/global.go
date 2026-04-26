@@ -21,11 +21,11 @@ var defaultLogLevel = LevelInfo
 
 var defaultGetLogLevel = GetLogLevel
 
-func SetDefaultGetLogLevel(f GetLogLevelType) {
+func SetDefaultGetLogLevel(f GetAccessLogLevelFuncT) {
 	defaultGetLogLevel = f
 }
 
-func GetDefaultGetLogLevel() GetLogLevelType {
+func GetDefaultGetLogLevel() GetAccessLogLevelFuncT {
 	return defaultGetLogLevel
 }
 

@@ -2,45 +2,29 @@ package xobs
 
 import "context"
 
-type GetLogLevelType func(err error) Level
+type GetAccessLogLevelFuncT func(err error) Level
 
 type ObsContext struct {
-	parent      *ObsContext
-	span        *Span
-	handler     Handler
-	lvl         Level
-	getLogLevel GetLogLevelType
+	parent            *ObsContext
+	span              *Span
+	handler           Handler
+	lvl               Level
+	getAccessLogLevel GetAccessLogLevelFuncT
 }
 
 type ctxKeyObsContext struct{}
 
-type SpanConfig struct {
-	Name         string
-	TraceId      string
-	SpanId       string
-	ParentSpanId string
-	GetLogLevel  GetLogLevelType
-}
-
 type ObsConfig struct {
 	Handler     Handler
-	GetLogLevel GetLogLevelType
+	GetLogLevel GetAccessLogLevelFuncT
 	Level       Level
-}
-
-func WithSpanContext(ctx context.Context, config *SpanConfig) context.Context {
-	span := &Span{}
-	span.init(ctx, config)
-	ctx, obsCtx := withObsContext(ctx)
-	obsCtx.span = span
-	return ctx
 }
 
 func WithObsContext(ctx context.Context, config *ObsConfig) context.Context {
 	obsCtx := &ObsContext{
-		getLogLevel: config.GetLogLevel,
-		lvl:         config.Level,
-		handler:     config.Handler,
+		getAccessLogLevel: config.GetLogLevel,
+		lvl:               config.Level,
+		handler:           config.Handler,
 	}
 	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx)
 }
@@ -92,7 +76,8 @@ func (oc *ObsContext) getSpan() *Span {
 	return nil
 }
 
-func (oc *ObsContext) AccessLogReport(err error, req, resp any, labels []KV, args ...any) {
+func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp any, labels []KV, args ...any) {
+	oc.Log(ctx, 1, LevelErr, "", args...)
 }
 
 func (oc *ObsContext) SetAttr(key string, val any) {}
