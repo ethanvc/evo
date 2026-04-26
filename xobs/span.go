@@ -53,6 +53,14 @@ func (s *Span) init(ctx context.Context, config *SpanConfig) {
 	}
 }
 
+func (s *Span) GetName() string {
+	return s.name
+}
+
+func (s *Span) GetStartTime() time.Time {
+	return s.startTime
+}
+
 func (s *Span) GetTraceId() string {
 	return s.traceId
 }

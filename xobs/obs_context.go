@@ -1,13 +1,22 @@
 package xobs
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type GetLogLvlAndEventFuncT func(err error) (Level, string)
+
+type Reporter interface {
+	Report(ctx context.Context, lvl Level, event string, labels ...KV)
+	ReportDuration(ctx context.Context, duration time.Duration, labels ...KV)
+}
 
 type ObsContext struct {
 	parent                  *ObsContext
 	span                    *Span
 	handler                 Handler
+	reporter                Reporter
 	lvl                     Level
 	getLogLevelAndEventFunc GetLogLvlAndEventFuncT
 }
@@ -78,7 +87,7 @@ func (oc *ObsContext) getSpan() *Span {
 
 func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp any, labels []KV, args ...any) {
 	lvl, event := oc.getLoggerLevelAndEventWrapper(err)
-	oc.Report(ctx, lvl, "REQ_END;"+event, labels...)
+	oc.reportAccessLog(ctx, lvl, event, labels...)
 	args2 := append([]any{}, "err", err, "req", req, "resp", resp)
 	args2 = append(args2, args...)
 	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
@@ -136,6 +145,21 @@ func (oc *ObsContext) Log(ctx context.Context, skip int, lvl Level, event string
 	oc.GetHandler().Handle(ctx, item)
 }
 
-func (oc *ObsContext) Report(ctx context.Context, lvl Level, event string, labels ...KV) {
+func (oc *ObsContext) reportAccessLog(ctx context.Context, lvl Level, event string, labels ...KV) {
+	reporter := oc.getReporter()
+	span := oc.GetSpan()
+	labels = append(labels, KV{Key: "name", Val: span.GetName()})
+	labels = append(labels, KV{Key: "lvl", Val: lvl.String()})
+	reporter.Report(ctx, lvl, "REQ_END;"+event, labels...)
+	reporter.ReportDuration(ctx, time.Since(span.GetStartTime()), labels...)
+}
 
+func (oc *ObsContext) getReporter() Reporter {
+	for oc != nil {
+		if oc.reporter != nil {
+			return oc.reporter
+		}
+		oc = oc.parent
+	}
+	return defaultReporter
 }
