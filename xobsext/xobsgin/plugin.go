@@ -9,8 +9,9 @@ import (
 )
 
 type Plugin struct {
-	getName GetNameFuncT
-	getErr  func(c *gin.Context, w *Writer) *xobs.Error
+	getName       GetNameFuncT
+	getErr        func(c *gin.Context, w *Writer) *xobs.Error
+	getSpanConfig func(c *gin.Context) *xobs.SpanConfig
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
@@ -30,9 +31,8 @@ func (p *Plugin) init(conf *PluginConfig) {
 }
 
 func (p *Plugin) Handle(c *gin.Context) {
-	ctx := xobs.WithSpanContext(c.Request.Context(), &xobs.SpanConfig{
-		Method: p.getNameWrapper(c),
-	})
+	spanConfig := p.getSpanConfigWrapper(c)
+	ctx := xobs.WithSpanContext(c.Request.Context(), spanConfig)
 	c.Request = c.Request.WithContext(ctx)
 	w := newWriter(c.Writer)
 	c.Writer = w
@@ -50,6 +50,16 @@ func (p *Plugin) Handle(c *gin.Context) {
 		xobs.GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, labels, extra...)
 	}()
 	c.Next()
+}
+
+func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *xobs.SpanConfig {
+	if p.getSpanConfig != nil {
+		return p.getSpanConfig(c)
+	}
+	conf := &xobs.SpanConfig{
+		Method: c.FullPath(),
+	}
+	return conf
 }
 
 func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *xobs.Error {
