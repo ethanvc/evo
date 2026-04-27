@@ -28,6 +28,7 @@ func (p *Plugin) init(conf *PluginConfig) {
 		}
 	}
 	p.getErr = conf.GetErr
+	p.getSpanConfig = conf.GetSpanConfig
 }
 
 func (p *Plugin) Handle(c *gin.Context) {
@@ -97,8 +98,9 @@ func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req
 }
 
 type PluginConfig struct {
-	GetName GetNameFuncT
-	GetErr  func(c *gin.Context, w *Writer) (err *xobs.Error)
+	GetName       GetNameFuncT
+	GetErr        func(c *gin.Context, w *Writer) (err *xobs.Error)
+	GetSpanConfig func(c *gin.Context) *xobs.SpanConfig
 }
 
 type GetNameFuncT func(c *gin.Context) string
