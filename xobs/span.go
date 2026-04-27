@@ -19,12 +19,14 @@ type SpanConfig struct {
 	TraceId      string
 	SpanId       string
 	ParentSpanId string
+	ObsConfig
 }
 
 func WithSpanContext(ctx context.Context, config *SpanConfig) context.Context {
 	span := &Span{}
 	span.init(ctx, config)
-	ctx, obsCtx := withObsContext(ctx)
+	ctx = WithObsContext(ctx, &config.ObsConfig)
+	obsCtx := GetObsContext(ctx)
 	obsCtx.span = span
 	return ctx
 }
