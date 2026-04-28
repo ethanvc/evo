@@ -760,8 +760,8 @@ func sendRequest(req *GrpcMainReq) error {
 		if count > 1 {
 			fmt.Fprintf(os.Stderr, "--- request %d/%d ---\n", i+1, count)
 		}
-		printMetadataSection("header", header)
-		printMetadataSection("trailer", trailer)
+		printMetadataSection("response header", header)
+		printMetadataSection("response trailer", trailer)
 
 		out, err := codec.GetResponseOutput(reply)
 		if err != nil {
