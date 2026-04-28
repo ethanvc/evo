@@ -205,7 +205,7 @@ func queryByReflect(req *GrpcMainReq) error {
 
 func queryMethodList(req *GrpcMainReq) error {
 	ctx := context.Background()
-	rc, err := NewReflectionClient(ctx, &GrpcClientConfig{Host: req.Host, TLS: req.TLS, InitialConnWindowSize: req.InitialConnWindowSize, InitialWindowSize: req.InitialWindowSize})
+	rc, err := NewReflectionClient(ctx, newGrpcClientConfig(req))
 	if err != nil {
 		return err
 	}
@@ -426,7 +426,7 @@ func extractMethods(fds []*descriptorpb.FileDescriptorProto, service string) ([]
 
 func queryShowMethod(req *GrpcMainReq) error {
 	ctx := context.Background()
-	rc, err := NewReflectionClient(ctx, &GrpcClientConfig{Host: req.Host, TLS: req.TLS, InitialConnWindowSize: req.InitialConnWindowSize, InitialWindowSize: req.InitialWindowSize})
+	rc, err := NewReflectionClient(ctx, newGrpcClientConfig(req))
 	if err != nil {
 		return err
 	}
@@ -608,7 +608,7 @@ func protoFieldTypeName(f *descriptorpb.FieldDescriptorProto) string {
 
 func querySvrList(req *GrpcMainReq) error {
 	ctx := context.Background()
-	rc, err := NewReflectionClient(ctx, &GrpcClientConfig{Host: req.Host, TLS: req.TLS, InitialConnWindowSize: req.InitialConnWindowSize, InitialWindowSize: req.InitialWindowSize})
+	rc, err := NewReflectionClient(ctx, newGrpcClientConfig(req))
 	if err != nil {
 		return err
 	}
@@ -718,20 +718,12 @@ func addHeader(md *metadata.MD, h string) error {
 func sendRequest(req *GrpcMainReq) error {
 	ctx := context.Background()
 
-	if len(req.Headers) > 0 {
-		md, err := parseHeaders(req.Headers)
-		if err != nil {
-			return err
-		}
-		ctx = metadata.NewOutgoingContext(ctx, md)
-	}
-
 	body, err := resolveBody(req.Body)
 	if err != nil {
 		return fmt.Errorf("read body: %w", err)
 	}
 
-	conf := &GrpcClientConfig{Host: req.Host, TLS: req.TLS, InitialConnWindowSize: req.InitialConnWindowSize, InitialWindowSize: req.InitialWindowSize}
+	conf := newGrpcClientConfig(req)
 	codec, err := buildCodec(ctx, conf, req.SubType, req.Method)
 	if err != nil {
 		return err
@@ -785,6 +777,16 @@ func sendRequest(req *GrpcMainReq) error {
 		}
 	}
 	return nil
+}
+
+func newGrpcClientConfig(req *GrpcMainReq) *GrpcClientConfig {
+	return &GrpcClientConfig{
+		Host:                  req.Host,
+		TLS:                   req.TLS,
+		InitialConnWindowSize: req.InitialConnWindowSize,
+		InitialWindowSize:     req.InitialWindowSize,
+		Headers:               req.Headers,
+	}
 }
 
 // Codec abstracts request construction, response parsing, and gRPC call options for sendRequest.
@@ -949,6 +951,7 @@ type GrpcClientConfig struct {
 	TLS                   bool
 	InitialConnWindowSize int32
 	InitialWindowSize     int32
+	Headers               []string
 }
 
 func NewGrpcClient(conf *GrpcClientConfig) (*grpc.ClientConn, error) {
@@ -960,7 +963,40 @@ func NewGrpcClient(conf *GrpcClientConfig) (*grpc.ClientConn, error) {
 	if conf.InitialWindowSize > 0 {
 		opts = append(opts, grpc.WithInitialWindowSize(conf.InitialWindowSize))
 	}
+	if len(conf.Headers) > 0 {
+		md, err := parseHeaders(conf.Headers)
+		if err != nil {
+			return nil, err
+		}
+		opts = append(opts,
+			grpc.WithUnaryInterceptor(outgoingMetadataUnaryInterceptor(md)),
+			grpc.WithStreamInterceptor(outgoingMetadataStreamInterceptor(md)),
+		)
+	}
 	return grpc.NewClient(conf.Host, opts...)
+}
+
+func outgoingMetadataUnaryInterceptor(md metadata.MD) grpc.UnaryClientInterceptor {
+	return func(ctx context.Context, method string, req, reply any, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+		return invoker(contextWithOutgoingMetadata(ctx, md), method, req, reply, cc, opts...)
+	}
+}
+
+func outgoingMetadataStreamInterceptor(md metadata.MD) grpc.StreamClientInterceptor {
+	return func(ctx context.Context, desc *grpc.StreamDesc, cc *grpc.ClientConn, method string, streamer grpc.Streamer, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+		return streamer(contextWithOutgoingMetadata(ctx, md), desc, cc, method, opts...)
+	}
+}
+
+func contextWithOutgoingMetadata(ctx context.Context, md metadata.MD) context.Context {
+	if len(md) == 0 {
+		return ctx
+	}
+	existing, ok := metadata.FromOutgoingContext(ctx)
+	if ok {
+		return metadata.NewOutgoingContext(ctx, metadata.Join(existing, md))
+	}
+	return metadata.NewOutgoingContext(ctx, md.Copy())
 }
 
 func transportCredentials(tlsEnabled bool) credentials.TransportCredentials {
