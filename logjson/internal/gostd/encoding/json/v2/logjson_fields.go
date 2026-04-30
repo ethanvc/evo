@@ -2,7 +2,8 @@ package json
 
 import (
 	"reflect"
-	"strings"
+
+	"github.com/ethanvc/evo/logjson/logjsonbase"
 )
 
 type logjsonFieldOptions struct {
@@ -29,14 +30,12 @@ func logjsonResolveFieldOptions(structType reflect.Type, fieldIndex int, out *fi
 }
 
 func applyLogjsonTag(sf reflect.StructField, tag string, out *fieldOptions) {
-	for _, opt := range strings.Split(tag, ",") {
-		opt = strings.TrimSpace(opt)
-		switch opt {
-		case "md5":
-			k := sf.Type.Kind()
-			if k == reflect.String || (k == reflect.Slice && sf.Type.Elem().Kind() == reflect.Uint8) {
-				out.md5 = true
-			}
-		}
+	opts := logjsonbase.ParseTag(tag)
+	if !opts.MD5 {
+		return
+	}
+	k := sf.Type.Kind()
+	if k == reflect.String || (k == reflect.Slice && sf.Type.Elem().Kind() == reflect.Uint8) {
+		out.md5 = true
 	}
 }

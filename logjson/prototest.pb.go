@@ -9,7 +9,7 @@
 package logjson
 
 import (
-	_ "github.com/ethanvc/evo/logjsonbase"
+	_ "github.com/ethanvc/evo/logjson/logjsonbase"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
