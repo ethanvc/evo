@@ -11,7 +11,7 @@ import (
 )
 
 func logjsonWrapArshaler(f *structField) {
-	if !f.md5 {
+	if !f.MD5 {
 		return
 	}
 

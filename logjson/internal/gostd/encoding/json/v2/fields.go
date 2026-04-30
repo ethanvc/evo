@@ -18,6 +18,7 @@ import (
 
 	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonflags"
 	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonwire"
+	"github.com/ethanvc/evo/logjson/logjsonbase"
 )
 
 type isZeroer interface {
@@ -397,7 +398,7 @@ type fieldOptions struct {
 	omitempty      bool
 	string         bool
 	format         string
-	logjsonFieldOptions
+	logjsonbase.TagOptions
 }
 
 // parseFieldOptions parses the `json` tag in a Go struct field as
