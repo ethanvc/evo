@@ -1,10 +1,10 @@
 // go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
-// protoc --go_out=. -I . --go_opt=paths=source_relative logjson.proto
+// protoc --go_out=. -I . --go_opt=paths=source_relative logjsonbase/logjson.proto
 
 syntax = "proto3";
 import "google/protobuf/descriptor.proto";
 
-option go_package = "github.com/ethanvc/evo/logjson/logjsonproto;logjsonproto";
+option go_package = "github.com/ethanvc/evo/logjsonbase;logjsonbase";
 
 extend google.protobuf.FieldOptions {
   optional string logjson = 98721;

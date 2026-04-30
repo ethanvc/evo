@@ -9,7 +9,7 @@
 package logjson
 
 import (
-	_ "github.com/ethanvc/evo/logjson/logjsonproto"
+	_ "github.com/ethanvc/evo/logjsonbase"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
@@ -72,7 +72,7 @@ var File_prototest_proto protoreflect.FileDescriptor
 
 const file_prototest_proto_rawDesc = "" +
 	"\n" +
-	"\x0fprototest.proto\x1a\"logjson/logjsonproto/logjson.proto\",\n" +
+	"\x0fprototest.proto\x1a\x19logjsonbase/logjson.proto\",\n" +
 	"\tProtoTest\x12\x1f\n" +
 	"\x06secret\x18\x01 \x01(\tB\a\x8a\x9a0\x03md5R\x06secretB(Z&github.com/ethanvc/evo/logjson;logjsonb\x06proto3"
 

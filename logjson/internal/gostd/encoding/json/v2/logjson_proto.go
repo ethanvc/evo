@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ethanvc/evo/logjson/logjsonproto"
+	"github.com/ethanvc/evo/logjsonbase"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 )
@@ -36,10 +36,10 @@ func logjsonResolveProtoTag(structType reflect.Type, fieldIndex int) string {
 	if opts == nil {
 		return ""
 	}
-	if !proto.HasExtension(opts, logjsonproto.E_Logjson) {
+	if !proto.HasExtension(opts, logjsonbase.E_Logjson) {
 		return ""
 	}
-	val, ok := proto.GetExtension(opts, logjsonproto.E_Logjson).(string)
+	val, ok := proto.GetExtension(opts, logjsonbase.E_Logjson).(string)
 	if !ok {
 		return ""
 	}

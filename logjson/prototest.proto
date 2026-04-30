@@ -2,7 +2,7 @@
 
 syntax = "proto3";
 
-import "logjson/logjsonproto/logjson.proto";
+import "logjsonbase/logjson.proto";
 
 option go_package = "github.com/ethanvc/evo/logjson;logjson";
 
