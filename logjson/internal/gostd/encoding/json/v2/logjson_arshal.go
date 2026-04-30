@@ -1,13 +1,11 @@
 package json
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"reflect"
-	"strconv"
 
 	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/internal/jsonopts"
 	"github.com/ethanvc/evo/logjson/internal/gostd/encoding/json/jsontext"
+	"github.com/ethanvc/evo/logjson/logjsonbase"
 )
 
 func logjsonWrapArshaler(f *structField) {
@@ -28,15 +26,7 @@ func logjsonWrapArshaler(f *structField) {
 	origFncs := f.fncs
 	wrapped := &arshaler{
 		marshal: func(enc *jsontext.Encoder, va addressableValue, mo *jsonopts.Struct) error {
-			// "len=" (4) + max int64 digits (20) + "," (1) + md5 hex (32) = 57
-			var buf [57]byte
-			data := getBytes(va)
-			b := append(buf[:0], "len="...)
-			b = strconv.AppendInt(b, int64(len(data)), 10)
-			b = append(b, ',')
-			h := md5.Sum(data)
-			b = hex.AppendEncode(b, h[:])
-			return enc.WriteToken(jsontext.String(string(b)))
+			return enc.WriteToken(jsontext.String(logjsonbase.LogMd5(getBytes(va))))
 		},
 		unmarshal:  origFncs.unmarshal,
 		nonDefault: true,
