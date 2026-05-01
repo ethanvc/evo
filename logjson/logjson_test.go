@@ -1,6 +1,10 @@
 package logjson
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/require"
+)
 
 func TestLogjsonMD5StructTag(t *testing.T) {
 	type Msg struct {
@@ -9,15 +13,8 @@ func TestLogjsonMD5StructTag(t *testing.T) {
 		Data    []byte  `json:"data" logjson:"md5"`
 	}
 
-	bodyPtr := "pointer"
-	msg := Msg{Body: "world", BodyPtr: &bodyPtr, Data: []byte("bytes")}
+	msg := Msg{Body: "world", BodyPtr: new("pointer"), Data: []byte("bytes")}
 	got, err := Marshal(msg)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	want := `{"body":"` + md5Expect("world") + `","body_ptr":"` + md5Expect("pointer") + `","data":"` + md5Expect("bytes") + `"}`
-	if string(got) != want {
-		t.Errorf("got  %s\nwant %s", got, want)
-	}
+	require.NoError(t, err)
+	require.Equal(t, `{"body":"len=5,7d793037a0760186574b0282f2f435e7","body_ptr":"len=7,ccac8a66d468e2522611be86933cc0d9","data":"len=5,4b3a6218bb3e3a7303e8a171a60fcf92"}`, string(got))
 }
