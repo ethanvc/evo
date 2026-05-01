@@ -17,6 +17,13 @@ func logjsonWrapArshaler(f *structField) {
 	switch f.typ.Kind() {
 	case reflect.String:
 		getBytes = func(va addressableValue) []byte { return []byte(va.String()) }
+	case reflect.Pointer:
+		getBytes = func(va addressableValue) []byte {
+			if va.IsNil() {
+				return nil
+			}
+			return []byte(va.Elem().String())
+		}
 	case reflect.Slice:
 		getBytes = func(va addressableValue) []byte { return va.Bytes() }
 	default:

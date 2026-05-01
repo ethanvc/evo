@@ -30,8 +30,20 @@ func applyLogjsonTag(sf reflect.StructField, tag string, out *fieldOptions) {
 	if !opts.MD5 {
 		return
 	}
-	k := sf.Type.Kind()
-	if k == reflect.String || (k == reflect.Slice && sf.Type.Elem().Kind() == reflect.Uint8) {
+	if logjsonSupportsMD5(sf.Type) {
 		out.MD5 = true
+	}
+}
+
+func logjsonSupportsMD5(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.String:
+		return true
+	case reflect.Pointer:
+		return t.Elem().Kind() == reflect.String
+	case reflect.Slice:
+		return t.Elem().Kind() == reflect.Uint8
+	default:
+		return false
 	}
 }
