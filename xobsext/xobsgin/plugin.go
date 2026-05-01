@@ -2,6 +2,7 @@ package xobsgin
 
 import (
 	"net/http"
+	"sync/atomic"
 
 	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
@@ -9,9 +10,10 @@ import (
 )
 
 type Plugin struct {
-	getName       GetNameFuncT
-	getErr        func(c *gin.Context, w *Writer) *xobs.Error
-	getSpanConfig func(c *gin.Context) *xobs.SpanConfig
+	getName          GetNameFuncT
+	getErr           func(c *gin.Context, w *Writer) *xobs.Error
+	getSpanConfig    func(c *gin.Context) *xobs.SpanConfig
+	headerLogMaskMap atomic.Pointer[map[string]func(s string) string]
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
