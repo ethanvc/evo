@@ -15,7 +15,7 @@ func parseLogjsonFieldOptions(sf reflect.StructField, out *fieldOptions) {
 }
 
 func logjsonResolveFieldOptions(structType reflect.Type, fieldIndex int, out *fieldOptions) {
-	if out.MD5 {
+	if out.MD5 || out.Discard {
 		return
 	}
 	tag := logjsonResolveProtoTag(structType, fieldIndex)
@@ -27,12 +27,17 @@ func logjsonResolveFieldOptions(structType reflect.Type, fieldIndex int, out *fi
 
 func applyLogjsonTag(sf reflect.StructField, tag string, out *fieldOptions) {
 	opts := logjsonbase.ParseTag(tag)
-	if !opts.MD5 {
+	applyLogjsonOptions(sf.Type, opts, out)
+}
+
+func applyLogjsonOptions(fieldType reflect.Type, opts logjsonbase.TagOptions, out *fieldOptions) {
+	// Discard wins over any value-transforming option.
+	out.Discard = opts.Discard
+	if out.Discard {
+		out.MD5 = false
 		return
 	}
-	if logjsonSupportsMD5(sf.Type) {
-		out.MD5 = true
-	}
+	out.MD5 = opts.MD5 && logjsonSupportsMD5(fieldType)
 }
 
 func logjsonSupportsMD5(t reflect.Type) bool {

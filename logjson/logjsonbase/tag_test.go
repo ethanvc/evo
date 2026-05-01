@@ -24,6 +24,16 @@ func TestParseTag(t *testing.T) {
 			want: TagOptions{MD5: true},
 		},
 		{
+			name: "discard",
+			tag:  "discard",
+			want: TagOptions{Discard: true},
+		},
+		{
+			name: "md5 and discard",
+			tag:  "md5,discard",
+			want: TagOptions{MD5: true, Discard: true},
+		},
+		{
 			name: "unknown",
 			tag:  "unknown",
 			want: TagOptions{},

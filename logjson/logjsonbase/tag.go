@@ -3,7 +3,8 @@ package logjsonbase
 import "strings"
 
 type TagOptions struct {
-	MD5 bool
+	MD5     bool
+	Discard bool
 }
 
 func ParseTag(tag string) TagOptions {
@@ -12,6 +13,8 @@ func ParseTag(tag string) TagOptions {
 		switch strings.TrimSpace(opt) {
 		case "md5":
 			opts.MD5 = true
+		case "discard":
+			opts.Discard = true
 		}
 	}
 	return opts

@@ -99,12 +99,13 @@ func makeStructFields(root reflect.Type) (fs structFields, serr *SemanticError) 
 		t := qe.typ
 		inlinedFallbackIndex := -1         // index of last inlined fallback field in current struct
 		namesIndex := make(map[string]int) // index of each field with a given JSON object name in current struct
-		var hasAnyJSONTag bool             // whether any Go struct field has a `json` tag
+		var hasAnyJSONTag bool             // whether any Go struct field has a `json` or `logjson` tag
 		var hasAnyJSONField bool           // whether any JSON serializable fields exist in current struct
 		for i := range t.NumField() {
 			sf := t.Field(i)
-			_, hasTag := sf.Tag.Lookup("json")
-			hasAnyJSONTag = hasAnyJSONTag || hasTag
+			_, hasJSONTag := sf.Tag.Lookup("json")
+			_, hasLogjsonTag := sf.Tag.Lookup("logjson")
+			hasAnyJSONTag = hasAnyJSONTag || hasJSONTag || hasLogjsonTag
 			options, ignored, err := parseFieldOptions(sf)
 			if err != nil {
 				serr = cmp.Or(serr, &SemanticError{GoType: t, Err: err})
@@ -113,6 +114,9 @@ func makeStructFields(root reflect.Type) (fs structFields, serr *SemanticError) 
 				continue
 			}
 			logjsonResolveFieldOptions(t, i, &options)
+			if options.Discard {
+				continue
+			}
 			hasAnyJSONField = true
 			f := structField{
 				// Allocate a new slice (len=N+1) to hold both
