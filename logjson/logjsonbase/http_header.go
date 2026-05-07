@@ -5,7 +5,9 @@ import (
 	"net/http"
 )
 
-func GetHttpHeader(logJsonConfig map[string]func(string) string, header http.Header) http.Header {
+type LogJsonConfigT map[string]func(string) string
+
+func GetHttpHeader(logJsonConfig LogJsonConfigT, header http.Header) http.Header {
 	var resultHeader http.Header
 	for key, values := range header {
 		f, ok := logJsonConfig[key]
@@ -29,5 +31,18 @@ func GetHttpHeader(logJsonConfig map[string]func(string) string, header http.Hea
 		return header
 	}
 	return resultHeader
+}
 
+func ConvertToHttpLogJsonConfig(config map[string]string) LogJsonConfigT {
+	logJsonConfig := make(LogJsonConfigT, len(config))
+	for key, value := range config {
+		opt := ParseTag(value)
+		newKey := http.CanonicalHeaderKey(key)
+		if opt.Discard {
+			logJsonConfig[newKey] = nil
+		} else if opt.MD5 {
+			logJsonConfig[newKey] = LogMd5Str
+		}
+	}
+	return logJsonConfig
 }

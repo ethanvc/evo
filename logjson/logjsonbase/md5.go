@@ -16,3 +16,7 @@ func LogMd5(msg []byte) string {
 	b = hex.AppendEncode(b, h[:])
 	return string(b)
 }
+
+func LogMd5Str(msg string) string {
+	return LogMd5([]byte(msg))
+}
