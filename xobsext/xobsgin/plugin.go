@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync/atomic"
 
+	"github.com/ethanvc/evo/logjson/logjsonbase"
 	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -13,7 +14,7 @@ type Plugin struct {
 	getName          GetNameFuncT
 	getErr           func(c *gin.Context, w *Writer) *xobs.Error
 	getSpanConfig    func(c *gin.Context) *xobs.SpanConfig
-	headerLogMaskMap atomic.Pointer[map[string]func(s string) string]
+	headerLogMaskMap atomic.Pointer[logjsonbase.LogJsonConfigT]
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
