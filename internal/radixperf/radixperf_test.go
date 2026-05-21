@@ -237,6 +237,34 @@ func BenchmarkParallel_StaticRoute(b *testing.B) {
 	})
 }
 
+func benchmarkHTTPRouterLookup(b *testing.B, router *httprouter.Router, method, path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		router.Lookup(method, path)
+	}
+}
+
+func setupHTTPRouterRaw(routes []routeDef) *httprouter.Router {
+	router := httprouter.New()
+	nop := func(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {}
+	for _, r := range routes {
+		router.Handle(r.method, r.path, nop)
+	}
+	return router
+}
+
+// BenchmarkParamRoute_Lookup compares Lookup-to-Lookup on the same tree implementation.
+func BenchmarkParamRoute_Lookup(b *testing.B) {
+	b.Run("HTTPRouter", func(b *testing.B) {
+		benchmarkHTTPRouterLookup(b, setupHTTPRouterRaw(apiRoutes), "GET", "/api/v1/users/12345")
+	})
+	b.Run("HttpMux", func(b *testing.B) {
+		benchmarkHttpMux(b, setupHttpMux(apiRoutes), "GET", "/api/v1/users/12345")
+	})
+}
+
 func BenchmarkParallel_ParamRoute(b *testing.B) {
 	b.Run("ServeMux", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupServeMux(apiRoutes), "GET", "/api/v1/users/12345")
