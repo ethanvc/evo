@@ -8,3 +8,7 @@
 在实际业务中，表现为：
 - http client端、server端，路径包含参数。
 - 上报 error message，包含参数。
+- 上报了分片db和表的数字部分。
+- 上报了client的 ip。
+- 上报了入参中的值，没有做校验。
+
