@@ -116,6 +116,31 @@ func setupHttpMux(routes []routeDef) *httpmux.HttpMux[int] {
 	return mux
 }
 
+// httpMuxBenchHandler adapts HttpMux to http.Handler for benchmarks.
+// cached reuses a params buffer across requests, similar to HTTPRouter keeping
+// params in its internal pool for the handler call.
+type httpMuxBenchHandler struct {
+	mux    *httpmux.HttpMux[int]
+	cached httpmux.Params
+}
+
+func newHttpMuxBenchHandler(routes []routeDef) *httpMuxBenchHandler {
+	return &httpMuxBenchHandler{mux: setupHttpMux(routes)}
+}
+
+func (h *httpMuxBenchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, params, _ := h.mux.Lookup(r.Method, r.URL.Path)
+	if len(params) == 0 {
+		return
+	}
+	h.cached = append(h.cached[:0], params...)
+	_ = h.cached[0].Value
+}
+
+func setupHttpMuxHandler(routes []routeDef) http.Handler {
+	return newHttpMuxBenchHandler(routes)
+}
+
 // ---------------------------------------------------------------------------
 // benchmark runner
 // ---------------------------------------------------------------------------
@@ -155,6 +180,21 @@ func benchAll(b *testing.B, routes []routeDef, method, path string) {
 	})
 }
 
+func benchAllParam(b *testing.B, routes []routeDef, method, path string) {
+	b.Run("ServeMux", func(b *testing.B) {
+		benchmarkRouter(b, setupServeMux(routes), method, path)
+	})
+	b.Run("HTTPRouter", func(b *testing.B) {
+		benchmarkRouter(b, setupHTTPRouter(routes), method, path)
+	})
+	b.Run("HttpMux", func(b *testing.B) {
+		benchmarkRouter(b, setupHttpMuxHandler(routes), method, path)
+	})
+	b.Run("Gin", func(b *testing.B) {
+		benchmarkRouter(b, setupGin(routes), method, path)
+	})
+}
+
 // ---------------------------------------------------------------------------
 // benchmarks
 // ---------------------------------------------------------------------------
@@ -164,11 +204,11 @@ func BenchmarkStaticRoute(b *testing.B) {
 }
 
 func BenchmarkParamRoute(b *testing.B) {
-	benchAll(b, apiRoutes, "GET", "/api/v1/users/12345")
+	benchAllParam(b, apiRoutes, "GET", "/api/v1/users/12345")
 }
 
 func BenchmarkParamNestedRoute(b *testing.B) {
-	benchAll(b, apiRoutes, "GET", "/api/v1/users/12345/orders")
+	benchAllParam(b, apiRoutes, "GET", "/api/v1/users/12345/orders")
 }
 
 func BenchmarkRootRoute(b *testing.B) {
@@ -186,12 +226,12 @@ func BenchmarkManyRoutes_Static(b *testing.B) {
 
 func BenchmarkManyRoutes_Param(b *testing.B) {
 	routes := manyRoutes(100)
-	benchAll(b, routes, "GET", "/api/v1/resource50/12345")
+	benchAllParam(b, routes, "GET", "/api/v1/resource50/12345")
 }
 
 func BenchmarkManyRoutes_Last(b *testing.B) {
 	routes := manyRoutes(100)
-	benchAll(b, routes, "GET", "/api/v1/resource99/12345")
+	benchAllParam(b, routes, "GET", "/api/v1/resource99/12345")
 }
 
 // ---------------------------------------------------------------------------
@@ -237,6 +277,20 @@ func BenchmarkParallel_StaticRoute(b *testing.B) {
 	})
 }
 
+func benchmarkHttpMuxParamParallel(b *testing.B, routes []routeDef, method, path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		h := newHttpMuxBenchHandler(routes)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, nil)
+		for pb.Next() {
+			h.ServeHTTP(w, req)
+		}
+	})
+}
+
 func benchmarkHTTPRouterLookup(b *testing.B, router *httprouter.Router, method, path string) {
 	b.Helper()
 	b.ReportAllocs()
@@ -273,7 +327,7 @@ func BenchmarkParallel_ParamRoute(b *testing.B) {
 		benchmarkRouterParallel(b, setupHTTPRouter(apiRoutes), "GET", "/api/v1/users/12345")
 	})
 	b.Run("HttpMux", func(b *testing.B) {
-		benchmarkHttpMuxParallel(b, setupHttpMux(apiRoutes), "GET", "/api/v1/users/12345")
+		benchmarkHttpMuxParamParallel(b, apiRoutes, "GET", "/api/v1/users/12345")
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupGin(apiRoutes), "GET", "/api/v1/users/12345")
