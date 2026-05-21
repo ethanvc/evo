@@ -3,9 +3,12 @@ module github.com/ethanvc/evo/internal/radixperf
 go 1.26.0
 
 require (
+	github.com/ethanvc/evo v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/julienschmidt/httprouter v1.3.0
 )
+
+replace github.com/ethanvc/evo => ../..
 
 require (
 	github.com/bytedance/gopkg v0.1.3 // indirect

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ethanvc/evo/httpmux"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 )
@@ -107,6 +108,14 @@ func setupGin(routes []routeDef) http.Handler {
 	return r
 }
 
+func setupHttpMux(routes []routeDef) *httpmux.HttpMux[int] {
+	mux := httpmux.New[int]()
+	for i, r := range routes {
+		mux.Handle(r.method, r.path, i+1)
+	}
+	return mux
+}
+
 // ---------------------------------------------------------------------------
 // benchmark runner
 // ---------------------------------------------------------------------------
@@ -122,12 +131,24 @@ func benchmarkRouter(b *testing.B, handler http.Handler, method, path string) {
 	}
 }
 
+func benchmarkHttpMux(b *testing.B, mux *httpmux.HttpMux[int], method, path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		mux.Lookup(method, path)
+	}
+}
+
 func benchAll(b *testing.B, routes []routeDef, method, path string) {
 	b.Run("ServeMux", func(b *testing.B) {
 		benchmarkRouter(b, setupServeMux(routes), method, path)
 	})
 	b.Run("HTTPRouter", func(b *testing.B) {
 		benchmarkRouter(b, setupHTTPRouter(routes), method, path)
+	})
+	b.Run("HttpMux", func(b *testing.B) {
+		benchmarkHttpMux(b, setupHttpMux(routes), method, path)
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouter(b, setupGin(routes), method, path)
@@ -190,12 +211,26 @@ func benchmarkRouterParallel(b *testing.B, handler http.Handler, method, path st
 	})
 }
 
+func benchmarkHttpMuxParallel(b *testing.B, mux *httpmux.HttpMux[int], method, path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			mux.Lookup(method, path)
+		}
+	})
+}
+
 func BenchmarkParallel_StaticRoute(b *testing.B) {
 	b.Run("ServeMux", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupServeMux(apiRoutes), "GET", "/api/v1/users")
 	})
 	b.Run("HTTPRouter", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupHTTPRouter(apiRoutes), "GET", "/api/v1/users")
+	})
+	b.Run("HttpMux", func(b *testing.B) {
+		benchmarkHttpMuxParallel(b, setupHttpMux(apiRoutes), "GET", "/api/v1/users")
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupGin(apiRoutes), "GET", "/api/v1/users")
@@ -208,6 +243,9 @@ func BenchmarkParallel_ParamRoute(b *testing.B) {
 	})
 	b.Run("HTTPRouter", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupHTTPRouter(apiRoutes), "GET", "/api/v1/users/12345")
+	})
+	b.Run("HttpMux", func(b *testing.B) {
+		benchmarkHttpMuxParallel(b, setupHttpMux(apiRoutes), "GET", "/api/v1/users/12345")
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupGin(apiRoutes), "GET", "/api/v1/users/12345")
