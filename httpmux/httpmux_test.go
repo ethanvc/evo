@@ -46,7 +46,7 @@ func TestParams(t *testing.T) {
 }
 
 func TestRouter(t *testing.T) {
-	router := New()
+	router := NewRouter()
 
 	routed := false
 	router.Handle(http.MethodGet, "/user/:name", func(w http.ResponseWriter, r *http.Request, ps Params) {
@@ -80,7 +80,7 @@ func TestRouterAPI(t *testing.T) {
 
 	httpHandler := handlerStruct{&handler}
 
-	router := New()
+	router := NewRouter()
 	router.GET("/GET", func(w http.ResponseWriter, r *http.Request, _ Params) {
 		get = true
 	})
@@ -165,7 +165,7 @@ func TestRouterAPI(t *testing.T) {
 }
 
 func TestRouterInvalidInput(t *testing.T) {
-	router := New()
+	router := NewRouter()
 
 	handle := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
 
@@ -199,8 +199,8 @@ func TestRouterInvalidInput(t *testing.T) {
 }
 
 func TestRouterChaining(t *testing.T) {
-	router1 := New()
-	router2 := New()
+	router1 := NewRouter()
+	router2 := NewRouter()
 	router1.NotFound = router2
 
 	fooHit := false
@@ -243,7 +243,7 @@ func TestRouterChaining(t *testing.T) {
 func BenchmarkAllowed(b *testing.B) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
 
-	router := New()
+	router := NewRouter()
 	router.POST("/path", handlerFunc)
 	router.GET("/path", handlerFunc)
 
@@ -264,7 +264,7 @@ func BenchmarkAllowed(b *testing.B) {
 func TestRouterOPTIONS(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
 
-	router := New()
+	router := NewRouter()
 	router.POST("/path", handlerFunc)
 
 	// test not allowed
@@ -360,7 +360,7 @@ func TestRouterOPTIONS(t *testing.T) {
 func TestRouterNotAllowed(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
 
-	router := New()
+	router := NewRouter()
 	router.POST("/path", handlerFunc)
 
 	// test not allowed
@@ -409,7 +409,7 @@ func TestRouterNotAllowed(t *testing.T) {
 func TestRouterNotFound(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
 
-	router := New()
+	router := NewRouter()
 	router.GET("/path", handlerFunc)
 	router.GET("/dir/", handlerFunc)
 	router.GET("/", handlerFunc)
@@ -461,7 +461,7 @@ func TestRouterNotFound(t *testing.T) {
 	}
 
 	// Test special case where no node for the prefix "/" exists
-	router = New()
+	router = NewRouter()
 	router.GET("/a", handlerFunc)
 	r, _ = http.NewRequest(http.MethodGet, "/", nil)
 	w = httptest.NewRecorder()
@@ -472,7 +472,7 @@ func TestRouterNotFound(t *testing.T) {
 }
 
 func TestRouterPanicHandler(t *testing.T) {
-	router := New()
+	router := NewRouter()
 	panicHandled := false
 
 	router.PanicHandler = func(rw http.ResponseWriter, r *http.Request, p interface{}) {
@@ -499,6 +499,28 @@ func TestRouterPanicHandler(t *testing.T) {
 	}
 }
 
+func TestHttpMuxGenericLookup(t *testing.T) {
+	mux := New[string]()
+	mux.Register(http.MethodGet, "/user/:name", "user-list")
+
+	value, params, tsr := mux.Lookup(http.MethodGet, "/user/alice")
+	if value != "user-list" {
+		t.Fatalf("want %q, got %q", "user-list", value)
+	}
+	wantParams := Params{{Key: "name", Value: "alice"}}
+	if !reflect.DeepEqual(params, wantParams) {
+		t.Fatalf("want params %v, got %v", wantParams, params)
+	}
+	if tsr {
+		t.Fatal("unexpected tsr")
+	}
+
+	_, _, tsr = mux.Lookup(http.MethodGet, "/missing")
+	if tsr {
+		t.Fatal("unexpected tsr for missing route")
+	}
+}
+
 func TestRouterLookup(t *testing.T) {
 	routed := false
 	wantHandle := func(_ http.ResponseWriter, _ *http.Request, _ Params) {
@@ -506,7 +528,7 @@ func TestRouterLookup(t *testing.T) {
 	}
 	wantParams := Params{Param{"name", "gopher"}}
 
-	router := New()
+	router := NewRouter()
 
 	// try empty router first
 	handle, _, tsr := router.Lookup(http.MethodGet, "/nope")
@@ -591,7 +613,7 @@ func TestRouterParamsFromContext(t *testing.T) {
 
 		routed = true
 	}
-	router := New()
+	router := NewRouter()
 	router.HandlerFunc(http.MethodGet, "/user", handlerFuncNil)
 	router.HandlerFunc(http.MethodGet, "/user/:name", handlerFunc)
 
@@ -641,7 +663,7 @@ func TestRouterMatchedRoutePath(t *testing.T) {
 		routed3 = true
 	}
 
-	router := New()
+	router := NewRouter()
 	router.SaveMatchedRoutePath = true
 	router.Handle(http.MethodGet, route1, handle1)
 	router.Handle(http.MethodGet, route2, handle2)
@@ -679,7 +701,7 @@ func (mfs *mockFileSystem) Open(name string) (http.File, error) {
 }
 
 func TestRouterServeFiles(t *testing.T) {
-	router := New()
+	router := NewRouter()
 	mfs := &mockFileSystem{}
 
 	recv := catchPanic(func() {

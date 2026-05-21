@@ -83,14 +83,26 @@ package httpmux
 import (
 	"context"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 )
 
-// Handle is a function that can be registered to a route to handle HTTP
-// requests. Like http.HandlerFunc, but has a third parameter for the values of
-// wildcards (path variables).
-type Handle func(http.ResponseWriter, *http.Request, Params)
+func isZero[T any](v T) bool {
+	return reflect.ValueOf(v).IsZero()
+}
+
+// routeHandler is the stored handler type for HTTP routes.
+type routeHandler func(http.ResponseWriter, *http.Request, Params)
+
+// RouteHandler is an alias for routeHandler.
+type RouteHandler = routeHandler
+
+// Handler is an alias for routeHandler.
+type Handler = routeHandler
+
+// Handle is an alias for routeHandler, kept for compatibility with httprouter naming.
+type Handle = routeHandler
 
 // Param is a single URL parameter, consisting of a key and a value.
 type Param struct {
@@ -137,10 +149,10 @@ func (ps Params) MatchedRoutePath() string {
 	return ps.ByName(MatchedRoutePathParam)
 }
 
-// HttpMux is a http.Handler which can be used to dispatch requests to different
-// handler functions via configurable routes
-type HttpMux struct {
-	trees map[string]*node
+// HttpMux is a generic radix-tree mux keyed by HTTP method and path pattern.
+// T is the value stored at each route, for example RouteHandler for HTTP serving.
+type HttpMux[T any] struct {
+	trees map[string]*node[T]
 
 	paramsPool sync.Pool
 	maxParams  uint16
@@ -209,13 +221,29 @@ type HttpMux struct {
 	PanicHandler func(http.ResponseWriter, *http.Request, interface{})
 }
 
-// Make sure the Router conforms with the http.Handler interface
-var _ http.Handler = New()
+// Router is an HttpMux pre-instantiated for HTTP request handlers.
+type Router struct {
+	HttpMux[routeHandler]
+}
 
-// New returns a new initialized Router.
+// Make sure Router conforms with the http.Handler interface.
+var _ http.Handler = NewRouter()
+
+// NewRouter returns a new initialized Router.
 // Path auto-correction, including trailing slashes, is enabled by default.
-func New() *HttpMux {
-	return &HttpMux{
+func NewRouter() *Router {
+	return &Router{HttpMux: *New[routeHandler]()}
+}
+
+// Lookup returns the handler registered for method + path.
+func (r *Router) Lookup(method, path string) (routeHandler, Params, bool) {
+	return r.HttpMux.Lookup(method, path)
+}
+
+// New returns a new initialized HttpMux.
+// Path auto-correction, including trailing slashes, is enabled by default.
+func New[T any]() *HttpMux[T] {
+	return &HttpMux[T]{
 		RedirectTrailingSlash:  true,
 		RedirectFixedPath:      true,
 		HandleMethodNotAllowed: true,
@@ -223,66 +251,66 @@ func New() *HttpMux {
 	}
 }
 
-func (r *HttpMux) getParams() *Params {
+func (r *HttpMux[T]) getParams() *Params {
 	ps, _ := r.paramsPool.Get().(*Params)
 	*ps = (*ps)[0:0] // reset slice
 	return ps
 }
 
-func (r *HttpMux) putParams(ps *Params) {
+func (r *HttpMux[T]) putParams(ps *Params) {
 	if ps != nil {
 		r.paramsPool.Put(ps)
 	}
 }
 
-func (r *HttpMux) saveMatchedRoutePath(path string, handle Handle) Handle {
+func (r *HttpMux[T]) saveMatchedRoutePath(path string, handler routeHandler) routeHandler {
 	return func(w http.ResponseWriter, req *http.Request, ps Params) {
 		if ps == nil {
 			psp := r.getParams()
 			ps = (*psp)[0:1]
 			ps[0] = Param{Key: MatchedRoutePathParam, Value: path}
-			handle(w, req, ps)
+			handler(w, req, ps)
 			r.putParams(psp)
 		} else {
 			ps = append(ps, Param{Key: MatchedRoutePathParam, Value: path})
-			handle(w, req, ps)
+			handler(w, req, ps)
 		}
 	}
 }
 
-// GET is a shortcut for router.Handle(http.MethodGet, path, handle)
-func (r *HttpMux) GET(path string, handle Handle) {
-	r.Handle(http.MethodGet, path, handle)
+// GET is a shortcut for mux.Register(http.MethodGet, path, value).
+func (r *HttpMux[T]) GET(path string, value T) {
+	r.Register(http.MethodGet, path, value)
 }
 
-// HEAD is a shortcut for router.Handle(http.MethodHead, path, handle)
-func (r *HttpMux) HEAD(path string, handle Handle) {
-	r.Handle(http.MethodHead, path, handle)
+// HEAD is a shortcut for mux.Register(http.MethodHead, path, value).
+func (r *HttpMux[T]) HEAD(path string, value T) {
+	r.Register(http.MethodHead, path, value)
 }
 
-// OPTIONS is a shortcut for router.Handle(http.MethodOptions, path, handle)
-func (r *HttpMux) OPTIONS(path string, handle Handle) {
-	r.Handle(http.MethodOptions, path, handle)
+// OPTIONS is a shortcut for mux.Register(http.MethodOptions, path, value).
+func (r *HttpMux[T]) OPTIONS(path string, value T) {
+	r.Register(http.MethodOptions, path, value)
 }
 
-// POST is a shortcut for router.Handle(http.MethodPost, path, handle)
-func (r *HttpMux) POST(path string, handle Handle) {
-	r.Handle(http.MethodPost, path, handle)
+// POST is a shortcut for mux.Register(http.MethodPost, path, value).
+func (r *HttpMux[T]) POST(path string, value T) {
+	r.Register(http.MethodPost, path, value)
 }
 
-// PUT is a shortcut for router.Handle(http.MethodPut, path, handle)
-func (r *HttpMux) PUT(path string, handle Handle) {
-	r.Handle(http.MethodPut, path, handle)
+// PUT is a shortcut for mux.Register(http.MethodPut, path, value).
+func (r *HttpMux[T]) PUT(path string, value T) {
+	r.Register(http.MethodPut, path, value)
 }
 
-// PATCH is a shortcut for router.Handle(http.MethodPatch, path, handle)
-func (r *HttpMux) PATCH(path string, handle Handle) {
-	r.Handle(http.MethodPatch, path, handle)
+// PATCH is a shortcut for mux.Register(http.MethodPatch, path, value).
+func (r *HttpMux[T]) PATCH(path string, value T) {
+	r.Register(http.MethodPatch, path, value)
 }
 
-// DELETE is a shortcut for router.Handle(http.MethodDelete, path, handle)
-func (r *HttpMux) DELETE(path string, handle Handle) {
-	r.Handle(http.MethodDelete, path, handle)
+// DELETE is a shortcut for mux.Register(http.MethodDelete, path, value).
+func (r *HttpMux[T]) DELETE(path string, value T) {
+	r.Register(http.MethodDelete, path, value)
 }
 
 // Handle registers a new request handle with the given path and method.
@@ -293,44 +321,51 @@ func (r *HttpMux) DELETE(path string, handle Handle) {
 // This function is intended for bulk loading and to allow the usage of less
 // frequently used, non-standardized or custom methods (e.g. for internal
 // communication with a proxy).
-func (r *HttpMux) Handle(method, path string, handle Handle) {
-	varsCount := uint16(0)
+func (r *Router) Handle(method, path string, handler routeHandler) {
+	r.Register(method, path, handler)
+}
 
+// Register stores value for method + path.
+func (r *HttpMux[T]) Register(method, path string, value T) {
+	extraParams := uint16(0)
+	if r.SaveMatchedRoutePath {
+		if handler, ok := any(value).(routeHandler); ok {
+			extraParams = 1
+			value = any(r.saveMatchedRoutePath(path, handler)).(T)
+		}
+	}
+	r.register(method, path, value, extraParams)
+}
+
+func (r *HttpMux[T]) register(method, path string, value T, extraParams uint16) {
 	if method == "" {
 		panic("method must not be empty")
 	}
 	if len(path) < 1 || path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")
 	}
-	if handle == nil {
-		panic("handle must not be nil")
-	}
-
-	if r.SaveMatchedRoutePath {
-		varsCount++
-		handle = r.saveMatchedRoutePath(path, handle)
+	if isZero(value) {
+		panic("value must not be zero")
 	}
 
 	if r.trees == nil {
-		r.trees = make(map[string]*node)
+		r.trees = make(map[string]*node[T])
 	}
 
 	root := r.trees[method]
 	if root == nil {
-		root = new(node)
+		root = new(node[T])
 		r.trees[method] = root
 
 		r.globalAllowed = r.allowed("*", "")
 	}
 
-	root.addRoute(path, handle)
+	root.addRoute(path, value)
 
-	// Update maxParams
-	if paramsCount := countParams(path); paramsCount+varsCount > r.maxParams {
-		r.maxParams = paramsCount + varsCount
+	if paramsCount := countParams(path); paramsCount+extraParams > r.maxParams {
+		r.maxParams = paramsCount + extraParams
 	}
 
-	// Lazy-init paramsPool alloc func
 	if r.paramsPool.New == nil && r.maxParams > 0 {
 		r.paramsPool.New = func() interface{} {
 			ps := make(Params, 0, r.maxParams)
@@ -342,7 +377,7 @@ func (r *HttpMux) Handle(method, path string, handle Handle) {
 // Handler is an adapter which allows the usage of an http.Handler as a
 // request handle.
 // The Params are available in the request context under ParamsKey.
-func (r *HttpMux) Handler(method, path string, handler http.Handler) {
+func (r *Router) Handler(method, path string, handler http.Handler) {
 	r.Handle(method, path,
 		func(w http.ResponseWriter, req *http.Request, p Params) {
 			if len(p) > 0 {
@@ -357,7 +392,7 @@ func (r *HttpMux) Handler(method, path string, handler http.Handler) {
 
 // HandlerFunc is an adapter which allows the usage of an http.HandlerFunc as a
 // request handle.
-func (r *HttpMux) HandlerFunc(method, path string, handler http.HandlerFunc) {
+func (r *Router) HandlerFunc(method, path string, handler http.HandlerFunc) {
 	r.Handler(method, path, handler)
 }
 
@@ -372,7 +407,7 @@ func (r *HttpMux) HandlerFunc(method, path string, handler http.HandlerFunc) {
 // use http.Dir:
 //
 //	router.ServeFiles("/src/*filepath", http.Dir("/var/www"))
-func (r *HttpMux) ServeFiles(path string, root http.FileSystem) {
+func (r *Router) ServeFiles(path string, root http.FileSystem) {
 	if len(path) < 10 || path[len(path)-10:] != "/*filepath" {
 		panic("path must end with /*filepath in path '" + path + "'")
 	}
@@ -385,33 +420,31 @@ func (r *HttpMux) ServeFiles(path string, root http.FileSystem) {
 	})
 }
 
-func (r *HttpMux) recv(w http.ResponseWriter, req *http.Request) {
+func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
 	if rcv := recover(); rcv != nil {
 		r.PanicHandler(w, req, rcv)
 	}
 }
 
-// Lookup allows the manual lookup of a method + path combo.
-// This is e.g. useful to build a framework around this router.
-// If the path was found, it returns the handle function and the path parameter
-// values. Otherwise the third return value indicates whether a redirection to
-// the same path with an extra / without the trailing slash should be performed.
-func (r *HttpMux) Lookup(method, path string) (Handle, Params, bool) {
+// Lookup returns the value registered for method + path and any captured params.
+// The third return value indicates whether a trailing-slash redirect is recommended.
+func (r *HttpMux[T]) Lookup(method, path string) (T, Params, bool) {
+	var zero T
 	if root := r.trees[method]; root != nil {
-		handle, ps, tsr := root.getValue(path, r.getParams)
-		if handle == nil {
+		value, ps, tsr := root.getValue(path, r.getParams)
+		if isZero(value) {
 			r.putParams(ps)
-			return nil, nil, tsr
+			return zero, nil, tsr
 		}
 		if ps == nil {
-			return handle, nil, tsr
+			return value, nil, tsr
 		}
-		return handle, *ps, tsr
+		return value, *ps, tsr
 	}
-	return nil, nil, false
+	return zero, nil, false
 }
 
-func (r *HttpMux) allowed(path, reqMethod string) (allow string) {
+func (r *HttpMux[T]) allowed(path, reqMethod string) (allow string) {
 	allowed := make([]string, 0, 9)
 
 	if path == "*" { // server-wide
@@ -434,8 +467,8 @@ func (r *HttpMux) allowed(path, reqMethod string) (allow string) {
 				continue
 			}
 
-			handle, _, _ := r.trees[method].getValue(path, nil)
-			if handle != nil {
+			value, _, _ := r.trees[method].getValue(path, nil)
+			if !isZero(value) {
 				// Add request method to list of allowed methods
 				allowed = append(allowed, method)
 			}
@@ -465,7 +498,7 @@ func (r *HttpMux) allowed(path, reqMethod string) (allow string) {
 }
 
 // ServeHTTP makes the router implement the http.Handler interface.
-func (r *HttpMux) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if r.PanicHandler != nil {
 		defer r.recv(w, req)
 	}
@@ -473,12 +506,12 @@ func (r *HttpMux) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	path := req.URL.Path
 
 	if root := r.trees[req.Method]; root != nil {
-		if handle, ps, tsr := root.getValue(path, r.getParams); handle != nil {
+		if handler, ps, tsr := root.getValue(path, r.getParams); handler != nil {
 			if ps != nil {
-				handle(w, req, *ps)
+				handler(w, req, *ps)
 				r.putParams(ps)
 			} else {
-				handle(w, req, nil)
+				handler(w, req, nil)
 			}
 			return
 		} else if req.Method != http.MethodConnect && path != "/" {
