@@ -78,31 +78,29 @@ func stripHostPort(h string) string {
 // Handler does not modify its argument. In particular, it does not populate
 // named path wildcards, so r.PathValue will always return the empty string.
 func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
-	h, p, _, _ := mux.findHandler(r)
+	h, p, _, _ := mux.findHandler(r.Method, r.Host, r.URL.EscapedPath(), r.URL.RawQuery)
 	return h, p
 }
 
 // findHandler finds a handler for a request.
-func (mux *ServeMux) findHandler(r *Request) (h Handler, patStr string, _ *pattern, matches []string) {
+func (mux *ServeMux) findHandler(method, host, escapedPath, rawQuery string) (h Handler, patStr string, _ *pattern, matches []string) {
 	var n *routingNode
-	host := r.URL.Host
-	escapedPath := r.URL.EscapedPath()
 	path := escapedPath
 	// CONNECT requests are not canonicalized.
-	if r.Method == "CONNECT" {
+	if method == "CONNECT" {
 		path = trimTrailingSlash(path)
-		n, matches = mux.match(r.Host, r.Method, path)
+		n, matches = mux.match(host, method, path)
 	} else {
-		host = stripHostPort(r.Host)
+		host = stripHostPort(host)
 		path = cleanPath(path)
 
-		n, matches = mux.match(host, r.Method, path)
+		n, matches = mux.match(host, method, path)
 		if path != escapedPath && path != trimTrailingSlash(escapedPath) {
 			patStr := ""
 			if n != nil {
 				patStr = n.pattern.String()
 			}
-			u := &url.URL{Path: path, RawQuery: r.URL.RawQuery}
+			u := &url.URL{Path: path, RawQuery: rawQuery}
 			return RedirectHandler(u.String(), StatusTemporaryRedirect), patStr, nil, nil
 		}
 	}
@@ -150,7 +148,7 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 	var h Handler
 	var pat *pattern
 	var matches []string
-	h, r.Pattern, pat, matches = mux.findHandler(r)
+	h, r.Pattern, pat, matches = mux.findHandler(r.Method, r.Host, r.URL.EscapedPath(), r.URL.RawQuery)
 	setPathValues(r, pat, matches)
 	h.ServeHTTP(w, r)
 }
