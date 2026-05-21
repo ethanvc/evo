@@ -53,8 +53,13 @@ func TestHttpMuxInvalidInput(t *testing.T) {
 	recv = catchPanic(func() {
 		mux.GET("/", 0)
 	})
-	if recv == nil {
-		t.Fatal("registering zero value did not panic")
+	if recv != nil {
+		t.Fatal("registering zero value should be allowed")
+	}
+
+	match, _, _ := mux.Lookup(http.MethodGet, "/")
+	if match == nil || match.value != 0 {
+		t.Fatalf("want registered zero value, got match=%v", match)
 	}
 }
 

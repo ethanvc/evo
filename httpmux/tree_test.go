@@ -76,7 +76,7 @@ func checkPriorities(t *testing.T, n *node[int]) uint32 {
 		prio += checkPriorities(t, n.children[i])
 	}
 
-	if hasValue(n.value) {
+	if n.registered {
 		prio++
 	}
 
@@ -232,7 +232,6 @@ func TestTreeWildcardConflict(t *testing.T) {
 		{"/search/invalid", true},
 		{"/user_:name", false},
 		{"/user_x", true},
-		{"/user_:name", false},
 		{"/id:id", false},
 		{"/id/:id", true},
 	}

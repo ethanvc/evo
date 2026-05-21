@@ -7,14 +7,8 @@ package httpmux
 
 import (
 	"net/http"
-	"reflect"
 	"sync"
 )
-
-func isZero[T any](v T) bool {
-	return reflect.ValueOf(v).IsZero()
-}
-
 // Param is a single URL parameter, consisting of a key and a value.
 type Param struct {
 	Key   string
@@ -109,9 +103,6 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 	}
 	if len(path) < 1 || path[0] != '/' {
 		panic("path must begin with '/' in path '" + path + "'")
-	}
-	if isZero(value) {
-		panic("value must not be zero")
 	}
 
 	if r.trees == nil {

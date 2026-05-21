@@ -5,16 +5,10 @@
 package httpmux
 
 import (
-	"reflect"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 )
-
-
-func hasValue[T any](v T) bool {
-	return !reflect.ValueOf(v).IsZero()
-}
 
 func min(a, b int) int {
 	if a <= b {
@@ -78,13 +72,14 @@ const (
 )
 
 type node[T any] struct {
-	path      string
-	indices   string
-	wildChild bool
-	nType     nodeType
-	priority  uint32
-	children  []*node[T]
-	value     T
+	path       string
+	indices    string
+	wildChild  bool
+	nType      nodeType
+	priority   uint32
+	children   []*node[T]
+	value      T
+	registered bool
 }
 
 // Increments priority of the given child and reorders if necessary
@@ -133,13 +128,14 @@ walk:
 		// Split edge
 		if i < len(n.path) {
 			child := node[T]{
-				path:      n.path[i:],
-				wildChild: n.wildChild,
-				nType:     static,
-				indices:   n.indices,
-				children:  n.children,
-				value:     n.value,
-				priority:  n.priority - 1,
+				path:       n.path[i:],
+				wildChild:  n.wildChild,
+				nType:      static,
+				indices:    n.indices,
+				children:   n.children,
+				value:      n.value,
+				registered: n.registered,
+				priority:   n.priority - 1,
 			}
 
 			n.children = []*node[T]{&child}
@@ -147,6 +143,7 @@ walk:
 			n.indices = string([]byte{n.path[i]})
 			n.path = path[:i]
 			n.value = *new(T)
+			n.registered = false
 			n.wildChild = false
 		}
 
@@ -212,10 +209,11 @@ walk:
 		}
 
 		// Otherwise add handle to current node
-		if hasValue(n.value) {
+		if n.registered {
 			panic("a value is already registered for path '" + fullPath + "'")
 		}
 		n.value = value
+		n.registered = true
 		return
 	}
 }
@@ -277,6 +275,7 @@ func (n *node[T]) insertChild(path, fullPath string, value T) {
 
 			// Otherwise we're done. Insert the handle in the new leaf
 			n.value = value
+			n.registered = true
 			return
 		}
 
@@ -309,10 +308,11 @@ func (n *node[T]) insertChild(path, fullPath string, value T) {
 
 		// Second node: node holding the variable
 		child = &node[T]{
-			path:     path[i:],
-			nType:    catchAll,
-			value:    value,
-			priority: 1,
+			path:       path[i:],
+			nType:      catchAll,
+			value:      value,
+			registered: true,
+			priority:   1,
 		}
 		n.children = []*node[T]{child}
 
@@ -322,6 +322,7 @@ func (n *node[T]) insertChild(path, fullPath string, value T) {
 	// If no wildcard was found, simply insert the path and handle
 	n.path = path
 	n.value = value
+	n.registered = true
 }
 
 // Returns the handle registered with the given path (key). The values of
@@ -352,7 +353,7 @@ walk: // Outer loop for walking the tree
 					// Nothing found.
 					// We can recommend to redirect to the same URL without a
 					// trailing slash if a leaf exists for that path.
-					tsr = (path == "/" && hasValue(n.value))
+					tsr = (path == "/" && n.registered)
 					return
 				}
 
@@ -393,14 +394,14 @@ walk: // Outer loop for walking the tree
 						return
 					}
 
-					if hasValue(n.value) {
+					if n.registered {
 						match = n
 						return
 					} else if len(n.children) == 1 {
 						// No handle found. Check if a handle for this path + a
 						// trailing slash exists for TSR recommendation
 						n = n.children[0]
-						tsr = (n.path == "/" && hasValue(n.value)) || (n.path == "" && n.indices == "/")
+						tsr = (n.path == "/" && n.registered) || (n.path == "" && n.indices == "/")
 					}
 
 					return
@@ -420,7 +421,9 @@ walk: // Outer loop for walking the tree
 						}
 					}
 
-					match = n
+					if n.registered {
+						match = n
+					}
 					return
 
 				default:
@@ -430,7 +433,7 @@ walk: // Outer loop for walking the tree
 		} else if path == prefix {
 			// We should have reached the node containing the handle.
 			// Check if this node has a handle registered.
-			if hasValue(n.value) {
+			if n.registered {
 				match = n
 				return
 			}
@@ -453,8 +456,8 @@ walk: // Outer loop for walking the tree
 			for i, c := range []byte(n.indices) {
 				if c == '/' {
 					n = n.children[i]
-					tsr = (len(n.path) == 1 && hasValue(n.value)) ||
-						(n.nType == catchAll && hasValue(n.children[0].value))
+					tsr = (len(n.path) == 1 && n.registered) ||
+						(n.nType == catchAll && n.children[0].registered)
 					return
 				}
 			}
@@ -465,7 +468,7 @@ walk: // Outer loop for walking the tree
 		// extra trailing slash if a leaf exists for that path
 		tsr = (path == "/") ||
 			(len(prefix) == len(path)+1 && prefix[len(path)] == '/' &&
-				path == prefix[:len(prefix)-1] && hasValue(n.value))
+				path == prefix[:len(prefix)-1] && n.registered)
 		return
 	}
 }
@@ -600,7 +603,7 @@ walk: // Outer loop for walking the tree
 
 				// Nothing found. We can recommend to redirect to the same URL
 				// without a trailing slash if a leaf exists for that path
-				if fixTrailingSlash && path == "/" && hasValue(n.value) {
+				if fixTrailingSlash && path == "/" && n.registered {
 					return ciPath
 				}
 				return nil
@@ -635,13 +638,13 @@ walk: // Outer loop for walking the tree
 					return nil
 				}
 
-				if hasValue(n.value) {
+				if n.registered {
 					return ciPath
 				} else if fixTrailingSlash && len(n.children) == 1 {
 					// No handle found. Check if a handle for this path + a
 					// trailing slash exists
 					n = n.children[0]
-					if n.path == "/" && hasValue(n.value) {
+					if n.path == "/" && n.registered {
 						return append(ciPath, '/')
 					}
 				}
@@ -656,7 +659,7 @@ walk: // Outer loop for walking the tree
 		} else {
 			// We should have reached the node containing the handle.
 			// Check if this node has a handle registered.
-			if hasValue(n.value) {
+			if n.registered {
 				return ciPath
 			}
 
@@ -666,8 +669,8 @@ walk: // Outer loop for walking the tree
 				for i, c := range []byte(n.indices) {
 					if c == '/' {
 						n = n.children[i]
-						if (len(n.path) == 1 && hasValue(n.value)) ||
-							(n.nType == catchAll && hasValue(n.children[0].value)) {
+						if (len(n.path) == 1 && n.registered) ||
+							(n.nType == catchAll && n.children[0].registered) {
 							return append(ciPath, '/')
 						}
 						return nil
@@ -685,7 +688,7 @@ walk: // Outer loop for walking the tree
 			return ciPath
 		}
 		if len(path)+1 == npLen && n.path[len(path)] == '/' &&
-			strings.EqualFold(path[1:], n.path[1:len(path)]) && hasValue(n.value) {
+			strings.EqualFold(path[1:], n.path[1:len(path)]) && n.registered {
 			return append(ciPath, n.path...)
 		}
 	}
