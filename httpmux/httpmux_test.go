@@ -1,9 +1,28 @@
 package httpmux
 
 import (
+	"net/http/httptest"
 	"slices"
 	"testing"
 )
+
+func TestServeMuxTrimsTrailingSlashBeforeMatch(t *testing.T) {
+	mux := NewServeMux()
+	mux.HandleFunc("/api/", func(w ResponseWriter, _ *Request) {
+		w.WriteHeader(204)
+	})
+
+	for _, path := range []string{"/api", "/api/"} {
+		req := httptest.NewRequest("GET", "http://example.com"+path, nil)
+		rec := httptest.NewRecorder()
+
+		mux.ServeHTTP(rec, req)
+
+		if rec.Code != 204 {
+			t.Fatalf("%s: status got %d, want 204", path, rec.Code)
+		}
+	}
+}
 
 func TestServeMuxMatchPattern(t *testing.T) {
 	mux := NewServeMux()
@@ -34,11 +53,11 @@ func TestServeMuxMatchPattern(t *testing.T) {
 		{"get", "", "/item/jba", "/item/{user}", []string{"jba"}},
 		{"POST", "", "/item/jba/17", "/item/{user}/{id}", []string{"jba", "17"}},
 		{"GET", "", "/item/jba/new", "/item/{user}/new", []string{"jba"}},
-		{"GET", "", "/item/", "/item/{$}", []string{}},
-		{"GET", "", "/item/jba/17/line2", "/item/", nil},
+		{"GET", "", "/item/", "/item/", nil},
+		{"GET", "", "/item/jba/17/line2", "", nil},
 		{"POST", "http://alt.com", "/item/jba", "POST alt.com/item/{user}", []string{"jba"}},
 		{"GET", "http://alt.com", "/item/jba", "GET /item/{user}", []string{"jba"}},
-		{"GET", "", "/item", "", nil},
+		{"GET", "", "/item", "/item/", nil},
 		{"GET", "", "/headwins", "GET /headwins", nil},
 		{"HEAD", "", "/headwins", "HEAD /headwins", nil},
 		{"GET", "", "/path/to/file", "/path/{p...}", []string{"to/file"}},
@@ -65,7 +84,7 @@ func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
 			patterns: []string{"/a/b/{$}"},
 			checks: []matchPatternCheck{
 				{path: "/a/b", wantPattern: "", wantMatches: nil},
-				{path: "/a/b/", wantPattern: "/a/b/{$}", wantMatches: nil},
+				{path: "/a/b/", wantPattern: "", wantMatches: nil},
 				{path: "/a/b/c", wantPattern: "", wantMatches: nil},
 				{path: "/a/b/c/d", wantPattern: "", wantMatches: nil},
 			},
@@ -85,7 +104,7 @@ func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
 			patterns: []string{"/a/b/{w...}"},
 			checks: []matchPatternCheck{
 				{path: "/a/b", wantPattern: "", wantMatches: nil},
-				{path: "/a/b/", wantPattern: "/a/b/{w...}", wantMatches: []string{""}},
+				{path: "/a/b/", wantPattern: "", wantMatches: nil},
 				{path: "/a/b/c", wantPattern: "/a/b/{w...}", wantMatches: []string{"c"}},
 				{path: "/a/b/c/d", wantPattern: "/a/b/{w...}", wantMatches: []string{"c/d"}},
 			},
@@ -95,7 +114,7 @@ func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
 			patterns: []string{"/a/b/{$}", "/a/b/{w}", "/a/b/{w...}"},
 			checks: []matchPatternCheck{
 				{path: "/a/b", wantPattern: "", wantMatches: nil},
-				{path: "/a/b/", wantPattern: "/a/b/{$}", wantMatches: nil},
+				{path: "/a/b/", wantPattern: "", wantMatches: nil},
 				{path: "/a/b/c", wantPattern: "/a/b/{w}", wantMatches: []string{"c"}},
 				{path: "/a/b/c/d", wantPattern: "/a/b/{w...}", wantMatches: []string{"c/d"}},
 			},

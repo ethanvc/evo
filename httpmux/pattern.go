@@ -120,6 +120,7 @@ func parsePattern(s string) (_ *pattern, err error) {
 	}
 	// At this point, rest is the path.
 	off += i
+	rest = trimTrailingSlash(rest)
 
 	// An unclean path with a method that is not CONNECT can never match,
 	// because paths are cleaned before matching.

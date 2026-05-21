@@ -25,10 +25,9 @@ import (
 // registered patterns and calls the handler for the pattern that most closely
 // matches the URL.
 type ServeMux struct {
-	mu     sync.RWMutex
-	tree   routingNode
-	index  routingIndex
-	mux121 serveMux121 // used only when GODEBUG=httpmuxgo121=1
+	mu    sync.RWMutex
+	tree  routingNode
+	index routingIndex
 }
 
 // NewServeMux allocates and returns a new [ServeMux].
@@ -49,18 +48,14 @@ func cleanPath(p string) string {
 	if p[0] != '/' {
 		p = "/" + p
 	}
-	np := path.Clean(p)
-	// path.Clean removes trailing slash except for root;
-	// put the trailing slash back if necessary.
-	if p[len(p)-1] == '/' && np != "/" {
-		// Fast path for common case of p being the string we want:
-		if len(p) == len(np)+1 && strings.HasPrefix(p, np) {
-			np = p
-		} else {
-			np += "/"
-		}
+	return trimTrailingSlash(path.Clean(p))
+}
+
+func trimTrailingSlash(p string) string {
+	for len(p) > 1 && p[len(p)-1] == '/' {
+		p = p[:len(p)-1]
 	}
-	return np
+	return p
 }
 
 // stripHostPort returns h without any trailing ":<port>".
@@ -83,9 +78,6 @@ func stripHostPort(h string) string {
 // Handler does not modify its argument. In particular, it does not populate
 // named path wildcards, so r.PathValue will always return the empty string.
 func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
-	if use121 {
-		return mux.mux121.findHandler(r)
-	}
 	h, p, _, _ := mux.findHandler(r)
 	return h, p
 }
@@ -98,21 +90,14 @@ func (mux *ServeMux) findHandler(r *Request) (h Handler, patStr string, _ *patte
 	path := escapedPath
 	// CONNECT requests are not canonicalized.
 	if r.Method == "CONNECT" {
-		_, _, u := mux.matchOrRedirect(host, r.Method, path, r.URL)
-		if u != nil {
-			return RedirectHandler(u.String(), StatusTemporaryRedirect), u.Path, nil, nil
-		}
-		n, matches, _ = mux.matchOrRedirect(r.Host, r.Method, path, nil)
+		path = trimTrailingSlash(path)
+		n, matches = mux.match(r.Host, r.Method, path)
 	} else {
 		host = stripHostPort(r.Host)
 		path = cleanPath(path)
 
-		var u *url.URL
-		n, matches, u = mux.matchOrRedirect(host, r.Method, path, r.URL)
-		if u != nil {
-			return RedirectHandler(u.String(), StatusTemporaryRedirect), n.pattern.String(), nil, nil
-		}
-		if path != escapedPath {
+		n, matches = mux.match(host, r.Method, path)
+		if path != escapedPath && path != trimTrailingSlash(escapedPath) {
 			patStr := ""
 			if n != nil {
 				patStr = n.pattern.String()
@@ -134,34 +119,13 @@ func (mux *ServeMux) findHandler(r *Request) (h Handler, patStr string, _ *patte
 	return n.handler, n.pattern.String(), n.pattern, matches
 }
 
-// matchOrRedirect looks up a node in the tree that matches the host, method and path.
-func (mux *ServeMux) matchOrRedirect(host, method, path string, u *url.URL) (_ *routingNode, matches []string, redirectTo *url.URL) {
+// match looks up a node in the tree that matches the host, method and path.
+func (mux *ServeMux) match(host, method, path string) (_ *routingNode, matches []string) {
 	mux.mu.RLock()
 	defer mux.mu.RUnlock()
 
 	n, matches := mux.tree.match(host, method, path)
-	if !exactMatch(n, path) && u != nil && !strings.HasSuffix(path, "/") && path != "" {
-		path += "/"
-		n2, _ := mux.tree.match(host, method, path)
-		if exactMatch(n2, path) {
-			return n2, nil, &url.URL{Path: cleanPath(u.Path) + "/", RawQuery: u.RawQuery}
-		}
-	}
-	return n, matches, nil
-}
-
-// exactMatch reports whether the node's pattern exactly matches the path.
-func exactMatch(n *routingNode, path string) bool {
-	if n == nil {
-		return false
-	}
-	if !n.pattern.lastSegment().multi {
-		return true
-	}
-	if len(path) > 0 && path[len(path)-1] != '/' {
-		return false
-	}
-	return len(n.pattern.segments) == strings.Count(path, "/")
+	return n, matches
 }
 
 // matchingMethods return a sorted list of all methods that would match with the given host and path.
@@ -170,9 +134,6 @@ func (mux *ServeMux) matchingMethods(host, path string) []string {
 	defer mux.mu.RUnlock()
 	ms := map[string]bool{}
 	mux.tree.matchingMethods(host, path, ms)
-	if !strings.HasSuffix(path, "/") {
-		mux.tree.matchingMethods(host, path+"/", ms)
-	}
 	return slices.Sorted(maps.Keys(ms))
 }
 
@@ -187,14 +148,10 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 		return
 	}
 	var h Handler
-	if use121 {
-		h, _ = mux.mux121.findHandler(r)
-	} else {
-		var pat *pattern
-		var matches []string
-		h, r.Pattern, pat, matches = mux.findHandler(r)
-		setPathValues(r, pat, matches)
-	}
+	var pat *pattern
+	var matches []string
+	h, r.Pattern, pat, matches = mux.findHandler(r)
+	setPathValues(r, pat, matches)
 	h.ServeHTTP(w, r)
 }
 
@@ -215,38 +172,22 @@ func setPathValues(r *Request, pat *pattern, matches []string) {
 
 // Handle registers the handler for the given pattern.
 func (mux *ServeMux) Handle(pattern string, handler Handler) {
-	if use121 {
-		mux.mux121.handle(pattern, handler)
-	} else {
-		mux.register(pattern, handler)
-	}
+	mux.register(pattern, handler)
 }
 
 // HandleFunc registers the handler function for the given pattern.
 func (mux *ServeMux) HandleFunc(pattern string, handler func(ResponseWriter, *Request)) {
-	if use121 {
-		mux.mux121.handleFunc(pattern, handler)
-	} else {
-		mux.register(pattern, HandlerFunc(handler))
-	}
+	mux.register(pattern, HandlerFunc(handler))
 }
 
 // Handle registers the handler for the given pattern in [DefaultServeMux].
 func Handle(pattern string, handler Handler) {
-	if use121 {
-		DefaultServeMux.mux121.handle(pattern, handler)
-	} else {
-		DefaultServeMux.register(pattern, handler)
-	}
+	DefaultServeMux.register(pattern, handler)
 }
 
 // HandleFunc registers the handler function for the given pattern in [DefaultServeMux].
 func HandleFunc(pattern string, handler func(ResponseWriter, *Request)) {
-	if use121 {
-		DefaultServeMux.mux121.handleFunc(pattern, handler)
-	} else {
-		DefaultServeMux.register(pattern, HandlerFunc(handler))
-	}
+	DefaultServeMux.register(pattern, HandlerFunc(handler))
 }
 
 func (mux *ServeMux) register(pattern string, handler Handler) {
