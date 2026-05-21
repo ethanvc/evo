@@ -27,35 +27,34 @@ func TestParams(t *testing.T) {
 }
 
 func TestHttpMuxInvalidInput(t *testing.T) {
-	mux := New[Handler]()
-	handler := func(_ http.ResponseWriter, _ *http.Request, _ Params) {}
+	mux := New[int]()
 
 	recv := catchPanic(func() {
-		mux.Handle("", "/", handler)
+		mux.Handle("", "/", 1)
 	})
 	if recv == nil {
 		t.Fatal("registering empty method did not panic")
 	}
 
 	recv = catchPanic(func() {
-		mux.GET("", handler)
+		mux.GET("", 1)
 	})
 	if recv == nil {
 		t.Fatal("registering empty path did not panic")
 	}
 
 	recv = catchPanic(func() {
-		mux.GET("noSlashRoot", handler)
+		mux.GET("noSlashRoot", 1)
 	})
 	if recv == nil {
 		t.Fatal("registering path not beginning with '/' did not panic")
 	}
 
 	recv = catchPanic(func() {
-		mux.GET("/", nil)
+		mux.GET("/", 0)
 	})
 	if recv == nil {
-		t.Fatal("registering nil handler did not panic")
+		t.Fatal("registering zero value did not panic")
 	}
 }
 
@@ -81,48 +80,41 @@ func TestHttpMuxGenericLookup(t *testing.T) {
 	}
 }
 
-func TestHttpMuxHandlerLookup(t *testing.T) {
-	routed := false
-	wantHandler := func(_ http.ResponseWriter, _ *http.Request, _ Params) {
-		routed = true
-	}
+func TestHttpMuxIntLookup(t *testing.T) {
+	wantValue := 42
 	wantParams := Params{Param{"name", "gopher"}}
 
-	mux := New[Handler]()
+	mux := New[int]()
 
-	handle, _, tsr := mux.Lookup(http.MethodGet, "/nope")
-	if handle != nil {
-		t.Fatalf("Got handle for unregistered pattern: %v", handle)
+	value, _, tsr := mux.Lookup(http.MethodGet, "/nope")
+	if value != 0 {
+		t.Fatalf("Got value for unregistered pattern: %v", value)
 	}
 	if tsr {
 		t.Error("Got wrong TSR recommendation!")
 	}
 
-	mux.GET("/user/:name", wantHandler)
-	handle, params, _ := mux.Lookup(http.MethodGet, "/user/gopher")
-	if handle == nil {
-		t.Fatal("Got no handle!")
-	}
-	handle(nil, nil, nil)
-	if !routed {
-		t.Fatal("Routing failed!")
+	mux.GET("/user/:name", wantValue)
+	value, params, _ := mux.Lookup(http.MethodGet, "/user/gopher")
+	if value != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, value)
 	}
 	if !reflect.DeepEqual(params, wantParams) {
 		t.Fatalf("Wrong parameter values: want %v, got %v", wantParams, params)
 	}
 
-	mux.GET("/user", wantHandler)
-	handle, params, _ = mux.Lookup(http.MethodGet, "/user")
-	if handle == nil {
-		t.Fatal("Got no handle!")
+	mux.GET("/user", wantValue)
+	value, params, _ = mux.Lookup(http.MethodGet, "/user")
+	if value != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, value)
 	}
 	if params != nil {
 		t.Fatalf("Wrong parameter values: want %v, got %v", nil, params)
 	}
 
-	handle, _, tsr = mux.Lookup(http.MethodGet, "/user/gopher/")
-	if handle != nil {
-		t.Fatalf("Got handle for unregistered pattern: %v", handle)
+	value, _, tsr = mux.Lookup(http.MethodGet, "/user/gopher/")
+	if value != 0 {
+		t.Fatalf("Got value for unregistered pattern: %v", value)
 	}
 	if !tsr {
 		t.Error("Got no TSR recommendation!")

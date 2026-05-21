@@ -15,9 +15,6 @@ func isZero[T any](v T) bool {
 	return reflect.ValueOf(v).IsZero()
 }
 
-// Handler is a common value type for HTTP request handlers.
-type Handler func(http.ResponseWriter, *http.Request, Params)
-
 // Param is a single URL parameter, consisting of a key and a value.
 type Param struct {
 	Key   string
