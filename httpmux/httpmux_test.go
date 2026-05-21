@@ -46,7 +46,7 @@ func TestServeMuxFindHandlerReturnsNilWhenNoPatternMatches(t *testing.T) {
 	}
 }
 
-func TestServeMuxMatchPattern(t *testing.T) {
+func TestServeMuxFindHandler(t *testing.T) {
 	mux := NewServeMux()
 	for _, pattern := range []string{
 		"/item/",
@@ -85,8 +85,8 @@ func TestServeMuxMatchPattern(t *testing.T) {
 		{"GET", "", "/path/to/file", "/path/{p...}", []string{"to/file"}},
 		{"GET", "", "/path/*", "/path/{p...}", []string{"*"}},
 	} {
-		gotPattern, gotMatches := mux.MatchPattern(test.method, test.host, test.path)
-		if got := patternString(gotPattern); got != test.wantPattern {
+		gotNode, gotMatches := mux.findHandler(test.method, test.host, test.path)
+		if got := nodePatternString(gotNode); got != test.wantPattern {
 			t.Errorf("%s %s%s: pattern got %q, want %q", test.method, test.host, test.path, got, test.wantPattern)
 		}
 		if !slices.Equal(gotMatches, test.wantMatches) {
@@ -95,7 +95,7 @@ func TestServeMuxMatchPattern(t *testing.T) {
 	}
 }
 
-func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
+func TestServeMuxFindHandlerWildcardEndings(t *testing.T) {
 	for _, test := range []struct {
 		name     string
 		patterns []string
@@ -148,8 +148,8 @@ func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
 				mux.HandleFunc(pattern, func(ResponseWriter, *Request) {})
 			}
 			for _, check := range test.checks {
-				gotPattern, gotMatches := mux.MatchPattern("GET", "", check.path)
-				if got := patternString(gotPattern); got != check.wantPattern {
+				gotNode, gotMatches := mux.findHandler("GET", "", check.path)
+				if got := nodePatternString(gotNode); got != check.wantPattern {
 					t.Errorf("%s: pattern got %q, want %q", check.path, got, check.wantPattern)
 				}
 				if !slices.Equal(gotMatches, check.wantMatches) {
@@ -160,7 +160,7 @@ func TestServeMuxMatchPatternWildcardEndings(t *testing.T) {
 	}
 }
 
-func TestServeMuxMatchPatternEscapedWildcards(t *testing.T) {
+func TestServeMuxFindHandlerEscapedWildcards(t *testing.T) {
 	for _, test := range []struct {
 		pattern     string
 		path        string
@@ -190,8 +190,8 @@ func TestServeMuxMatchPatternEscapedWildcards(t *testing.T) {
 		mux := NewServeMux()
 		mux.HandleFunc(test.pattern, func(ResponseWriter, *Request) {})
 
-		gotPattern, gotMatches := mux.MatchPattern("GET", "", test.path)
-		if got := patternString(gotPattern); got != test.pattern {
+		gotNode, gotMatches := mux.findHandler("GET", "", test.path)
+		if got := nodePatternString(gotNode); got != test.pattern {
 			t.Errorf("%s: pattern got %q, want %q", test.path, got, test.pattern)
 		}
 		if !slices.Equal(gotMatches, test.wantMatches) {
@@ -206,9 +206,9 @@ type matchPatternCheck struct {
 	wantMatches []string
 }
 
-func patternString(p *Pattern) string {
-	if p == nil {
+func nodePatternString(n *routingNode) string {
+	if n == nil {
 		return ""
 	}
-	return p.String()
+	return n.pattern.String()
 }
