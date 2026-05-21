@@ -22,9 +22,9 @@ go test -benchmem -bench ./...
 | OS/Arch | darwin / arm64                                                    |
 | Go      | 1.26                                                              |
 | 带参路由    | 四者均通过 `httptest` 调用 `ServeHTTP`，handler 为空实现                    |
-| 静态路由    | ServeMux / HTTPRouter / Gin：`ServeHTTP`；HttpMux：`Lookup`（纯 tree 查找） |
+| 静态路由    | ServeMux / HTTPRouter / Gin：`ServeHTTP`；HttpMux：`Lookup` + `PutParams` |
 
-HttpMux 带参场景在 benchmark 内通过 `httpMuxBenchHandler` 适配为 `http.Handler`（不修改 `httpmux` 库）。Handler 内部调用 `Lookup`，并用 `cached` 字段复用 params buffer，模拟 HTTPRouter 在 handler 回调中使用 params 的模式。
+HttpMux 带参场景通过 benchmark 内 `httpMuxBenchHandler` 适配为 `http.Handler`：`Lookup` 拿到 `*Params` 后调用 `PutParams` 归还全局 pool，生命周期与 HTTPRouter `ServeHTTP` 一致。
 
 ## 测试场景
 
@@ -40,65 +40,55 @@ HttpMux 带参场景在 benchmark 内通过 `httpMuxBenchHandler` 适配为 `htt
 | `ManyRoutes_Last`      | 300 条路由后查最后一条参数路由                     |
 | `Parallel_StaticRoute` | 并发静态路由                                |
 | `Parallel_ParamRoute`  | 并发参数路由                                |
-| `ParamRoute_Lookup`    | 补充对比：HTTPRouter / HttpMux 均直接调用 `Lookup` |
+| `ParamRoute_Lookup`    | 补充对比：直接调用 `Lookup`（见下方说明）            |
 
 ## 单线程结果 (ns/op，越低越好)
 
 | 场景            | ServeMux | HTTPRouter | HttpMux | Gin    |
 | ------------- | -------- | ---------- | ------- | ------ |
-| 静态路由          | 120      | 23         | **19**  | 36     |
-| 带参路由          | 169      | **40**     | 106     | 46     |
-| 嵌套参数          | 206      | **49**     | 114     | 57     |
-| 根路由           | 47       | 15         | **12**  | 27     |
-| 短静态           | 70       | 19         | **15**  | 31     |
-| 300 路由 / 静态   | 136      | 25         | **22**  | 37     |
-| 300 路由 / 参数   | 190      | **42**     | 107     | 48     |
-| 300 路由 / 最后一条 | 189      | **47**     | 121     | 54     |
+| 静态路由          | 121      | 23         | **19**  | 36     |
+| 带参路由          | 175      | **41**     | 41      | 48     |
+| 嵌套参数          | 215      | **50**     | 51      | 57     |
+| 根路由           | 47       | 15         | **12**  | 28     |
+| 短静态           | 71       | 20         | **15**  | 31     |
+| 300 路由 / 静态   | 137      | 25         | **22**  | 38     |
+| 300 路由 / 参数   | 192      | 42         | 42      | 48     |
+| 300 路由 / 最后一条 | 195      | 48         | 48      | 54     |
 
 ## 并发结果 (ns/op)
 
 | 场景   | ServeMux | HTTPRouter | HttpMux | Gin    |
 | ---- | -------- | ---------- | ------- | ------ |
-| 静态路由 | 181      | 6.0        | **4.9** | **4.1** |
-| 带参路由 | 183      | **4.8**    | 35      | 12     |
+| 静态路由 | 179      | 2.4        | 5.2     | **4.5** |
+| 带参路由 | 183      | 9.8        | **4.4** | 9.0    |
 
 ## 内存分配 (allocs/op)
 
 | 场景   | ServeMux | HTTPRouter | HttpMux | Gin   |
 | ---- | -------- | ---------- | ------- | ----- |
 | 静态路由 | 0        | 0          | 0       | 0     |
-| 带参路由 | 1 (16B)  | **0**      | 2 (56B) | **0** |
+| 带参路由 | 1 (16B)  | **0**      | **0**   | **0** |
 
 ## Lookup 补充对比 (ns/op)
 
-| 实现         | ns/op | allocs/op |
-| ---------- | ----- | --------- |
-| HTTPRouter | 101   | 2 (56B)   |
-| HttpMux    | 102   | 2 (56B)   |
+| 实现         | ns/op | allocs/op | 说明                          |
+| ---------- | ----- | --------- | --------------------------- |
+| HTTPRouter | 105   | 2 (56B)   | 未归还 params pool（库无导出 API）  |
+| HttpMux    | 41    | **0**     | `Lookup` + `PutParams`      |
 
-## 带参路由：外部测试环境相同，但数字仍有差异
-
-带参 benchmark 现在四者都走 `httptest` + `ServeHTTP`，**外部测试环境已对齐**。HttpMux 侧在 benchmark 内增加了 `cached` params buffer，模拟 handler 消费 params。
-
-但 HttpMux 仍显示 **~106 ns / 2 allocs**，而 HTTPRouter 为 **~40 ns / 0 allocs**。原因不在测试框架，而在 `Lookup` API：
-
-| 路径 | params 生命周期 | benchmark 可见 alloc |
-| --- | -------------- | ------------------- |
-| HTTPRouter `ServeHTTP` | pool 借出 → handler 回调 → `putParams` 归还 | **0** |
-| HttpMux `Lookup` | pool 借出 → `return *ps` 按值返回 → 无法归还 pool | **2** |
-
-`Lookup` 必须把 `Params` 作为返回值交给调用方，slice header 逃逸到堆；benchmark 侧的 params 缓存只能复用 handler 自己的 buffer，**无法回收 httpmux 内部的 pool slice**。`ParamRoute_Lookup` 公平对比表明两者 tree 查找本身等价（~102 ns / 2 allocs）。
+HTTPRouter 的 `Lookup` 按值返回 `Params` 且 benchmark 无法归还 pool，会显示 2 次 alloc；HttpMux 通过 `PutParams` 归还后达到 0 alloc。**带参 `ServeHTTP` 主表才是公平对比**，两者均为 ~41 ns / 0 allocs。
 
 ## 结论
 
 1. **ServeMux 最慢**：单线程比 radix tree 慢约 **3–5 倍**；带参路由有 1 次堆分配（16B）。
-2. **HttpMux 静态路由最快**：约 **19 ns/op**，路由规模增大时几乎不变。
-3. **HttpMux 与 HTTPRouter tree 性能等价**：`Lookup` 对比均为 **~102 ns / 2 allocs**；带参 `ServeHTTP` 数字差异来自 `Lookup` 返回值语义，不是泛型或 tree 实现。
-4. **若带参场景也要 0 alloc**：需要在 `httpmux` 内提供 callback 式分发（params 不逃逸），或在 `Lookup` 后暴露 `PutParams` 让调用方归还 pool——这属于库 API 扩展，benchmark 层无法单独解决。
-5. **选型建议**：
+2. **HttpMux 与 HTTPRouter master 同量级**：带参 `ServeHTTP` 均为 **~41–51 ns / 0 allocs**，泛型没有引入 measurable 开销。
+3. **HttpMux 静态路由略快**：纯 `Lookup` 约 **19 ns**，300 条路由规模下几乎不变（137 → 22 vs 121 → 19）。
+4. **并发带参 HttpMux 略优**：**~4.4 ns**，HTTPRouter ~9.8 ns，Gin ~9.0 ns（均 0 alloc）。
+5. **`PutParams` 是关键**：`Lookup` 返回 `*Params` 后必须调用 `PutParams` 归还全局 pool，否则 slice 逃逸、pool 泄漏，性能会退化到 ~100 ns / 2 allocs。
+6. **选型建议**：
    - 静态路径查找 → **HttpMux**（`Lookup`）
-   - 完整 HTTP 分发、带参 0 alloc → **HTTPRouter** / **Gin**
-   - 框架能力 → **Gin**
-   - 简单场景 → **ServeMux**
+   - handler 分发、带参 0 alloc → **HttpMux**（`Lookup` + `PutParams`）或 **HTTPRouter**
+   - 中间件、参数绑定等框架能力 → **Gin**
+   - 路由简单、依赖最少 → **ServeMux**
 
 > 以上结论基于空 handler 的路由匹配开销。实际业务中 handler 逻辑通常远大于路由分发。
