@@ -38,7 +38,7 @@ type testRequests []struct {
 }
 
 func testGetParams() *Params {
-	ps := make(Params, 0, 16)
+	ps := make(Params, 0, defaultParamsCap)
 	return &ps
 }
 

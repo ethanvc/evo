@@ -32,6 +32,8 @@ func (ps Params) ByName(name string) string {
 	return ""
 }
 
+const defaultParamsCap = 16
+
 var paramsPool sync.Pool
 
 func putParams(ps *Params) {
@@ -69,8 +71,8 @@ func (r *HttpMux[T]) getParams() *Params {
 	}
 
 	wantCap := r.maxParams
-	if wantCap < 16 {
-		wantCap = 16
+	if wantCap < defaultParamsCap {
+		wantCap = defaultParamsCap
 	}
 	if cap(*ps) < int(wantCap) {
 		*ps = make(Params, 0, wantCap)
@@ -82,8 +84,8 @@ func (r *HttpMux[T]) getParams() *Params {
 
 func (r *HttpMux[T]) newParams() *Params {
 	capacity := r.maxParams
-	if capacity < 16 {
-		capacity = 16
+	if capacity < defaultParamsCap {
+		capacity = defaultParamsCap
 	}
 	ps := make(Params, 0, capacity)
 	return &ps
