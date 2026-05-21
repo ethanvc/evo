@@ -117,11 +117,8 @@ func setupHttpMux(routes []routeDef) *httpmux.HttpMux[int] {
 }
 
 // httpMuxBenchHandler adapts HttpMux to http.Handler for benchmarks.
-// cached reuses a params buffer across requests, similar to HTTPRouter keeping
-// params in its internal pool for the handler call.
 type httpMuxBenchHandler struct {
-	mux    *httpmux.HttpMux[int]
-	cached httpmux.Params
+	mux *httpmux.HttpMux[int]
 }
 
 func newHttpMuxBenchHandler(routes []routeDef) *httpMuxBenchHandler {
@@ -130,11 +127,11 @@ func newHttpMuxBenchHandler(routes []routeDef) *httpMuxBenchHandler {
 
 func (h *httpMuxBenchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_, params, _ := h.mux.Lookup(r.Method, r.URL.Path)
-	if len(params) == 0 {
+	if params == nil {
 		return
 	}
-	h.cached = append(h.cached[:0], params...)
-	_ = h.cached[0].Value
+	_ = (*params)[0].Value
+	httpmux.PutParams(params)
 }
 
 func setupHttpMuxHandler(routes []routeDef) http.Handler {
@@ -161,7 +158,10 @@ func benchmarkHttpMux(b *testing.B, mux *httpmux.HttpMux[int], method, path stri
 	b.ReportAllocs()
 	b.ResetTimer()
 	for range b.N {
-		mux.Lookup(method, path)
+		_, params, _ := mux.Lookup(method, path)
+		if params != nil {
+			httpmux.PutParams(params)
+		}
 	}
 }
 
@@ -257,7 +257,10 @@ func benchmarkHttpMuxParallel(b *testing.B, mux *httpmux.HttpMux[int], method, p
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
-			mux.Lookup(method, path)
+			_, params, _ := mux.Lookup(method, path)
+			if params != nil {
+				httpmux.PutParams(params)
+			}
 		}
 	})
 }

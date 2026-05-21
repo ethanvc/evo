@@ -37,14 +37,14 @@ type testRequests []struct {
 	ps         Params
 }
 
-func getParams() *Params {
-	ps := make(Params, 0, 20)
+func testGetParams() *Params {
+	ps := make(Params, 0, 16)
 	return &ps
 }
 
 func checkRequests(t *testing.T, tree *node[int], requests testRequests) {
 	for _, request := range requests {
-		match, psp, _ := tree.getValue(request.path, getParams)
+		match, psp, _ := tree.getValue(request.path, testGetParams)
 
 		switch {
 		case match == nil:
@@ -67,6 +67,8 @@ func checkRequests(t *testing.T, tree *node[int], requests testRequests) {
 		if !reflect.DeepEqual(ps, request.ps) {
 			t.Errorf("Params mismatch for route '%s'", request.path)
 		}
+
+		putParams(psp)
 	}
 }
 

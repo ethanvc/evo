@@ -75,9 +75,13 @@ func TestHttpMuxGenericLookup(t *testing.T) {
 		t.Fatalf("want %q, got %q", "user-list", match.value)
 	}
 	wantParams := Params{{Key: "name", Value: "alice"}}
-	if !reflect.DeepEqual(params, wantParams) {
-		t.Fatalf("want params %v, got %v", wantParams, params)
+	if params == nil {
+		t.Fatal("expected params")
 	}
+	if !reflect.DeepEqual(*params, wantParams) {
+		t.Fatalf("want params %v, got %v", wantParams, *params)
+	}
+	PutParams(params)
 	if tsr {
 		t.Fatal("unexpected tsr")
 	}
@@ -113,9 +117,13 @@ func TestHttpMuxIntLookup(t *testing.T) {
 	if match.value != wantValue {
 		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.value)
 	}
-	if !reflect.DeepEqual(params, wantParams) {
-		t.Fatalf("Wrong parameter values: want %v, got %v", wantParams, params)
+	if params == nil {
+		t.Fatal("expected params")
 	}
+	if !reflect.DeepEqual(*params, wantParams) {
+		t.Fatalf("Wrong parameter values: want %v, got %v", wantParams, *params)
+	}
+	PutParams(params)
 
 	mux.GET("/user", wantValue)
 	match, params, _ = mux.Lookup(http.MethodGet, "/user")

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sync"
 )
+
 // Param is a single URL parameter, consisting of a key and a value.
 type Param struct {
 	Key   string
@@ -31,12 +32,26 @@ func (ps Params) ByName(name string) string {
 	return ""
 }
 
+var paramsPool sync.Pool
+
+func putParams(ps *Params) {
+	if ps != nil {
+		*ps = (*ps)[:0]
+		paramsPool.Put(ps)
+	}
+}
+
+// PutParams returns ps to the global params pool. ps must be a non-nil pointer
+// previously returned by Lookup and must not be used after PutParams.
+func PutParams(ps *Params) {
+	putParams(ps)
+}
+
 // HttpMux is a generic radix-tree mux keyed by HTTP method and path pattern.
 type HttpMux[T any] struct {
 	trees map[string]*node[T]
 
-	paramsPool sync.Pool
-	maxParams  uint16
+	maxParams uint16
 }
 
 // New returns a new initialized HttpMux.
@@ -45,15 +60,33 @@ func New[T any]() *HttpMux[T] {
 }
 
 func (r *HttpMux[T]) getParams() *Params {
-	ps, _ := r.paramsPool.Get().(*Params)
-	*ps = (*ps)[0:0]
+	v := paramsPool.Get()
+	var ps *Params
+	if v == nil {
+		ps = r.newParams()
+	} else {
+		ps = v.(*Params)
+	}
+
+	wantCap := r.maxParams
+	if wantCap < 16 {
+		wantCap = 16
+	}
+	if cap(*ps) < int(wantCap) {
+		*ps = make(Params, 0, wantCap)
+	} else {
+		*ps = (*ps)[:0]
+	}
 	return ps
 }
 
-func (r *HttpMux[T]) putParams(ps *Params) {
-	if ps != nil {
-		r.paramsPool.Put(ps)
+func (r *HttpMux[T]) newParams() *Params {
+	capacity := r.maxParams
+	if capacity < 16 {
+		capacity = 16
 	}
+	ps := make(Params, 0, capacity)
+	return &ps
 }
 
 // GET is a shortcut for mux.Register(http.MethodGet, path, value).
@@ -120,28 +153,19 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 	if paramsCount := countParams(path); paramsCount > r.maxParams {
 		r.maxParams = paramsCount
 	}
-
-	if r.paramsPool.New == nil && r.maxParams > 0 {
-		r.paramsPool.New = func() interface{} {
-			ps := make(Params, 0, r.maxParams)
-			return &ps
-		}
-	}
 }
 
 // Lookup returns the node registered for method + path and any captured params.
+// When params is non-nil, the caller must call PutParams(params) after use.
 // The third return value indicates whether a trailing-slash redirect is recommended.
-func (r *HttpMux[T]) Lookup(method, path string) (*node[T], Params, bool) {
+func (r *HttpMux[T]) Lookup(method, path string) (*node[T], *Params, bool) {
 	if root := r.trees[method]; root != nil {
 		match, ps, tsr := root.getValue(path, r.getParams)
 		if match == nil {
-			r.putParams(ps)
+			putParams(ps)
 			return nil, nil, tsr
 		}
-		if ps == nil {
-			return match, nil, tsr
-		}
-		return match, *ps, tsr
+		return match, ps, tsr
 	}
 	return nil, nil, false
 }
