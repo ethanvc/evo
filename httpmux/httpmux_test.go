@@ -62,9 +62,12 @@ func TestHttpMuxGenericLookup(t *testing.T) {
 	mux := New[string]()
 	mux.Register(http.MethodGet, "/user/:name", "user-list")
 
-	value, params, tsr := mux.Lookup(http.MethodGet, "/user/alice")
-	if value != "user-list" {
-		t.Fatalf("want %q, got %q", "user-list", value)
+	match, params, tsr := mux.Lookup(http.MethodGet, "/user/alice")
+	if match == nil {
+		t.Fatal("expected matched node")
+	}
+	if match.value != "user-list" {
+		t.Fatalf("want %q, got %q", "user-list", match.value)
 	}
 	wantParams := Params{{Key: "name", Value: "alice"}}
 	if !reflect.DeepEqual(params, wantParams) {
@@ -74,7 +77,10 @@ func TestHttpMuxGenericLookup(t *testing.T) {
 		t.Fatal("unexpected tsr")
 	}
 
-	_, _, tsr = mux.Lookup(http.MethodGet, "/missing")
+	match, _, tsr = mux.Lookup(http.MethodGet, "/missing")
+	if match != nil {
+		t.Fatal("unexpected matched node")
+	}
 	if tsr {
 		t.Fatal("unexpected tsr for missing route")
 	}
@@ -86,35 +92,41 @@ func TestHttpMuxIntLookup(t *testing.T) {
 
 	mux := New[int]()
 
-	value, _, tsr := mux.Lookup(http.MethodGet, "/nope")
-	if value != 0 {
-		t.Fatalf("Got value for unregistered pattern: %v", value)
+	match, _, tsr := mux.Lookup(http.MethodGet, "/nope")
+	if match != nil {
+		t.Fatalf("Got node for unregistered pattern: %v", match)
 	}
 	if tsr {
 		t.Error("Got wrong TSR recommendation!")
 	}
 
 	mux.GET("/user/:name", wantValue)
-	value, params, _ := mux.Lookup(http.MethodGet, "/user/gopher")
-	if value != wantValue {
-		t.Fatalf("Got wrong value: want %d, got %d", wantValue, value)
+	match, params, _ := mux.Lookup(http.MethodGet, "/user/gopher")
+	if match == nil {
+		t.Fatal("Got no matched node!")
+	}
+	if match.value != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.value)
 	}
 	if !reflect.DeepEqual(params, wantParams) {
 		t.Fatalf("Wrong parameter values: want %v, got %v", wantParams, params)
 	}
 
 	mux.GET("/user", wantValue)
-	value, params, _ = mux.Lookup(http.MethodGet, "/user")
-	if value != wantValue {
-		t.Fatalf("Got wrong value: want %d, got %d", wantValue, value)
+	match, params, _ = mux.Lookup(http.MethodGet, "/user")
+	if match == nil {
+		t.Fatal("Got no matched node!")
+	}
+	if match.value != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.value)
 	}
 	if params != nil {
 		t.Fatalf("Wrong parameter values: want %v, got %v", nil, params)
 	}
 
-	value, _, tsr = mux.Lookup(http.MethodGet, "/user/gopher/")
-	if value != 0 {
-		t.Fatalf("Got value for unregistered pattern: %v", value)
+	match, _, tsr = mux.Lookup(http.MethodGet, "/user/gopher/")
+	if match != nil {
+		t.Fatalf("Got node for unregistered pattern: %v", match)
 	}
 	if !tsr {
 		t.Error("Got no TSR recommendation!")

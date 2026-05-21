@@ -138,20 +138,19 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 	}
 }
 
-// Lookup returns the value registered for method + path and any captured params.
+// Lookup returns the node registered for method + path and any captured params.
 // The third return value indicates whether a trailing-slash redirect is recommended.
-func (r *HttpMux[T]) Lookup(method, path string) (T, Params, bool) {
-	var zero T
+func (r *HttpMux[T]) Lookup(method, path string) (*node[T], Params, bool) {
 	if root := r.trees[method]; root != nil {
-		value, ps, tsr := root.getValue(path, r.getParams)
-		if isZero(value) {
+		match, ps, tsr := root.getValue(path, r.getParams)
+		if match == nil {
 			r.putParams(ps)
-			return zero, nil, tsr
+			return nil, nil, tsr
 		}
 		if ps == nil {
-			return value, nil, tsr
+			return match, nil, tsr
 		}
-		return value, *ps, tsr
+		return match, *ps, tsr
 	}
-	return zero, nil, false
+	return nil, nil, false
 }

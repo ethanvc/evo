@@ -44,18 +44,18 @@ func getParams() *Params {
 
 func checkRequests(t *testing.T, tree *node[int], requests testRequests) {
 	for _, request := range requests {
-		value, psp, _ := tree.getValue(request.path, getParams)
+		match, psp, _ := tree.getValue(request.path, getParams)
 
 		switch {
-		case value == 0:
+		case match == nil:
 			if !request.nilHandler {
 				t.Errorf("handle mismatch for route '%s': Expected non-zero value", request.path)
 			}
 		case request.nilHandler:
 			t.Errorf("handle mismatch for route '%s': Expected zero value", request.path)
 		default:
-			if value != fakeValue(request.route) {
-				t.Errorf("handle mismatch for route '%s': Wrong value (%d != %d)", request.path, value, fakeValue(request.route))
+			if match.value != fakeValue(request.route) {
+				t.Errorf("handle mismatch for route '%s': Wrong value (%d != %d)", request.path, match.value, fakeValue(request.route))
 			}
 		}
 
@@ -421,8 +421,8 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/vendor/x",
 	}
 	for _, route := range tsrRoutes {
-		handler, _, tsr := tree.getValue(route, nil)
-		if handler != 0 {
+		match, _, tsr := tree.getValue(route, nil)
+		if match != nil {
 			t.Fatalf("non-nil handler for TSR route '%s", route)
 		} else if !tsr {
 			t.Errorf("expected TSR recommendation for route '%s'", route)
@@ -438,8 +438,8 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/api/world/abc",
 	}
 	for _, route := range noTsrRoutes {
-		handler, _, tsr := tree.getValue(route, nil)
-		if handler != 0 {
+		match, _, tsr := tree.getValue(route, nil)
+		if match != nil {
 			t.Fatalf("non-nil handler for No-TSR route '%s", route)
 		} else if tsr {
 			t.Errorf("expected no TSR recommendation for route '%s'", route)
@@ -457,8 +457,8 @@ func TestTreeRootTrailingSlashRedirect(t *testing.T) {
 		t.Fatalf("panic inserting test route: %v", recv)
 	}
 
-	handler, _, tsr := tree.getValue("/", nil)
-	if handler != 0 {
+	match, _, tsr := tree.getValue("/", nil)
+	if match != nil {
 		t.Fatalf("non-nil handler")
 	} else if tsr {
 		t.Errorf("expected no TSR recommendation")

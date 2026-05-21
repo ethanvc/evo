@@ -329,7 +329,7 @@ func (n *node[T]) insertChild(path, fullPath string, value T) {
 // If no handle can be found, a TSR (trailing slash redirect) recommendation is
 // made if a handle exists with an extra (without the) trailing slash for the
 // given path.
-func (n *node[T]) getValue(path string, params func() *Params) (value T, ps *Params, tsr bool) {
+func (n *node[T]) getValue(path string, params func() *Params) (match *node[T], ps *Params, tsr bool) {
 walk: // Outer loop for walking the tree
 	for {
 		prefix := n.path
@@ -393,7 +393,8 @@ walk: // Outer loop for walking the tree
 						return
 					}
 
-					if value = n.value; hasValue(value) {
+					if hasValue(n.value) {
+						match = n
 						return
 					} else if len(n.children) == 1 {
 						// No handle found. Check if a handle for this path + a
@@ -419,7 +420,7 @@ walk: // Outer loop for walking the tree
 						}
 					}
 
-					value = n.value
+					match = n
 					return
 
 				default:
@@ -429,7 +430,8 @@ walk: // Outer loop for walking the tree
 		} else if path == prefix {
 			// We should have reached the node containing the handle.
 			// Check if this node has a handle registered.
-			if value = n.value; hasValue(value) {
+			if hasValue(n.value) {
+				match = n
 				return
 			}
 
