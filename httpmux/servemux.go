@@ -7,12 +7,9 @@ package httpmux
 import (
 	"errors"
 	"fmt"
-	"maps"
 	"net"
-	"net/url"
 	"path"
 	"runtime"
-	"slices"
 	"strings"
 	"sync"
 
@@ -72,18 +69,20 @@ func stripHostPort(h string) string {
 }
 
 // Handler returns the handler to use for the given request,
-// consulting r.Method, r.Host, and r.URL.Path. It always returns
-// a non-nil handler.
+// consulting r.Method, r.Host, and r.URL.Path.
 //
 // Handler does not modify its argument. In particular, it does not populate
 // named path wildcards, so r.PathValue will always return the empty string.
 func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
-	h, p, _, _ := mux.findHandler(r.Method, r.Host, r.URL.EscapedPath(), r.URL.RawQuery)
-	return h, p
+	n, _ := mux.findHandler(r.Method, r.Host, r.URL.EscapedPath())
+	if n == nil {
+		return nil, ""
+	}
+	return n.handler, n.pattern.String()
 }
 
-// findHandler finds a handler for a request.
-func (mux *ServeMux) findHandler(method, host, escapedPath, rawQuery string) (h Handler, patStr string, _ *pattern, matches []string) {
+// findHandler finds a matching routing node for a request.
+func (mux *ServeMux) findHandler(method, host, escapedPath string) (_ *routingNode, matches []string) {
 	var n *routingNode
 	path := escapedPath
 	// CONNECT requests are not canonicalized.
@@ -95,26 +94,8 @@ func (mux *ServeMux) findHandler(method, host, escapedPath, rawQuery string) (h 
 		path = cleanPath(path)
 
 		n, matches = mux.match(host, method, path)
-		if path != escapedPath && path != trimTrailingSlash(escapedPath) {
-			patStr := ""
-			if n != nil {
-				patStr = n.pattern.String()
-			}
-			u := &url.URL{Path: path, RawQuery: rawQuery}
-			return RedirectHandler(u.String(), StatusTemporaryRedirect), patStr, nil, nil
-		}
 	}
-	if n == nil {
-		allowedMethods := mux.matchingMethods(host, path)
-		if len(allowedMethods) > 0 {
-			return HandlerFunc(func(w ResponseWriter, r *Request) {
-				w.Header().Set("Allow", strings.Join(allowedMethods, ", "))
-				Error(w, StatusText(StatusMethodNotAllowed), StatusMethodNotAllowed)
-			}), "", nil, nil
-		}
-		return NotFoundHandler(), "", nil, nil
-	}
-	return n.handler, n.pattern.String(), n.pattern, matches
+	return n, matches
 }
 
 // match looks up a node in the tree that matches the host, method and path.
@@ -124,15 +105,6 @@ func (mux *ServeMux) match(host, method, path string) (_ *routingNode, matches [
 
 	n, matches := mux.tree.match(host, method, path)
 	return n, matches
-}
-
-// matchingMethods return a sorted list of all methods that would match with the given host and path.
-func (mux *ServeMux) matchingMethods(host, path string) []string {
-	mux.mu.RLock()
-	defer mux.mu.RUnlock()
-	ms := map[string]bool{}
-	mux.tree.matchingMethods(host, path, ms)
-	return slices.Sorted(maps.Keys(ms))
 }
 
 // ServeHTTP dispatches the request to the handler whose pattern most closely
@@ -145,12 +117,15 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 		w.WriteHeader(StatusBadRequest)
 		return
 	}
-	var h Handler
-	var pat *pattern
+	var n *routingNode
 	var matches []string
-	h, r.Pattern, pat, matches = mux.findHandler(r.Method, r.Host, r.URL.EscapedPath(), r.URL.RawQuery)
-	setPathValues(r, pat, matches)
-	h.ServeHTTP(w, r)
+	n, matches = mux.findHandler(r.Method, r.Host, r.URL.EscapedPath())
+	if n == nil {
+		return
+	}
+	r.Pattern = n.pattern.String()
+	setPathValues(r, n.pattern, matches)
+	n.handler.ServeHTTP(w, r)
 }
 
 func setPathValues(r *Request, pat *pattern, matches []string) {

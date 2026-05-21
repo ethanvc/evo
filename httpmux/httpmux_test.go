@@ -24,6 +24,28 @@ func TestServeMuxTrimsTrailingSlashBeforeMatch(t *testing.T) {
 	}
 }
 
+func TestServeMuxFindHandlerReturnsNilWhenNoPatternMatches(t *testing.T) {
+	mux := NewServeMux()
+	mux.HandleFunc("GET /api", func(ResponseWriter, *Request) {})
+
+	for _, test := range []struct {
+		name, method, path string
+	}{
+		{name: "not found", method: "GET", path: "/missing"},
+		{name: "method mismatch", method: "POST", path: "/api"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			n, matches := mux.findHandler(test.method, "", test.path)
+			if n != nil {
+				t.Fatalf("node got %v, want nil", n)
+			}
+			if matches != nil {
+				t.Fatalf("matches got %v, want nil", matches)
+			}
+		})
+	}
+}
+
 func TestServeMuxMatchPattern(t *testing.T) {
 	mux := NewServeMux()
 	for _, pattern := range []string{
