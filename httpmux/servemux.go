@@ -74,15 +74,15 @@ func stripHostPort(h string) string {
 // Handler does not modify its argument. In particular, it does not populate
 // named path wildcards, so r.PathValue will always return the empty string.
 func (mux *ServeMux) Handler(r *Request) (h Handler, pattern string) {
-	n, _ := mux.findHandler(r.Method, r.Host, r.URL.EscapedPath())
+	n, _ := mux.Match(r.Method, r.Host, r.URL.EscapedPath())
 	if n == nil {
 		return nil, ""
 	}
 	return n.handler, n.pattern.String()
 }
 
-// findHandler finds a matching routing node for a request.
-func (mux *ServeMux) findHandler(method, host, escapedPath string) (_ *routingNode, matches []string) {
+// Match finds a matching routing node for a request.
+func (mux *ServeMux) Match(method, host, escapedPath string) (_ *routingNode, matches []string) {
 	var n *routingNode
 	path := escapedPath
 	// CONNECT requests are not canonicalized.
@@ -119,7 +119,7 @@ func (mux *ServeMux) ServeHTTP(w ResponseWriter, r *Request) {
 	}
 	var n *routingNode
 	var matches []string
-	n, matches = mux.findHandler(r.Method, r.Host, r.URL.EscapedPath())
+	n, matches = mux.Match(r.Method, r.Host, r.URL.EscapedPath())
 	if n == nil {
 		return
 	}
