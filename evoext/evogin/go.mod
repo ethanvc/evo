@@ -3,11 +3,13 @@ module github.com/ethanvc/evo/xobsext/xobsgin
 go 1.26.0
 
 require (
-	github.com/ethanvc/evo v0.0.0-20260507022237-14d6b26ce23f
+	github.com/ethanvc/evo v0.0.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/stretchr/testify v1.11.1
 	google.golang.org/grpc v1.77.0
 )
+
+replace github.com/ethanvc/evo => ../..
 
 require (
 	github.com/beorn7/perks v1.0.1 // indirect
