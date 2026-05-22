@@ -79,7 +79,18 @@ type Node[T any] struct {
 	priority   uint32
 	children   []*Node[T]
 	value      T
+	pattern    string
 	registered bool
+}
+
+// Pattern returns the route pattern registered on this node.
+func (n *Node[T]) Pattern() string {
+	return n.pattern
+}
+
+// Value returns the value registered on this node.
+func (n *Node[T]) Value() T {
+	return n.value
 }
 
 // Increments priority of the given child and reorders if necessary
@@ -134,6 +145,7 @@ walk:
 				indices:    n.indices,
 				children:   n.children,
 				value:      n.value,
+				pattern:    n.pattern,
 				registered: n.registered,
 				priority:   n.priority - 1,
 			}
@@ -213,6 +225,7 @@ walk:
 			panic("a value is already registered for path '" + fullPath + "'")
 		}
 		n.value = value
+		n.pattern = fullPath
 		n.registered = true
 		return
 	}
@@ -275,6 +288,7 @@ func (n *Node[T]) insertChild(path, fullPath string, value T) {
 
 			// Otherwise we're done. Insert the handle in the new leaf
 			n.value = value
+			n.pattern = fullPath
 			n.registered = true
 			return
 		}
@@ -311,6 +325,7 @@ func (n *Node[T]) insertChild(path, fullPath string, value T) {
 			path:       path[i:],
 			nType:      catchAll,
 			value:      value,
+			pattern:    fullPath,
 			registered: true,
 			priority:   1,
 		}
@@ -322,6 +337,7 @@ func (n *Node[T]) insertChild(path, fullPath string, value T) {
 	// If no wildcard was found, simply insert the path and handle
 	n.path = path
 	n.value = value
+	n.pattern = fullPath
 	n.registered = true
 }
 

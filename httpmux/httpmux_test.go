@@ -58,8 +58,11 @@ func TestHttpMuxInvalidInput(t *testing.T) {
 	}
 
 	match, _, _ := mux.Lookup(http.MethodGet, "/")
-	if match == nil || match.value != 0 {
+	if match == nil || match.Value() != 0 {
 		t.Fatalf("want registered zero value, got match=%v", match)
+	}
+	if match.Pattern() != "/" {
+		t.Fatalf("want pattern %q, got %q", "/", match.Pattern())
 	}
 }
 
@@ -71,8 +74,11 @@ func TestHttpMuxGenericLookup(t *testing.T) {
 	if match == nil {
 		t.Fatal("expected matched node")
 	}
-	if match.value != "user-list" {
-		t.Fatalf("want %q, got %q", "user-list", match.value)
+	if match.Value() != "user-list" {
+		t.Fatalf("want %q, got %q", "user-list", match.Value())
+	}
+	if match.Pattern() != "/user/:name" {
+		t.Fatalf("want pattern %q, got %q", "/user/:name", match.Pattern())
 	}
 	wantParams := Params{{Key: "name", Value: "alice"}}
 	if params == nil {
@@ -114,8 +120,11 @@ func TestHttpMuxIntLookup(t *testing.T) {
 	if match == nil {
 		t.Fatal("Got no matched node!")
 	}
-	if match.value != wantValue {
-		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.value)
+	if match.Value() != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.Value())
+	}
+	if match.Pattern() != "/user/:name" {
+		t.Fatalf("want pattern %q, got %q", "/user/:name", match.Pattern())
 	}
 	if params == nil {
 		t.Fatal("expected params")
@@ -130,8 +139,11 @@ func TestHttpMuxIntLookup(t *testing.T) {
 	if match == nil {
 		t.Fatal("Got no matched node!")
 	}
-	if match.value != wantValue {
-		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.value)
+	if match.Value() != wantValue {
+		t.Fatalf("Got wrong value: want %d, got %d", wantValue, match.Value())
+	}
+	if match.Pattern() != "/user" {
+		t.Fatalf("want pattern %q, got %q", "/user", match.Pattern())
 	}
 	if params != nil {
 		t.Fatalf("Wrong parameter values: want %v, got %v", nil, params)
