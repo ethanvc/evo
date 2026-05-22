@@ -52,7 +52,7 @@
 
 | 表达式 | action | name | rules（消费规则，同时生效） |
 |--------|--------|------|----------------|
-| `{replace::user-id;next-slash}` | replace | `:user-id` | `[next-slash]` |
+| `{replace::user-id;until-slash}` | replace | `:user-id` | `[until-slash]` |
 | `{replace:*path;rest}` | replace | `*path` | `[rest]` |
 | `{keep;digit}` | keep | — | `[digit]` |
 | `{replace;hexdigit}` | replace | — | `[hexdigit]` |
@@ -61,7 +61,7 @@
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `action` | 是 | `replace` 或 `keep` |
-| `name` | replace 可选 | `:ident`（段 param）或 `*ident`（catch-all） |
+| `name` | replace 可选 | `:ident` 或 `*ident`；仅作为结果串（Canonical / Converted）的**占位符格式**，本身不附带段分隔或 catch-all 语义——消费行为完全由 rule 控制 |
 | `rule` | 至少 1 个 | 指定如何消费**本表达式之后**的连续子串；多个 rule **同时**作用于同一次消费 |
 
 **多 rule 语义**：
@@ -73,13 +73,13 @@
 - 匹配成功 ⟺ 存在一段子串，使**所有 rule 对该子串的消费判定同时为真**。
 - rule 的书写顺序仅作声明顺序，不改变「同时生效」语义（实现时可按固定顺序求交集）。
 
-示例：`{replace::id;next-slash;digit}` 同时消费一段子串，该子串须**既**止于 `/` 之前，**又**全为数字（如 `13455`），而不是先按 `/` 切一段再对下一段做 digit。
+示例：`{replace::id;until-slash;digit}` 同时消费一段子串，该子串须**既**止于 `/` 之前，**又**全为数字（如 `13455`），而不是先按 `/` 切一段再对下一段做 digit。
 
 ### 2.2 action
 
 | action | 含义 |
 |--------|------|
-| `replace` | wildcard 段：参与路由索引；Canonical 中变为 `:name` / `*name`；Captured 值单独返回 |
+| `replace` | wildcard 段：参与路由索引；Canonical 中变为 `:name` / `*name`（仅输出格式，消费语义由 rule 决定）；Captured 值单独返回 |
 | `keep` | 匹配并捕获，Canonical 保留完整 `{keep;rule1[;rule2...]}`；Converted 中填入本次匹配子串 |
 
 ### 2.3 rule（消费字符串的规则）
@@ -88,16 +88,17 @@
 
 | rule | 消费约束 |
 |------|---------|
-| `next-slash` | 边界：本次消费止于下一个 `/` 之前（不含 `/`） |
+| `until-slash` | 边界：本次消费止于下一个 `/` 之前（不含 `/`） |
+| `until-blank` | 边界：本次消费止于下一个空白字符之前（不含空白） |
 | `rest` | 边界：本次消费尽余下全部字符（catch-all；与其他边界 rule 并用时以语义兼容为准） |
 | `digit` | 字符：本次消费的子串须为连续 `[0-9]+` |
 | `hexdigit` | 字符：本次消费的子串须为连续 `[0-9a-fA-F]+` |
 
 示例：
 
-- `{replace::user-id;next-slash}`：单 rule，消费至 `/` 前，等价 httprouter `:user-id`
+- `{replace::user-id;until-slash}`：单 rule，消费至 `/` 前，等价 httprouter `:user-id`
 - `{keep;digit}`：单 rule，消费一段数字
-- `{replace::id;next-slash;digit}`：两维同时消费——边界（至 `/`）与字符类（digit）叠加在同一段上
+- `{replace::id;until-slash;digit}`：两维同时消费——边界（至 `/`）与字符类（digit）叠加在同一段上
 
 未知 rule 或未指定任何 rule：Register 时返回 error。
 
@@ -106,7 +107,7 @@
 **路径类（replace-only，Converted 可缓存）**
 
 ```
-注册: /abc/{replace::user-id;next-slash}
+注册: /abc/{replace::user-id;until-slash}
 输入: /abc/13455
 
 Canonical:  /abc/:user-id
@@ -262,7 +263,7 @@ Lookup(input)
 
 | Profile | 典型 rule 组合 | 匹配后端 | 版本 |
 |---------|---------------|---------|------|
-| **Route** | `next-slash`、`rest`（可与其他 rule 叠加） | radix tree（复用 `httpmux` tree 思路） | v1 |
+| **Route** | `until-slash`、`rest`（可与其他 rule 叠加） | radix tree（复用 `httpmux` tree 思路） | v1 |
 | **Text** | `digit`、`hexdigit` 及多 rule 组合 + keep/replace 混排 | 线性段扫描 / 编译状态机 | v2 |
 
 v1 交付：
@@ -282,7 +283,7 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 
 - 无 HTTP method 维度
 - pattern 来源为 Compiler 产出的 Canonical（`:name` / `*name`）
-- 表达式 `{replace::name;next-slash}` 在 Register 时 lowering，运行时 tree 不解析 `{}`
+- 表达式 `{replace::name;until-slash}` 在 Register 时 lowering，运行时 tree 不解析 `{}`
 
 ---
 
