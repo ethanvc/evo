@@ -18,9 +18,9 @@
 - 支持字面量 + `{表达式}` 混合的 pattern 语法
 - 泛型挂载值：`Mux[T]`，`Register(pattern, value)` / `Lookup(input)`
 - 匹配结果包含：
-  - `Pattern` 元信息（Raw / Canonical / 是否可缓存 Converted）
-  - `Captures`（key 可为空串）
-  - `Converted`（输出串；replace-only 可缓存，含 keep 则每次匹配计算）
+  - `Node` 元信息（Raw / Canonical / HasKeep / CachedConverted）与挂载值
+  - `Captures`（key 可为空串；Lookup 运行时返回，可 pool 复用）
+  - `Converted`（输出串；replace-only 可缓存，含 keep 则每次 Lookup 计算）
 - 不限于 HTTP path；分隔符不限于 `/`
 
 ### 非目标（v1）
@@ -166,18 +166,31 @@ Captures:   "" = 123456
 - `{keep;rules...}` → 写入本次匹配到的子串
 - `{replace;...}` → **不写入** Converted（值仅出现在 Captures）
 
-replace-only 时：`Converted == Canonical == cachedConverted`。
+replace-only 时：`Converted == Canonical == node.CachedConverted()`。
 
-### 3.3 Pattern 结构体
+### 3.3 Node（注册句柄）
+
+与 `httpmux` 一致：**注册期信息挂在 Node 上**，Lookup 返回匹配到的 leaf `*Node[T]`，而非临时 `Match` 结构体。
 
 ```go
-type Pattern struct {
-    Raw              string // 注册原文
-    Canonical        string // 编译期模板
-    HasKeep          bool   // 是否含 keep 表达式
-    cachedConverted  string // 仅当 !HasKeep；Lookup 时直接返回
+type Node[T any] struct {
+    // tree 内部字段（Route profile）或索引条目（Text profile）
+    value           T
+    raw             string // 注册原文
+    canonical       string // 编译期模板
+    hasKeep         bool
+    cachedConverted string // 仅当 !hasKeep
+    registered      bool
 }
+
+func (n *Node[T]) Value() T
+func (n *Node[T]) Raw() string
+func (n *Node[T]) Canonical() string
+func (n *Node[T]) HasKeep() bool
+func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
 ```
+
+Route profile 下 Node 即 radix tree 的 leaf；Text profile 下 Node 为索引条目，类型统一，匹配后端不同。
 
 ---
 
@@ -189,18 +202,20 @@ type Capture struct {
     Value string
 }
 
-type Match[T any] struct {
-    Pattern   Pattern
-    Value     T
-    Captures  []Capture
-    Converted string
-}
+type Captures []Capture
+
+func (cs Captures) ByName(name string) string
 ```
 
-`Lookup` 成功时：
+**注册期 vs 运行期分离**（对齐 `httpmux`）：
 
-- `Match.Converted`：若 `!Pattern.HasKeep` 用 `cachedConverted`；否则现场拼装
-- `Captures` 顺序与 pattern 中表达式出现顺序一致
+| 数据 | 归属 | 说明 |
+|------|------|------|
+| `Value`、`Raw`、`Canonical`、`HasKeep`、`CachedConverted` | `*Node[T]` | Register 时确定，跨 Lookup 复用 |
+| `Captures` | Lookup 返回 `*Captures` | 每次匹配提取；非 nil 时调用方须 `PutCaptures` |
+| `Converted` | Lookup 返回值 | replace-only：`node.CachedConverted()`；含 keep：现场拼装 |
+
+`Captures` 顺序与 pattern 中表达式出现顺序一致。
 
 ---
 
@@ -212,23 +227,41 @@ package patternmux
 func New[T any]() *Mux[T]
 
 func (m *Mux[T]) Register(pattern string, value T) error
-func (m *Mux[T]) Lookup(input string) (*Match[T], bool)
+
+// Lookup 返回匹配到的注册 Node、捕获段、Converted 输出串。
+// captures 非 nil 时，调用方须 PutCaptures(captures) 归还 pool。
+func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, converted string, ok bool)
+
+func PutCaptures(cs *Captures)
+```
+
+调用示例：
+
+```go
+node, caps, converted, ok := mux.Lookup(input)
+if !ok { /* no match */ }
+if caps != nil {
+    defer patternmux.PutCaptures(caps)
+}
+v := node.Value()
+canonical := node.Canonical()
+// converted：replace-only 时等于 node.CachedConverted()
 ```
 
 ### Register
 
 1. parse pattern → AST（`Literal` | `Expr`）
 2. 校验表达式（action / name / rules，至少一个 rule）
-3. 计算 `Canonical`、`HasKeep`、`cachedConverted`
+3. 计算 `Canonical`、`HasKeep`、`cachedConverted`，写入 `Node`
 4. 插入匹配索引
 5. 冲突处理：**相同 Raw 或相同挂载点重复注册 → 返回 error**（与 `httpmux` 一致，不允许静默覆盖）
 
 ### Lookup
 
-1. 在索引中查找匹配的 pattern
-2. 提取 Captures
-3. 组装 `Converted`
-4. 返回 `Match[T]`
+1. 在索引中查找匹配的 pattern，得到 leaf `*Node[T]`
+2. 提取 `Captures`（pool 分配）
+3. 若 `!node.HasKeep()`：`converted = node.CachedConverted()`；否则现场拼装
+4. 返回 `node, captures, converted, true`
 
 ---
 
@@ -249,14 +282,14 @@ func (m *Mux[T]) Lookup(input string) (*Match[T], bool)
 ```
 Register(pattern)
     → Parser → AST
-    → Compiler → Pattern meta + Profile
+    → Compiler → Node meta + Profile
     → Index.Insert
 
 Lookup(input)
-    → Index.Search
-    → Matcher.Run(input, AST) → Captures
-    → Build Converted
-    → Match[T]
+    → Index.Search → *Node[T]
+    → Matcher.Run(input, AST) → *Captures
+    → Build Converted（HasKeep 时）
+    → node, captures, converted
 ```
 
 ### 7.1 Profile
@@ -284,6 +317,7 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 - 无 HTTP method 维度
 - pattern 来源为 Compiler 产出的 Canonical（`:name` / `*name`）
 - 表达式 `{replace::name;until-slash}` 在 Register 时 lowering，运行时 tree 不解析 `{}`
+- Lookup 签名对齐：`httpmux` 为 `(*Node[T], *Params, tsr)`；`patternmux` 为 `(*Node[T], *Captures, converted, ok)`
 
 ---
 
