@@ -42,7 +42,7 @@ func testGetParams() *Params {
 	return &ps
 }
 
-func checkRequests(t *testing.T, tree *node[int], requests testRequests) {
+func checkRequests(t *testing.T, tree *Node[int], requests testRequests) {
 	for _, request := range requests {
 		match, psp, _ := tree.getValue(request.path, testGetParams)
 
@@ -72,7 +72,7 @@ func checkRequests(t *testing.T, tree *node[int], requests testRequests) {
 	}
 }
 
-func checkPriorities(t *testing.T, n *node[int]) uint32 {
+func checkPriorities(t *testing.T, n *Node[int]) uint32 {
 	var prio uint32
 	for i := range n.children {
 		prio += checkPriorities(t, n.children[i])
@@ -102,7 +102,7 @@ func TestCountParams(t *testing.T) {
 }
 
 func TestTreeAddAndGet(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	routes := [...]string{
 		"/hi",
@@ -141,7 +141,7 @@ func TestTreeAddAndGet(t *testing.T) {
 }
 
 func TestTreeWildcard(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	routes := [...]string{
 		"/",
@@ -200,7 +200,7 @@ type testRoute struct {
 }
 
 func testRoutes(t *testing.T, routes []testRoute) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	for i := range routes {
 		route := routes[i]
@@ -257,7 +257,7 @@ func TestTreeChildConflict(t *testing.T) {
 }
 
 func TestTreeDupliatePath(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	routes := [...]string{
 		"/",
@@ -296,7 +296,7 @@ func TestTreeDupliatePath(t *testing.T) {
 }
 
 func TestEmptyWildcardName(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	routes := [...]string{
 		"/user:",
@@ -335,7 +335,7 @@ func TestTreeCatchAllConflictRoot(t *testing.T) {
 }
 
 func TestTreeCatchMaxParams(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 	var route = "/cmd/*filepath"
 	tree.addRoute(route, fakeValue(route))
 }
@@ -351,7 +351,7 @@ func TestTreeDoubleWildcard(t *testing.T) {
 
 	for i := range routes {
 		route := routes[i]
-		tree := &node[int]{}
+		tree := &Node[int]{}
 		recv := catchPanic(func() {
 			tree.addRoute(route, 0)
 		})
@@ -363,7 +363,7 @@ func TestTreeDoubleWildcard(t *testing.T) {
 }
 
 func TestTreeTrailingSlashRedirect(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	routes := [...]string{
 		"/hi",
@@ -449,7 +449,7 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 }
 
 func TestTreeRootTrailingSlashRedirect(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	recv := catchPanic(func() {
 		tree.addRoute("/:test", fakeValue("/:test"))
@@ -467,7 +467,7 @@ func TestTreeRootTrailingSlashRedirect(t *testing.T) {
 }
 
 func TestTreeFindCaseInsensitivePath(t *testing.T) {
-	tree := &node[int]{}
+	tree := &Node[int]{}
 
 	longPath := "/l" + strings.Repeat("o", 128) + "ng"
 	lOngPath := "/l" + strings.Repeat("O", 128) + "ng/"
@@ -632,7 +632,7 @@ func TestTreeFindCaseInsensitivePath(t *testing.T) {
 func TestTreeInvalidNodeType(t *testing.T) {
 	const panicMsg = "invalid node type"
 
-	tree := &node[int]{}
+	tree := &Node[int]{}
 	tree.addRoute("/", fakeValue("/"))
 	tree.addRoute("/:page", fakeValue("/:page"))
 
@@ -676,7 +676,7 @@ func TestTreeWildcardConflictEx(t *testing.T) {
 		// I have to re-create a 'tree', because the 'tree' will be
 		// in an inconsistent state when the loop recovers from the
 		// panic which threw by 'addRoute' function.
-		tree := &node[int]{}
+		tree := &Node[int]{}
 		routes := [...]string{
 			"/con:tact",
 			"/who/are/*you",
@@ -707,7 +707,7 @@ func TestRedirectTrailingSlash(t *testing.T) {
 		{"/hello/:name/234"},
 	}
 
-	node := &node[int]{}
+	node := &Node[int]{}
 	for _, item := range data {
 		node.addRoute(item.path, fakeValue("test"))
 	}

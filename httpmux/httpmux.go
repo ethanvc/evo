@@ -51,7 +51,7 @@ func PutParams(ps *Params) {
 
 // HttpMux is a generic radix-tree mux keyed by HTTP method and path pattern.
 type HttpMux[T any] struct {
-	trees map[string]*node[T]
+	trees map[string]*Node[T]
 
 	maxParams uint16
 }
@@ -141,12 +141,12 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 	}
 
 	if r.trees == nil {
-		r.trees = make(map[string]*node[T])
+		r.trees = make(map[string]*Node[T])
 	}
 
 	root := r.trees[method]
 	if root == nil {
-		root = new(node[T])
+		root = new(Node[T])
 		r.trees[method] = root
 	}
 
@@ -160,7 +160,7 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 // Lookup returns the node registered for method + path and any captured params.
 // When params is non-nil, the caller must call PutParams(params) after use.
 // The third return value indicates whether a trailing-slash redirect is recommended.
-func (r *HttpMux[T]) Lookup(method, path string) (*node[T], *Params, bool) {
+func (r *HttpMux[T]) Lookup(method, path string) (*Node[T], *Params, bool) {
 	if root := r.trees[method]; root != nil {
 		match, ps, tsr := root.getValue(path, r.getParams)
 		if match == nil {
