@@ -1,4 +1,4 @@
-package xobsgin
+package evogin
 
 import (
 	"bytes"
