@@ -72,3 +72,59 @@ func TestParseUnclosedBrace(t *testing.T) {
 	_, err := Parse("/abc/{replace::id;until-slash")
 	require.ErrorIs(t, err, ErrInvalidSyntax)
 }
+
+// TestParseGrammarViolations covers the error table in design.md §3.1.
+func TestParseGrammarViolations(t *testing.T) {
+	cases := []struct {
+		name    string
+		pattern string
+		wantErr error
+	}{
+		{
+			name:    "empty expression has no action",
+			pattern: "/x/{}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "leading-semicolon expression has empty action segment",
+			pattern: "/x/{;digit}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "unknown action keyword",
+			pattern: "/x/{drop;digit}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "replace with empty name",
+			pattern: "/x/{replace:;digit}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "keep with empty name",
+			pattern: "/x/{keep:;digit}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "action present but no rule",
+			pattern: "/x/{replace::id}",
+			wantErr: ErrMissingRule,
+		},
+		{
+			name:    "trailing semicolon → empty rule segment",
+			pattern: "/x/{replace::id;until-slash;}",
+			wantErr: ErrInvalidSyntax,
+		},
+		{
+			name:    "unknown rule",
+			pattern: "/x/{replace::id;not-a-rule}",
+			wantErr: ErrUnknownRule,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := Parse(tc.pattern)
+			require.ErrorIs(t, err, tc.wantErr)
+		})
+	}
+}

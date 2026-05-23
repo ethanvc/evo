@@ -50,9 +50,10 @@ func Parse(pattern string) ([]Segment, error) {
 func parseExpr(raw string) (Expr, error) {
 	inner := raw[1 : len(raw)-1]
 	parts := strings.Split(inner, ";")
-	if len(parts) < 2 {
-		return Expr{}, ErrMissingRule
-	}
+
+	// §3.1 rule 3: segment₁ must be a valid action[:name]. Validate this
+	// before checking rule presence so a fully empty `{}` is reported as
+	// missing-action (ErrInvalidSyntax) rather than missing-rule.
 	head := parts[0]
 	var action Action
 	var name string
@@ -76,6 +77,12 @@ func parseExpr(raw string) (Expr, error) {
 	default:
 		return Expr{}, ErrInvalidSyntax
 	}
+
+	// §3.1 rule 4: at least one rule segment is required.
+	if len(parts) < 2 {
+		return Expr{}, ErrMissingRule
+	}
+
 	rules := make([]Rule, 0, len(parts)-1)
 	for _, p := range parts[1:] {
 		if p == "" {

@@ -56,16 +56,20 @@
 
 ### 3.1 表达式
 
+**语法规则**（一条规则描述全部结构）：
+
+1. 整体由 `{` 和 `}` 包围。
+2. 大括号内部由 `;` 分段，记作 `segment₁ ; segment₂ ; … ; segmentₙ`。
+3. **`segment₁` 必须是 `action`**，形式 `action[:name]`：
+   - `action` ∈ {`replace`, `keep`}，必填。
+   - `name` 是 action 的可选后缀，以 `:` 与 action 分隔；对所有 action 通用。
+4. `segment₂..segmentₙ` 是 `rule`（消费规则），**至少 1 个**；多个 rule 同时作用于本表达式消费的同一段子串（详见 §3.3）。
+
+形式化模板：
+
 ```
 {action[:name];rule1[;rule2;...]}
 ```
-
-表达式以 **`;`** 分段：
-
-| 位置 | 段 | 说明 |
-|------|-----|------|
-| 第 1 段 | `action[:name]` | `action` 必填；`name` 可选，是 action 的后缀，以 `:` 分隔。**对所有 action 适用**（`replace` 与 `keep` 同形）。 |
-| 第 2..n 段 | `rule` | **消费字符串的规则**，可列出 **多个**；**同时**作用于同一次消费 |
 
 示例：
 
@@ -76,13 +80,27 @@
 | `{replace;hexdigit}` | replace | — | `[hexdigit]` |
 | `{keep:err-code;digit}` | keep | `err-code` | `[digit]` |
 | `{keep;digit}` | keep | — | `[digit]` |
-| `{keep;digit;hexdigit}` | keep | — | `[digit, hexdigit]`（示意：多条消费规则组合） |
+| `{keep;digit;hexdigit}` | keep | — | `[digit, hexdigit]`（多条消费规则组合） |
+
+字段说明：
 
 | 字段 | 必填 | 说明 |
 |------|------|------|
-| `action` | 是 | `replace` 或 `keep` |
-| `name` | 否（任一 action 都可省略） | **表达式的标识符**，主要用于 `Node.GetPattern()` 输出中替换该表达式；对 `replace` 还会出现在 `Canonical` 中（`:ident` / `*ident` 等）。`name` 本身不附带段分隔或 catch-all 语义——消费行为完全由 rule 控制；`replace::id` 与 `replace:*id` 的差异仅在 `name` 字面（进而影响 `Canonical` / `GetPattern` 字面），匹配语义统一由 rule 决定。`name` 缺省时，`GetPattern` 用 `PlaceholderName`（默认 `noname`）顶替。 |
-| `rule` | 至少 1 个 | 指定如何消费**本表达式之后**的连续子串；多个 rule **同时**作用于同一次消费 |
+| `action` | 是 | 见 §3.2。 |
+| `name` | 否 | **表达式的标识符**，主要用于 `Node.GetPattern()` 输出中替换该表达式；对 `replace` 还会出现在 `Canonical` 里（典型 `:ident` / `*ident`）。`name` 本身不附带段分隔或 catch-all 语义——消费行为完全由 rule 决定；`replace::id` 与 `replace:*id` 的差异仅在 `name` 字面（进而影响 `Canonical` / `GetPattern` 字面），匹配语义统一由 rule 控制。`name` 缺省时，`GetPattern` 用 `PlaceholderName`（默认 `noname`）顶替。 |
+| `rule` | 至少 1 个 | 见 §3.3。 |
+
+**违例（Register 阶段报错）**：
+
+| 形态 | 错误 |
+|---|---|
+| `{` 与 `}` 不匹配 | `ErrInvalidSyntax` |
+| `{}` 或 `segment₁` 为空（缺 action） | `ErrInvalidSyntax` |
+| `segment₁` 不是已知 action | `ErrInvalidSyntax` |
+| `action:` 后 name 为空（如 `{replace:;...}`、`{keep:;...}`） | `ErrInvalidSyntax` |
+| 只有 action 没有 rule（如 `{replace::id}`） | `ErrMissingRule` |
+| rule 段为空（如 `{replace::id;}`） | `ErrInvalidSyntax` |
+| rule 不在已知集合 | `ErrUnknownRule` |
 
 **多 rule 语义**：
 
