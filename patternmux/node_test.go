@@ -57,11 +57,18 @@ func TestNodeGetPatternEndToEnd(t *testing.T) {
 			wantPattern:  "v=" + PlaceholderName,
 		},
 		{
-			name:         "keep is always unnamed → noname",
+			name:         "unnamed keep falls back to noname",
 			raw:          "error code {keep;digit}",
 			input:        "error code 9999",
 			wantWithExpr: "error code {keep;digit}",
 			wantPattern:  "error code " + PlaceholderName,
+		},
+		{
+			name:         "named keep uses its name like named replace",
+			raw:          "error code {keep:err-code;digit}",
+			input:        "error code 9999",
+			wantWithExpr: "error code {keep:err-code;digit}",
+			wantPattern:  "error code err-code",
 		},
 		{
 			name:         "mixed keep + unnamed replace each gets a slot",
@@ -69,6 +76,13 @@ func TestNodeGetPatternEndToEnd(t *testing.T) {
 			input:        "error code 12, transaction-id is dead",
 			wantWithExpr: "error code {keep;digit}, transaction-id is {replace;hexdigit}",
 			wantPattern:  "error code " + PlaceholderName + ", transaction-id is " + PlaceholderName,
+		},
+		{
+			name:         "named keep + named replace mixed",
+			raw:          "error code {keep:err-code;digit}, transaction-id is {replace::tx-id;hexdigit}",
+			input:        "error code 12, transaction-id is dead",
+			wantWithExpr: "error code {keep:err-code;digit}, transaction-id is {replace::tx-id;hexdigit}",
+			wantPattern:  "error code err-code, transaction-id is :tx-id",
 		},
 		{
 			name:         "literal-only pattern has no expressions",

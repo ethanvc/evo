@@ -64,7 +64,7 @@
 
 | 位置 | 段 | 说明 |
 |------|-----|------|
-| 第 1 段 | `action[:name]` | `action` 必填；`name` 可选，以 `:` 与 action 分隔 |
+| 第 1 段 | `action[:name]` | `action` 必填；`name` 可选，是 action 的后缀，以 `:` 分隔。**对所有 action 适用**（`replace` 与 `keep` 同形）。 |
 | 第 2..n 段 | `rule` | **消费字符串的规则**，可列出 **多个**；**同时**作用于同一次消费 |
 
 示例：
@@ -73,14 +73,15 @@
 |--------|--------|------|----------------|
 | `{replace::user-id;until-slash}` | replace | `:user-id` | `[until-slash]` |
 | `{replace:*path;rest}` | replace | `*path` | `[rest]` |
-| `{keep;digit}` | keep | — | `[digit]` |
 | `{replace;hexdigit}` | replace | — | `[hexdigit]` |
+| `{keep:err-code;digit}` | keep | `err-code` | `[digit]` |
+| `{keep;digit}` | keep | — | `[digit]` |
 | `{keep;digit;hexdigit}` | keep | — | `[digit, hexdigit]`（示意：多条消费规则组合） |
 
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `action` | 是 | `replace` 或 `keep` |
-| `name` | replace 可选 | `:ident` 或 `*ident`；仅作为结果串（Canonical / Converted）的**占位符格式**，本身不附带段分隔或 catch-all 语义——消费行为完全由 rule 控制 |
+| `name` | 否（任一 action 都可省略） | **表达式的标识符**，主要用于 `Node.GetPattern()` 输出中替换该表达式；对 `replace` 还会出现在 `Canonical` 中（`:ident` / `*ident` 等）。`name` 本身不附带段分隔或 catch-all 语义——消费行为完全由 rule 控制；`replace::id` 与 `replace:*id` 的差异仅在 `name` 字面（进而影响 `Canonical` / `GetPattern` 字面），匹配语义统一由 rule 决定。`name` 缺省时，`GetPattern` 用 `PlaceholderName`（默认 `noname`）顶替。 |
 | `rule` | 至少 1 个 | 指定如何消费**本表达式之后**的连续子串；多个 rule **同时**作用于同一次消费 |
 
 **多 rule 语义**：
@@ -98,8 +99,10 @@
 
 | action | 含义 |
 |--------|------|
-| `replace` | wildcard 段：参与路由索引；Canonical 中变为 `:name` / `*name`（仅输出格式，消费语义由 rule 决定）；Captured 值单独返回 |
-| `keep` | 匹配并捕获，Canonical 保留完整 `{keep;rule1[;rule2...]}`；Converted 中填入本次匹配子串 |
+| `replace` | wildcard 段：参与路由索引；`Canonical` 中变为 `name` 字面（典型 `:ident` / `*ident`）或在 unnamed 时省略；Captured 值单独返回 |
+| `keep` | wildcard 段：参与路由索引；`Canonical` 保留完整 `{keep[:name];rule1[;rule2...]}`（含可选 name）；`Converted` 中填入本次匹配子串 |
+
+> `name` 与 action 正交：所有 action 都可挂或不挂 name，只是出场位置不同——`replace` 的 name 同时出现在 `Canonical` 与 `GetPattern`，`keep` 的 name 出现在 `Canonical`（包在 `{...}` 原文里）与 `GetPattern`。两者**都不影响匹配语义**。
 
 ### 3.3 rule（消费字符串的规则）
 
@@ -155,6 +158,19 @@ Captures:   "" = 123456
             "" = 123456abcd
 ```
 
+**命名 keep**（`keep` 也可挂 name；只影响 `Canonical` / `GetPattern` 字面，匹配语义不变）
+
+```
+注册: error code {keep:err-code;digit}, tx {replace::id;hexdigit}
+输入: error code 12, tx dead
+
+Canonical:    error code {keep:err-code;digit}, tx :id
+GetPattern:   error code err-code, tx :id
+Converted:    error code 12, tx                （keep 填值；replace 不出现）
+Captures:     err-code = 12
+              :id      = dead
+```
+
 > 注：示例注册串中 `transacton-id` 为原文拼写；是否按字面匹配由注册 pattern 决定。
 
 ---
@@ -168,9 +184,9 @@ Captures:   "" = 123456
 | segment 类型 | Canonical 转换 |
 |-------------|----------------|
 | 字面量 | 原样保留 |
-| `{replace::name;rules...}` | `:name`（rules 不参与 Canonical 字面，仅影响匹配） |
-| `{replace:*name;rules...}` | `*name` |
-| `{keep;rules...}` | 保留 `{keep;rules...}` 原文（含完整 rules） |
+| `{replace:name;rules...}` | `name` 字面（典型 `:ident` / `*ident`）；rules 不参与 Canonical |
+| `{replace;rules...}` | 不贡献（unnamed replace 在 Canonical 中省略） |
+| `{keep[:name];rules...}` | 保留 `{keep[:name];rules...}` 原文（含可选 name 和完整 rules） |
 
 ### 4.2 Converted（输出串）
 
@@ -215,12 +231,27 @@ func (n *Node[T]) HasKeep() bool
 func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
 ```
 
-| 输出 | 含义 | 例子（pattern = `error code {keep;digit}, tx {replace::id;hexdigit}`） |
-|---|---|---|
-| `Raw` / `GetPatternWithExpr` | 注册原文 | `error code {keep;digit}, tx {replace::id;hexdigit}` |
-| `GetPattern` | 占位段替换为 name；unnamed 用 `PlaceholderName`（默认 `noname`） | `error code noname, tx :id` |
-| `Canonical` | 去重键；replace name 显式写出，unnamed 不贡献，`keep` 段保留原文 | `error code {keep;digit}, tx :id` |
-| `CachedConverted` | replace-only 时等于 Canonical；含 keep 时为空 | （此例为空） |
+**例 1**：unnamed keep + 命名 replace
+
+pattern = `error code {keep;digit}, tx {replace::id;hexdigit}`
+
+| 输出 | 值 |
+|---|---|
+| `Raw` / `GetPatternWithExpr` | `error code {keep;digit}, tx {replace::id;hexdigit}` |
+| `GetPattern` | `error code noname, tx :id` |
+| `Canonical` | `error code {keep;digit}, tx :id` |
+| `CachedConverted` | （空，含 keep 不缓存） |
+
+**例 2**：命名 keep + 命名 replace（`name` 与 action 正交）
+
+pattern = `error code {keep:err-code;digit}, tx {replace::id;hexdigit}`
+
+| 输出 | 值 |
+|---|---|
+| `Raw` / `GetPatternWithExpr` | `error code {keep:err-code;digit}, tx {replace::id;hexdigit}` |
+| `GetPattern` | `error code err-code, tx :id` |
+| `Canonical` | `error code {keep:err-code;digit}, tx :id` |
+| `CachedConverted` | （空） |
 
 无论 pattern 中含哪些 rule，`Node[T]` 都是同一棵统一 radix tree 的节点；不再区分 Radix / Scan 后端。
 

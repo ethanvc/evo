@@ -51,6 +51,18 @@ func TestCompilePatternUnnamedReplaceUsesPlaceholder(t *testing.T) {
 		"unnamed replace becomes PlaceholderName in Pattern")
 }
 
+func TestCompileKeepWithNamePropagates(t *testing.T) {
+	segs, err := Parse("error code {keep:err-code;digit}")
+	require.NoError(t, err)
+	cp, err := Compile(segs)
+	require.NoError(t, err)
+	require.True(t, cp.HasKeep)
+	require.Equal(t, "error code {keep:err-code;digit}", cp.Canonical,
+		"keep keeps full raw expression in Canonical (now including the name)")
+	require.Equal(t, "error code err-code", cp.Pattern,
+		"named keep uses its name in Pattern, just like named replace")
+}
+
 func TestCompileMultiRuleCanonicalUsesNameOnly(t *testing.T) {
 	segs, err := Parse("/abc/{replace::id;until-slash;digit}")
 	require.NoError(t, err)

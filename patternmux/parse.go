@@ -65,6 +65,12 @@ func parseExpr(raw string) (Expr, error) {
 		}
 	case head == "replace":
 		action = ActionReplace
+	case strings.HasPrefix(head, "keep:"):
+		action = ActionKeep
+		name = head[len("keep:"):]
+		if name == "" {
+			return Expr{}, ErrInvalidSyntax
+		}
 	case head == "keep":
 		action = ActionKeep
 	default:

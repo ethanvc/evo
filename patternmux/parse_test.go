@@ -37,7 +37,25 @@ func TestParseKeepWithRules(t *testing.T) {
 	require.Len(t, segs, 2)
 	e := segs[1].(Expr)
 	require.Equal(t, ActionKeep, e.Action)
+	require.Equal(t, "", e.Name, "unnamed keep has empty Name")
 	require.Equal(t, []Rule{RuleDigit}, e.Rules)
+}
+
+func TestParseKeepWithName(t *testing.T) {
+	segs, err := Parse("error code {keep:err-code;digit}")
+	require.NoError(t, err)
+	require.Len(t, segs, 2)
+	e := segs[1].(Expr)
+	require.Equal(t, ActionKeep, e.Action)
+	require.Equal(t, "err-code", e.Name,
+		"name follows the same `action:name` shape for keep as for replace")
+	require.Equal(t, []Rule{RuleDigit}, e.Rules)
+}
+
+func TestParseKeepEmptyNameRejected(t *testing.T) {
+	// `keep:` with empty name mirrors `replace:` rejection.
+	_, err := Parse("error code {keep:;digit}")
+	require.ErrorIs(t, err, ErrInvalidSyntax)
 }
 
 func TestParseMissingRule(t *testing.T) {
