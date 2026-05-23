@@ -18,63 +18,63 @@ func longestCommonPrefix(a, b string) int {
 	return i
 }
 
-// Search for a lowered wildcard segment. Returns -1 as index if none found.
-func findWildcard(path string) (wildcard string, i int, isCatchAll bool, valid bool) {
-	for start := 0; start+1 < len(path); start++ {
-		if path[start] != '\x00' {
+// findWildcard locates the next lowered wildcard in an index key.
+func findWildcard(key string) (token string, i int, isRest bool, valid bool) {
+	for start := 0; start+1 < len(key); start++ {
+		if key[start] != '\x00' {
 			continue
 		}
-		switch path[start+1] {
-		case 'P':
-			isCatchAll = false
+		switch key[start+1] {
+		case 'S':
+			isRest = false
 		case 'R':
-			isCatchAll = true
+			isRest = true
 		default:
 			continue
 		}
 
 		valid = true
-		for end, c := range []byte(path[start+2:]) {
+		for end, c := range []byte(key[start+2:]) {
 			switch c {
-			case '/':
-				return path[start : start+2+end], start, isCatchAll, valid
+			case untilSlashBoundary:
+				return key[start : start+2+end], start, isRest, valid
 			case '\x00':
 				valid = false
 			}
 		}
-		return path[start:], start, isCatchAll, valid
+		return key[start:], start, isRest, valid
 	}
 	return "", -1, false, false
 }
 
-func countRouteWildcards(path string) uint16 {
+func countIndexWildcards(key string) uint16 {
 	var n uint16
-	for i := 0; i+1 < len(path); i++ {
-		if path[i] != '\x00' {
+	for i := 0; i+1 < len(key); i++ {
+		if key[i] != '\x00' {
 			continue
 		}
-		switch path[i+1] {
-		case 'P', 'R':
+		switch key[i+1] {
+		case 'S', 'R':
 			n++
 		}
 	}
 	return n
 }
 
-func isRouteWildcardByte(b byte) bool {
+func isWildcardMark(b byte) bool {
 	return b == '\x00'
 }
 
 type nodeType uint8
 
 const (
-	static nodeType = iota // default
+	static nodeType = iota
 	root
-	param
-	catchAll
+	untilSlashNode
+	restNode
 )
 
-type routeMeta struct {
+type patternMeta struct {
 	raw             string
 	canonical       string
 	hasKeep         bool
@@ -92,9 +92,9 @@ type Node[T any] struct {
 	literalPrefix   int
 	registerOrder   uint64
 
-	// Radix-tree internals.
-	path       string
-	captureKey string // capture name for wildcard nodes
+	// Radix index internals.
+	prefix     string
+	captureKey string
 	indices    string
 	wildChild  bool
 	nType      nodeType
@@ -109,8 +109,6 @@ func (n *Node[T]) Value() T {
 	return n.value
 }
 
-// childIndex maps an indices position to the children slice index.
-// When wildChild is set, children[0] is the wildcard node and static children follow.
 func (n *Node[T]) childIndex(i int) int {
 	if n.wildChild {
 		return i + 1
@@ -118,52 +116,43 @@ func (n *Node[T]) childIndex(i int) int {
 	return i
 }
 
-// Increments priority of the given child and reorders if necessary.
 func (n *Node[T]) incrementChildPrio(pos int) int {
 	ci := n.childIndex(pos)
 	cs := n.children
 	cs[ci].priority++
 	prio := cs[ci].priority
 
-	// Adjust position (move to front)
 	newPos := pos
 	for ; newPos > 0 && cs[n.childIndex(newPos-1)].priority < prio; newPos-- {
 		a, b := n.childIndex(newPos-1), n.childIndex(newPos)
 		cs[a], cs[b] = cs[b], cs[a]
 	}
 
-	// Build new index char string
 	if newPos != pos {
-		n.indices = n.indices[:newPos] + // Unchanged prefix, might be empty
-			n.indices[pos:pos+1] + // The index char we move
-			n.indices[newPos:pos] + n.indices[pos+1:] // Rest without char at 'pos'
+		n.indices = n.indices[:newPos] +
+			n.indices[pos:pos+1] +
+			n.indices[newPos:pos] + n.indices[pos+1:]
 	}
 
 	return newPos
 }
 
-// addRoute adds a node with the given value to the path.
-// Not concurrency-safe.
-func (n *Node[T]) addRoute(path string, value T, meta routeMeta) {
-	fullPath := path
+// insertIndexed adds a lowered pattern key into the radix index.
+func (n *Node[T]) insertIndexed(key string, value T, meta patternMeta) {
+	fullKey := key
 	n.priority++
 
-	// Empty tree
-	if n.path == "" && n.indices == "" {
-		n.insertChild(path, fullPath, value, meta)
+	if n.prefix == "" && n.indices == "" {
+		n.insertChild(key, fullKey, value, meta)
 		n.nType = root
 		return
 	}
 
 walk:
 	for {
-		// Find the longest common prefix.
-		// This also implies that the common prefix contains no ':' or '*'
-		// since the existing key can't contain those chars.
-		i := longestCommonPrefix(path, n.path)
+		i := longestCommonPrefix(key, n.prefix)
 
-		// Split edge
-		if i < len(n.path) {
+		if i < len(n.prefix) {
 			child := Node[T]{
 				raw:             n.raw,
 				canonical:       n.canonical,
@@ -172,7 +161,7 @@ walk:
 				literalPrefix:   n.literalPrefix,
 				registerOrder:   n.registerOrder,
 
-				path:       n.path[i:],
+				prefix:     n.prefix[i:],
 				wildChild:  n.wildChild,
 				nType:      static,
 				indices:    n.indices,
@@ -183,9 +172,8 @@ walk:
 			}
 
 			n.children = []*Node[T]{&child}
-			// []byte for proper unicode char conversion, see #65
-			n.indices = string([]byte{n.path[i]})
-			n.path = path[:i]
+			n.indices = string([]byte{n.prefix[i]})
+			n.prefix = key[:i]
 			n.value = *new(T)
 			n.registered = false
 			n.wildChild = false
@@ -198,46 +186,42 @@ walk:
 			n.registerOrder = 0
 		}
 
-		// Make new node a child of this node
-		if i < len(path) {
-			path = path[i:]
+		if i < len(key) {
+			key = key[i:]
 
 			if n.wildChild {
 				wc := n.children[0]
 				wc.priority++
 
-				// Continue into wildcard only when the remaining path starts with the wildcard token.
-				if len(path) >= len(wc.path) && wc.path == path[:len(wc.path)] &&
-					wc.nType != catchAll &&
-					(len(wc.path) >= len(path) || path[len(wc.path)] == '/') {
+				if len(key) >= len(wc.prefix) && wc.prefix == key[:len(wc.prefix)] &&
+					wc.nType != restNode &&
+					(len(wc.prefix) >= len(key) || key[len(wc.prefix)] == untilSlashBoundary) {
 					n = wc
 					continue walk
 				}
 
-				if isRouteWildcardByte(path[0]) {
-					pathSeg := path
-					if wc.nType != catchAll {
-						pathSeg = strings.SplitN(pathSeg, "/", 2)[0]
+				if isWildcardMark(key[0]) {
+					keySeg := key
+					if wc.nType != restNode {
+						keySeg = segmentUntilBoundary(keySeg, untilSlashBoundary)
 					}
-					prefix := fullPath[:strings.Index(fullPath, pathSeg)] + wc.path
-					panic("'" + pathSeg +
-						"' in new path '" + fullPath +
-						"' conflicts with existing wildcard '" + wc.path +
+					prefix := fullKey[:strings.Index(fullKey, keySeg)] + wc.prefix
+					panic("'" + keySeg +
+						"' in new pattern '" + fullKey +
+						"' conflicts with existing wildcard '" + wc.prefix +
 						"' in existing prefix '" + prefix +
 						"'")
 				}
 			}
 
-			idxc := path[0]
+			idxc := key[0]
 
-			// '/' after param
-			if n.nType == param && idxc == '/' && len(n.children) == 1 {
+			if n.nType == untilSlashNode && idxc == untilSlashBoundary && len(n.children) == 1 {
 				n = n.children[0]
 				n.priority++
 				continue walk
 			}
 
-			// Check if a child with the next path byte exists
 			for i, c := range []byte(n.indices) {
 				if c == idxc {
 					i = n.incrementChildPrio(i)
@@ -246,22 +230,19 @@ walk:
 				}
 			}
 
-			// Otherwise insert it
-			if !isRouteWildcardByte(idxc) {
-				// []byte for proper unicode char conversion, see #65
+			if !isWildcardMark(idxc) {
 				n.indices += string([]byte{idxc})
 				child := &Node[T]{}
 				n.children = append(n.children, child)
 				n.incrementChildPrio(len(n.indices) - 1)
 				n = child
 			}
-			n.insertChild(path, fullPath, value, meta)
+			n.insertChild(key, fullKey, value, meta)
 			return
 		}
 
-		// Otherwise add value to current node
 		if n.registered {
-			panic("a value is already registered for path '" + fullPath + "'")
+			panic("a value is already registered for pattern '" + fullKey + "'")
 		}
 		n.value = value
 		n.registered = true
@@ -275,56 +256,47 @@ walk:
 	}
 }
 
-func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
+func (n *Node[T]) insertChild(key, fullKey string, value T, meta patternMeta) {
 	for {
-		// Find prefix until first wildcard
-		wildcard, i, isCatchAll, valid := findWildcard(path)
-		if i < 0 { // No wildcard found
+		token, i, isRest, valid := findWildcard(key)
+		if i < 0 {
 			break
 		}
 
-		// The wildcard name must not contain another marker.
 		if !valid {
-			panic("only one wildcard per path segment is allowed, has: '" +
-				wildcard + "' in path '" + fullPath + "'")
+			panic("only one wildcard per until-slash segment is allowed, has: '" +
+				token + "' in pattern '" + fullKey + "'")
 		}
 
-		// Check if the wildcard has a name
-		if len(wildcard) < 3 {
-			panic("wildcards must be named with a non-empty name in path '" + fullPath + "'")
+		if len(token) < 3 {
+			panic("wildcards must be named with a non-empty name in pattern '" + fullKey + "'")
 		}
 
-		// Check if this node has existing children which would be
-		// unreachable if we insert the wildcard here
 		if len(n.children) > 0 {
-			panic("wildcard segment '" + wildcard +
-				"' conflicts with existing children in path '" + fullPath + "'")
+			panic("wildcard segment '" + token +
+				"' conflicts with existing children in pattern '" + fullKey + "'")
 		}
 
-		captureKey := wildcard[2:]
+		captureKey := token[2:]
 
-		// param (until-slash)
-		if !isCatchAll {
+		if !isRest {
 			if i > 0 {
-				// Insert prefix before the current wildcard
-				n.path = path[:i]
-				path = path[i:]
+				n.prefix = key[:i]
+				key = key[i:]
 			}
 
 			n.wildChild = true
 			child := &Node[T]{
-				nType:      param,
-				path:       wildcard,
+				nType:      untilSlashNode,
+				prefix:     token,
 				captureKey: captureKey,
 			}
 			n.children = []*Node[T]{child}
 			n = child
 			n.priority++
 
-			// If the path doesn't end with the wildcard, then there
-			// will be another non-wildcard subpath starting with '/'
-			if len(wildcard) < len(path) {
-				path = path[len(wildcard):]
+			if len(token) < len(key) {
+				key = key[len(token):]
 				child := &Node[T]{
 					priority: 1,
 				}
@@ -333,7 +305,6 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 				continue
 			}
 
-			// Otherwise we're done. Insert the value in the new leaf.
 			n.value = value
 			n.registered = true
 			n.raw = meta.raw
@@ -345,56 +316,34 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 			return
 		}
 
-		// catchAll
-		if i+len(wildcard) != len(path) {
-			panic("catch-all routes are only allowed at the end of the path in path '" + fullPath + "'")
+		if i+len(token) != len(key) {
+			panic("rest rule expression must be at end of pattern '" + fullKey + "'")
 		}
 
-		if len(n.path) > 0 && n.path[len(n.path)-1] == '/' {
-			panic("catch-all conflicts with existing value for the path segment root in path '" + fullPath + "'")
+		if i > 0 {
+			n.prefix = key[:i]
 		}
 
-		// Currently fixed width 1 for '/'
-		i--
-		if path[i] != '/' {
-			panic("no / before catch-all in path '" + fullPath + "'")
-		}
-
-		n.path = path[:i]
-
-		// First node: catchAll node with empty path
+		n.wildChild = true
 		child := &Node[T]{
-			wildChild: true,
-			nType:     catchAll,
-		}
-		n.children = []*Node[T]{child}
-		n.indices = string('/')
-		n = child
-		n.priority++
-
-		// Second node: node holding the variable
-		child = &Node[T]{
-			path:       path[i:],
-			nType:      catchAll,
-			captureKey: captureKey,
-			value:      value,
-			registered: true,
-			priority:   1,
-			raw:        meta.raw,
-			canonical:  meta.canonical,
-
+			nType:           restNode,
+			prefix:          token,
+			captureKey:      captureKey,
+			value:           value,
+			registered:      true,
+			priority:        1,
+			raw:             meta.raw,
+			canonical:       meta.canonical,
 			hasKeep:         meta.hasKeep,
 			cachedConverted: meta.cachedConverted,
 			literalPrefix:   meta.literalPrefix,
 			registerOrder:   meta.registerOrder,
 		}
 		n.children = []*Node[T]{child}
-
 		return
 	}
 
-	// If no wildcard was found, simply insert the path and value.
-	n.path = path
+	n.prefix = key
 	n.value = value
 	n.registered = true
 	n.raw = meta.raw
@@ -405,17 +354,23 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 	n.registerOrder = meta.registerOrder
 }
 
-// getValue returns the value registered with the given path.
-// Captures are allocated lazily using alloc when wildcard values are found.
-func (n *Node[T]) getValue(path string, alloc func() *Captures) (match *Node[T], caps *Captures, ok bool) {
-walk: // Outer loop for walking the tree
-	for {
-		prefix := n.path
-		if len(path) > len(prefix) {
-			if path[:len(prefix)] == prefix {
-				path = path[len(prefix):]
+func segmentUntilBoundary(s string, boundary byte) string {
+	if i := strings.IndexByte(s, boundary); i >= 0 {
+		return s[:i]
+	}
+	return s
+}
 
-				idxc := path[0]
+// matchInput walks the radix index for input against registered patterns.
+func (n *Node[T]) matchInput(input string, alloc func() *Captures) (match *Node[T], caps *Captures, ok bool) {
+walk:
+	for {
+		prefix := n.prefix
+		if len(input) > len(prefix) {
+			if input[:len(prefix)] == prefix {
+				input = input[len(prefix):]
+
+				idxc := input[0]
 				for i, c := range []byte(n.indices) {
 					if c == idxc {
 						n = n.children[n.childIndex(i)]
@@ -427,34 +382,29 @@ walk: // Outer loop for walking the tree
 					return nil, caps, false
 				}
 
-				// Handle wildcard child
 				n = n.children[0]
 				switch n.nType {
-				case param:
-					// Find param end (either '/' or path end)
-					end := 0
-					for end < len(path) && path[end] != '/' {
-						end++
+				case untilSlashNode:
+					end := strings.IndexByte(input, untilSlashBoundary)
+					if end < 0 {
+						end = len(input)
 					}
 
-					// Save param value
 					if alloc != nil {
 						if caps == nil {
 							caps = alloc()
 						}
-						// Expand slice within preallocated capacity
 						i := len(*caps)
 						*caps = (*caps)[:i+1]
 						(*caps)[i] = Capture{
 							Key:   n.captureKey,
-							Value: path[:end],
+							Value: input[:end],
 						}
 					}
 
-					// We need to go deeper.
-					if end < len(path) {
+					if end < len(input) {
 						if len(n.children) > 0 {
-							path = path[end:]
+							input = input[end:]
 							n = n.children[0]
 							continue walk
 						}
@@ -466,18 +416,16 @@ walk: // Outer loop for walking the tree
 					}
 					return nil, caps, false
 
-				case catchAll:
-					// Save catch-all value
+				case restNode:
 					if alloc != nil {
 						if caps == nil {
 							caps = alloc()
 						}
-						// Expand slice within preallocated capacity
 						i := len(*caps)
 						*caps = (*caps)[:i+1]
 						(*caps)[i] = Capture{
 							Key:   n.captureKey,
-							Value: path,
+							Value: input,
 						}
 					}
 
@@ -490,8 +438,7 @@ walk: // Outer loop for walking the tree
 					panic("invalid node type")
 				}
 			}
-		} else if path == prefix {
-			// We should have reached the node containing the value.
+		} else if input == prefix {
 			if n.registered {
 				return n, caps, true
 			}

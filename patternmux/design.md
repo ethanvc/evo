@@ -7,7 +7,7 @@
 | 包 | 关系 |
 |----|------|
 | `httpmux` | HTTP method + `/` 分隔 + replace-only 的特化；未来可 built on `patternmux` |
-| `httpsvr/ginradix` | 旧 path radix 实现；`patternmux` Route profile 可逐步替代 |
+| `httpsvr/ginradix` | 旧 path radix 实现；`patternmux` radix 后端可逐步替代 |
 
 ---
 
@@ -27,7 +27,7 @@
 
 - HTTP method 维度（由 `httpmux` 负责）
 - 正则级通用规则引擎（不做「每个 pattern 编译成一个 regex」）
-- `{keep}` + 复杂 text profile 的完整性能优化（v2）
+- `{keep}` + scan 后端的完整性能优化（v2）
 
 ---
 
@@ -45,7 +45,7 @@
 | **Converted** | Lookup 成功时的输出串：replace-only 等于 Canonical 并可缓存；含 keep 时每次按输入现场拼装。 |
 | **Node[T]** | 注册句柄，持有挂载值 `T` 与 Raw / Canonical / HasKeep / CachedConverted 等元信息；Lookup 返回匹配到的 leaf。 |
 | **Captures** | Lookup 期提取的 `(key, value)` 列表，key 可为空；pool 分配，调用方须 `PutCaptures` 归还。 |
-| **Profile** | 按 rule 组合选择的匹配后端：**Route**（radix tree，路径类）与 **Text**（线性/状态机，文本类）。 |
+| **MatchBackend** | 按 rule 组合选择的匹配后端：**Radix**（`until-slash` / `rest` → radix 索引）与 **Scan**（`digit` / `hexdigit` / `keep` 等 → 线性扫描，v2）。 |
 | **Mux[T]** | 泛型入口：`Register(pattern, value)` 建索引，`Lookup(input)` 返回 Node、Captures、Converted。 |
 
 ---
@@ -193,7 +193,7 @@ replace-only 时：`Converted == Canonical == node.CachedConverted()`。
 
 ```go
 type Node[T any] struct {
-    // tree 内部字段（Route profile）或索引条目（Text profile）
+    // radix 索引内部字段（Radix 后端）或索引条目（Scan 后端）
     value           T
     raw             string // 注册原文
     canonical       string // 编译期模板
@@ -209,7 +209,7 @@ func (n *Node[T]) HasKeep() bool
 func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
 ```
 
-Route profile 下 Node 即 radix tree 的 leaf；Text profile 下 Node 为索引条目，类型统一，匹配后端不同。
+Radix 后端下 Node 即 radix 索引的 leaf；Scan 后端下 Node 为索引条目，类型统一，匹配后端不同。
 
 ---
 
@@ -296,12 +296,12 @@ canonical := node.Canonical()
 
 ## 8. 架构
 
-推荐 **统一 AST + 按 profile 选匹配后端**，分阶段交付。
+推荐 **统一 AST + 按 rule 选匹配后端**，分阶段交付。
 
 ```
 Register(pattern)
     → Parser → AST
-    → Compiler → Node meta + Profile
+    → Compiler → Node meta + MatchBackend
     → Index.Insert
 
 Lookup(input)
@@ -311,31 +311,32 @@ Lookup(input)
     → node, captures, converted
 ```
 
-### 8.1 Profile
+### 8.1 MatchBackend
 
-| Profile | 典型 rule 组合 | 匹配后端 | 版本 |
+| Backend | 典型 rule 组合 | 匹配实现 | 版本 |
 |---------|---------------|---------|------|
-| **Route** | `until-slash`、`rest`（可与其他 rule 叠加） | radix tree（复用 `httpmux` tree 思路） | v1 |
-| **Text** | `digit`、`hexdigit` 及多 rule 组合 + keep/replace 混排 | 线性段扫描 / 编译状态机 | v2 |
+| **Radix** | `until-slash`、`rest`（可与其他 rule 叠加） | radix 索引 | v1 |
+| **Scan** | `digit`、`hexdigit` 及多 rule 组合 + keep/replace 混排 | 线性段扫描 / 编译状态机 | v2 |
 
 v1 交付：
 
 - 完整 Parser + Compiler（Canonical / HasKeep / cache 判定）
-- Route profile 匹配 + Lookup
-- Text profile：**Register 可 parse，Lookup 返回 `errProfileNotSupported` 或文档标明 v2**
+- Radix 后端匹配 + Lookup
+- Scan 后端：**Register 可 parse，Lookup 暂不支持（v2）**
 
 v2 交付：
 
-- Text profile 完整匹配
+- Scan 后端完整匹配
 - keep / digit / hexdigit 的 Converted 拼装
 
 ### 8.2 与 httpmux 复用
 
-Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
+Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
 
 - 无 HTTP method 维度
-- pattern 来源为 Compiler 产出的 Canonical（`:name` / `*name`）
-- 表达式 `{replace::name;until-slash}` 在 Register 时 lowering，运行时 tree 不解析 `{}`
+- 无「路径」专用抽象；pattern / input 均为普通字符串，消费语义由 rule 决定
+- 表达式 `{replace::name;until-slash}` 在 Register 时 lowering 为索引 key，运行时索引不解析 `{}`
+- `until-slash` / `rest` 的索引行为由 rule lowering 决定，而非 name 中的 `:`` / `*` 前缀
 - Lookup 签名对齐：`httpmux` 为 `(*Node[T], *Params, tsr)`；`patternmux` 为 `(*Node[T], *Captures, converted, ok)`
 
 ---
@@ -347,7 +348,7 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 | 项 | 默认 |
 |----|------|
 | Register 冲突（相同 Canonical 不同 Value） | **不允许**，返回 error |
-| v1 范围 | Route profile + Parser 骨架；Text profile v2 |
+| v1 范围 | Radix 后端 + Parser 骨架；Scan 后端 v2 |
 
 ---
 
@@ -358,9 +359,9 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 | Parser | 各 action/name/rules 组合；非法语法、未指定 rule error |
 | Compiler | Canonical、HasKeep、cachedConverted 判定 |
 | Golden | 本文 §3.4 三个示例 |
-| Route 冲突 | 重复 Register error |
+| 冲突 | 重复 Register error |
 | 优先级 | 最长 literal 前缀 + 同长后注册优先 |
-| Benchmark | replace-only 路径类与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
+| Benchmark | replace-only 与 `until-slash` rule 的 pattern 与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
 
 ---
 
@@ -373,8 +374,8 @@ patternmux/
   ast.go             # AST 类型
   parse.go           # Parser
   compile.go         # Canonical / HasKeep / cache
-  match_route.go     # Route profile（v1）
-  match_text.go      # Text profile（v2）
+  match_radix.go     # Radix 后端（v1）
+  match_scan.go      # Scan 后端（v2）
   *_test.go
 ```
 
@@ -384,6 +385,6 @@ patternmux/
 
 | 阶段 | 交付 |
 |------|------|
-| **v1** | Parser、Compiler、Route profile、`Mux[T]` API、replace-only Converted 缓存 |
-| **v2** | Text profile、keep Converted 拼装、digit/hexdigit |
+| **v1** | Parser、Compiler、Radix 后端、`Mux[T]` API、replace-only Converted 缓存 |
+| **v2** | Scan 后端、keep Converted 拼装、digit/hexdigit |
 | **v3** | 与 `httpmux` / `httpsvr` 集成评估 |

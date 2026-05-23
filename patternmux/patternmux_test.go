@@ -20,7 +20,7 @@ func requireMuxRegistered[T any](t *testing.T, mux *Mux[T], raw, canonical strin
 	require.Equal(t, value, mux.byCanonical[canonical])
 }
 
-func TestMuxRegisterLookupParamRoute(t *testing.T) {
+func TestMuxRegisterLookupUntilSlash(t *testing.T) {
 	const (
 		raw        = "/abc/{replace::user-id;until-slash}"
 		canonical  = "/abc/:user-id"
@@ -46,7 +46,7 @@ func TestMuxRegisterLookupParamRoute(t *testing.T) {
 	PutCaptures(caps)
 }
 
-func TestMuxRegisterLookupCatchAll(t *testing.T) {
+func TestMuxRegisterLookupRest(t *testing.T) {
 	const (
 		raw       = "/abc/{replace:*path;rest}"
 		canonical = "/abc/*path"
@@ -84,12 +84,12 @@ func TestMuxLookupMiss(t *testing.T) {
 	node, caps, converted, ok := mux.Lookup("/other/1")
 	requireLookupMiss(t, node, caps, converted, ok)
 
-	// registered route path without param segment must not match
+	// pattern ends at literal without a matching wildcard segment
 	node, caps, converted, ok = mux.Lookup("/abc/")
 	requireLookupMiss(t, node, caps, converted, ok)
 }
 
-func TestMuxTextProfileRegisterOnly(t *testing.T) {
+func TestMuxScanBackendRegisterOnly(t *testing.T) {
 	const (
 		raw       = "error code {keep;digit}"
 		canonical = "error code {keep;digit}"
@@ -98,10 +98,10 @@ func TestMuxTextProfileRegisterOnly(t *testing.T) {
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
 	requireMuxRegistered(t, mux, raw, canonical, wantValue)
-	require.Equal(t, uint16(0), mux.maxCaptures, "text profile must not enter route tree")
+	require.Equal(t, uint16(0), mux.maxCaptures, "scan backend must not enter radix index")
 	require.Equal(t, 1, mux.registerSeq)
 
-	// v1: text profile is metadata-only; no match for full or partial input
+	// v1: scan backend is metadata-only; no match for full or partial input
 	node, caps, converted, ok := mux.Lookup("error code 123456")
 	requireLookupMiss(t, node, caps, converted, ok)
 
@@ -128,22 +128,22 @@ func TestMuxDuplicateRaw(t *testing.T) {
 
 func TestMuxDuplicateCanonical(t *testing.T) {
 	const (
-		rawRoute = "/p/{replace::id;until-slash}"
-		rawText  = "/p/{replace::id;until-slash;digit}"
+		rawRadix = "/p/{replace::id;until-slash}"
+		rawScan  = "/p/{replace::id;until-slash;digit}"
 		canonical = "/p/:id"
 	)
 	mux := New[int]()
-	require.NoError(t, mux.Register(rawRoute, 1))
-	requireMuxRegistered(t, mux, rawRoute, canonical, 1)
+	require.NoError(t, mux.Register(rawRadix, 1))
+	requireMuxRegistered(t, mux, rawRadix, canonical, 1)
 
-	// digit rule => text profile, but canonical still /p/:id
-	err := mux.Register(rawText, 2)
+	// digit rule => scan backend, but canonical still /p/:id
+	err := mux.Register(rawScan, 2)
 	require.ErrorIs(t, err, ErrDuplicateCanonical)
-	requireMuxRegistered(t, mux, rawRoute, canonical, 1)
-	require.NotContains(t, mux.byRaw, rawText)
+	requireMuxRegistered(t, mux, rawRadix, canonical, 1)
+	require.NotContains(t, mux.byRaw, rawScan)
 }
 
-func TestMuxStaticOverParam(t *testing.T) {
+func TestMuxStaticOverUntilSlashWildcard(t *testing.T) {
 	const (
 		paramRaw       = "/api/{replace::id;until-slash}"
 		paramCanonical = "/api/:id"
@@ -170,7 +170,7 @@ func TestMuxStaticOverParam(t *testing.T) {
 	require.Nil(t, caps)
 }
 
-func BenchmarkMuxParamRoute(b *testing.B) {
+func BenchmarkMuxUntilSlashLookup(b *testing.B) {
 	mux := New[int]()
 	_ = mux.Register("/api/v1/users/{replace::id;until-slash}", 1)
 	b.ReportAllocs()

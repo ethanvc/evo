@@ -1,7 +1,5 @@
 package patternmux
 
-import "strings"
-
 type Mux[T any] struct {
 	root        *Node[T]
 	maxCaptures uint16
@@ -40,12 +38,12 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 	m.byCanonical[cp.Canonical] = value
 	m.registerSeq++
 
-	// v1 supports route-profile lookup only; text profile still registers metadata.
-	if cp.Profile != profileRoute {
+	// v1: radix backend only; scan backend registers metadata for v2.
+	if cp.Backend != backendRadix {
 		return nil
 	}
 
-	m.root.addRoute(cp.RoutePath, value, routeMeta{
+	m.root.insertIndexed(cp.IndexKey, value, patternMeta{
 		raw:             cp.Raw,
 		canonical:       cp.Canonical,
 		hasKeep:         cp.HasKeep,
@@ -54,14 +52,14 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 		registerOrder:   uint64(m.registerSeq),
 	})
 
-	if n := countRouteWildcards(cp.RoutePath); n > m.maxCaptures {
+	if n := countIndexWildcards(cp.IndexKey); n > m.maxCaptures {
 		m.maxCaptures = n
 	}
 	return nil
 }
 
 func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, converted string, ok bool) {
-	node, captures, ok = m.root.getValue(input, func() *Captures {
+	node, captures, ok = m.root.matchInput(input, func() *Captures {
 		return newCaptures(int(m.maxCaptures))
 	})
 	if !ok || node == nil {
@@ -69,21 +67,5 @@ func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, conver
 		return nil, nil, "", false
 	}
 
-	normalizeCatchAllCapture(node.canonical, captures)
 	return node, captures, node.cachedConverted, true
-}
-
-func normalizeCatchAllCapture(canonical string, captures *Captures) {
-	if captures == nil {
-		return
-	}
-	for i := range *captures {
-		c := &(*captures)[i]
-		if c.Key == "" || !strings.HasPrefix(c.Value, "/") {
-			continue
-		}
-		if strings.Contains(canonical, c.Key) {
-			c.Value = strings.TrimPrefix(c.Value, "/")
-		}
-	}
 }

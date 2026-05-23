@@ -9,5 +9,5 @@ var (
 	ErrMissingRule         = errors.New("patternmux: expression requires at least one rule")
 	ErrInvalidSyntax       = errors.New("patternmux: invalid syntax")
 	ErrEmptyPattern        = errors.New("patternmux: empty pattern")
-	ErrProfileNotSupported = errors.New("patternmux: text profile lookup not supported in v1")
+	ErrBackendNotSupported = errors.New("patternmux: scan backend lookup not supported in v1")
 )

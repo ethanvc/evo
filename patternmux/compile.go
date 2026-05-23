@@ -2,26 +2,30 @@ package patternmux
 
 import "strings"
 
-type profile uint8
+// matchBackend selects the Lookup implementation from expression rules.
+type matchBackend uint8
 
 const (
-	profileRoute profile = iota
-	profileText
+	backendRadix matchBackend = iota // until-slash + rest rules → radix index
+	backendScan                      // keep, digit, hexdigit, … → linear scan (v2)
 )
 
-// Internal route-path markers; not part of Canonical. Behavior comes from rules at compile time.
+// Lowered index markers; not part of Canonical. Semantics come from rules at compile time.
 const (
-	routeParamMark    = "\x00P"
-	routeCatchAllMark = "\x00R"
+	markUntilSlash = "\x00S" // until-slash rule
+	markRest       = "\x00R" // rest rule
 )
+
+// untilSlashBoundary is the consume boundary for the until-slash rule.
+const untilSlashBoundary = '/'
 
 type compiledPattern struct {
 	Raw             string
 	Canonical       string
 	CachedConverted string
 	HasKeep         bool
-	Profile         profile
-	RoutePath       string // lowered route index; empty when Profile != profileRoute
+	Backend         matchBackend
+	IndexKey        string // lowered pattern for radix backend; empty otherwise
 	Segments        []Segment
 	LiteralPrefix   int // cumulative literal chars from start (for priority tests)
 }
@@ -49,17 +53,17 @@ func Compile(segments []Segment) (compiledPattern, error) {
 		}
 	}
 	cp.Canonical = canonical.String()
-	cp.Profile = assignProfile(segments)
+	cp.Backend = selectBackend(segments)
 	if !cp.HasKeep {
 		cp.CachedConverted = cp.Canonical
 	}
-	if cp.Profile == profileRoute {
-		cp.RoutePath = compileRoutePath(segments)
+	if cp.Backend == backendRadix {
+		cp.IndexKey = compileIndexKey(segments)
 	}
 	return cp, nil
 }
 
-func compileRoutePath(segments []Segment) string {
+func compileIndexKey(segments []Segment) string {
 	var b strings.Builder
 	for _, seg := range segments {
 		switch s := seg.(type) {
@@ -70,9 +74,9 @@ func compileRoutePath(segments []Segment) string {
 				continue
 			}
 			if hasRule(s.Rules, RuleRest) {
-				b.WriteString(routeCatchAllMark)
+				b.WriteString(markRest)
 			} else {
-				b.WriteString(routeParamMark)
+				b.WriteString(markUntilSlash)
 			}
 			b.WriteString(s.Name)
 		}
@@ -89,22 +93,22 @@ func hasRule(rules []Rule, want Rule) bool {
 	return false
 }
 
-func assignProfile(segments []Segment) profile {
+func selectBackend(segments []Segment) matchBackend {
 	for _, seg := range segments {
 		e, ok := seg.(Expr)
 		if !ok {
 			continue
 		}
 		if e.Action == ActionKeep {
-			return profileText
+			return backendScan
 		}
 		for _, r := range e.Rules {
 			switch r {
 			case RuleUntilSlash, RuleRest:
 			default:
-				return profileText
+				return backendScan
 			}
 		}
 	}
-	return profileRoute
+	return backendRadix
 }

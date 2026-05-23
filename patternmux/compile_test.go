@@ -15,8 +15,8 @@ func TestCompileReplaceUntilSlash(t *testing.T) {
 	require.Equal(t, "/abc/:user-id", cp.Canonical)
 	require.Equal(t, "/abc/:user-id", cp.CachedConverted)
 	require.False(t, cp.HasKeep)
-	require.Equal(t, profileRoute, cp.Profile)
-	require.Equal(t, "/abc/"+routeParamMark+":user-id", cp.RoutePath)
+	require.Equal(t, backendRadix, cp.Backend)
+	require.Equal(t, "/abc/"+markUntilSlash+":user-id", cp.IndexKey)
 }
 
 func TestCompileReplaceRest(t *testing.T) {
@@ -25,24 +25,33 @@ func TestCompileReplaceRest(t *testing.T) {
 	cp, err := Compile(segs)
 	require.NoError(t, err)
 	require.Equal(t, "/abc/*path", cp.Canonical)
-	require.Equal(t, "/abc/"+routeCatchAllMark+"*path", cp.RoutePath)
+	require.Equal(t, "/abc/"+markRest+"*path", cp.IndexKey)
 }
 
-func TestCompileKeepIsTextProfile(t *testing.T) {
+func TestCompileKeepUsesScanBackend(t *testing.T) {
 	segs, err := Parse("error code {keep;digit}")
 	require.NoError(t, err)
 	cp, err := Compile(segs)
 	require.NoError(t, err)
 	require.True(t, cp.HasKeep)
-	require.Equal(t, profileText, cp.Profile)
+	require.Equal(t, backendScan, cp.Backend)
 	require.Equal(t, "error code {keep;digit}", cp.Canonical)
 	require.Equal(t, "", cp.CachedConverted)
 }
 
-func TestCompileDigitRuleIsTextProfile(t *testing.T) {
+func TestCompileDigitRuleUsesScanBackend(t *testing.T) {
 	segs, err := Parse("/abc/{replace::id;until-slash;digit}")
 	require.NoError(t, err)
 	cp, err := Compile(segs)
 	require.NoError(t, err)
-	require.Equal(t, profileText, cp.Profile)
+	require.Equal(t, backendScan, cp.Backend)
+}
+
+func TestCompileRestWithoutSlashLiteral(t *testing.T) {
+	segs, err := Parse("abc{replace:*tail;rest}")
+	require.NoError(t, err)
+	cp, err := Compile(segs)
+	require.NoError(t, err)
+	require.Equal(t, "abc*tail", cp.Canonical)
+	require.Equal(t, "abc"+markRest+"*tail", cp.IndexKey)
 }
