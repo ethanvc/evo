@@ -13,6 +13,7 @@ func TestCompileReplaceUntilSlash(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "/abc/{replace::user-id;until-slash}", cp.Raw)
 	require.Equal(t, "/abc/:user-id", cp.Canonical)
+	require.Equal(t, "/abc/:user-id", cp.Pattern)
 	require.Equal(t, "/abc/:user-id", cp.CachedConverted)
 	require.False(t, cp.HasKeep)
 	require.Equal(t, len("/abc/"), cp.LiteralPrefix)
@@ -35,7 +36,19 @@ func TestCompileKeepHasKeepAndNoCachedConverted(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, cp.HasKeep)
 	require.Equal(t, "error code {keep;digit}", cp.Canonical)
+	require.Equal(t, "error code "+PlaceholderName, cp.Pattern,
+		"keep is unnamed; Pattern substitutes PlaceholderName")
 	require.Equal(t, "", cp.CachedConverted, "keep patterns build Converted at Lookup time")
+}
+
+func TestCompilePatternUnnamedReplaceUsesPlaceholder(t *testing.T) {
+	segs, err := Parse("v={replace;digit}")
+	require.NoError(t, err)
+	cp, err := Compile(segs)
+	require.NoError(t, err)
+	require.Equal(t, "v=", cp.Canonical, "unnamed replace contributes nothing to Canonical")
+	require.Equal(t, "v="+PlaceholderName, cp.Pattern,
+		"unnamed replace becomes PlaceholderName in Pattern")
 }
 
 func TestCompileMultiRuleCanonicalUsesNameOnly(t *testing.T) {

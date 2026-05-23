@@ -120,6 +120,7 @@ func isHexDigit(b byte) bool {
 type patternMeta struct {
 	raw             string
 	canonical       string
+	pattern         string
 	hasKeep         bool
 	cachedConverted string
 	literalPrefix   int
@@ -131,6 +132,7 @@ type Node[T any] struct {
 	value           T
 	raw             string
 	canonical       string
+	pattern         string
 	hasKeep         bool
 	cachedConverted string
 	literalPrefix   int
@@ -170,6 +172,7 @@ func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
 	cur.registered = true
 	cur.raw = meta.raw
 	cur.canonical = meta.canonical
+	cur.pattern = meta.pattern
 	cur.hasKeep = meta.hasKeep
 	cur.cachedConverted = meta.cachedConverted
 	cur.literalPrefix = meta.literalPrefix
@@ -215,6 +218,7 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 				registered:      cur.registered,
 				raw:             cur.raw,
 				canonical:       cur.canonical,
+				pattern:         cur.pattern,
 				hasKeep:         cur.hasKeep,
 				cachedConverted: cur.cachedConverted,
 				literalPrefix:   cur.literalPrefix,
@@ -229,6 +233,7 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 			cur.registered = false
 			cur.raw = ""
 			cur.canonical = ""
+			cur.pattern = ""
 			cur.hasKeep = false
 			cur.cachedConverted = ""
 			cur.literalPrefix = 0

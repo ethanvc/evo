@@ -2,6 +2,10 @@ package patternmux
 
 import "strings"
 
+// PlaceholderName is substituted for unnamed expressions when assembling the
+// "Pattern" string returned by Node.GetPattern.
+const PlaceholderName = "noname"
+
 // compiledPattern is the post-Compile bundle threaded into Register / addPattern.
 //
 // The tree is now unified (see tree.go); we no longer pre-classify patterns
@@ -11,6 +15,7 @@ import "strings"
 type compiledPattern struct {
 	Raw             string
 	Canonical       string
+	Pattern         string // every Expr replaced by its Name (or PlaceholderName)
 	CachedConverted string
 	HasKeep         bool
 	Segments        []Segment
@@ -18,13 +23,14 @@ type compiledPattern struct {
 }
 
 func Compile(segments []Segment) (compiledPattern, error) {
-	var canonical strings.Builder
+	var canonical, pattern strings.Builder
 	cp := compiledPattern{Segments: segments}
 	for _, seg := range segments {
 		switch s := seg.(type) {
 		case Literal:
 			cp.Raw += s.Text
 			canonical.WriteString(s.Text)
+			pattern.WriteString(s.Text)
 			cp.LiteralPrefix += len(s.Text)
 		case Expr:
 			cp.Raw += s.Raw
@@ -37,9 +43,15 @@ func Compile(segments []Segment) (compiledPattern, error) {
 				cp.HasKeep = true
 				canonical.WriteString(s.Raw)
 			}
+			if s.Name != "" {
+				pattern.WriteString(s.Name)
+			} else {
+				pattern.WriteString(PlaceholderName)
+			}
 		}
 	}
 	cp.Canonical = canonical.String()
+	cp.Pattern = pattern.String()
 	if !cp.HasKeep {
 		cp.CachedConverted = cp.Canonical
 	}

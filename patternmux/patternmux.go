@@ -51,6 +51,7 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 	meta := patternMeta{
 		raw:             cp.Raw,
 		canonical:       cp.Canonical,
+		pattern:         cp.Pattern,
 		hasKeep:         cp.HasKeep,
 		cachedConverted: cp.CachedConverted,
 		literalPrefix:   cp.LiteralPrefix,

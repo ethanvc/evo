@@ -195,8 +195,9 @@ replace-only 时：`Converted == Canonical == node.CachedConverted()`。
 type Node[T any] struct {
     // 注册期元信息（所有节点共用，仅 leaf 上有意义）
     value           T
-    raw             string // 注册原文
-    canonical       string // 编译期模板
+    raw             string // 注册原文，含 `{...}` 表达式
+    canonical       string // 去重 / 路由模板 ID
+    pattern         string // 表达式替换为 name 后的形态（unnamed → PlaceholderName）
     hasKeep         bool
     cachedConverted string // 仅当 !hasKeep
     registered      bool
@@ -206,11 +207,20 @@ type Node[T any] struct {
 }
 
 func (n *Node[T]) Value() T
-func (n *Node[T]) Raw() string
+func (n *Node[T]) Raw() string                // 同 GetPatternWithExpr
+func (n *Node[T]) GetPatternWithExpr() string // 注册原文，等价 Raw
+func (n *Node[T]) GetPattern() string         // 表达式 → name；unnamed → PlaceholderName
 func (n *Node[T]) Canonical() string
 func (n *Node[T]) HasKeep() bool
 func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
 ```
+
+| 输出 | 含义 | 例子（pattern = `error code {keep;digit}, tx {replace::id;hexdigit}`） |
+|---|---|---|
+| `Raw` / `GetPatternWithExpr` | 注册原文 | `error code {keep;digit}, tx {replace::id;hexdigit}` |
+| `GetPattern` | 占位段替换为 name；unnamed 用 `PlaceholderName`（默认 `noname`） | `error code noname, tx :id` |
+| `Canonical` | 去重键；replace name 显式写出，unnamed 不贡献，`keep` 段保留原文 | `error code {keep;digit}, tx :id` |
+| `CachedConverted` | replace-only 时等于 Canonical；含 keep 时为空 | （此例为空） |
 
 无论 pattern 中含哪些 rule，`Node[T]` 都是同一棵统一 radix tree 的节点；不再区分 Radix / Scan 后端。
 
