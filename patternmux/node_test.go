@@ -8,19 +8,16 @@ import (
 
 func TestNodeAccessors(t *testing.T) {
 	n := Node[int]{
-		raw:             "/abc/{replace::user-id;until-slash}",
-		canonical:       "/abc/:user-id",
-		pattern:         "/abc/:user-id",
-		hasKeep:         true,
-		cachedConverted: "/abc/100",
+		value:   42,
+		raw:     "/abc/{replace::user-id;until-slash}",
+		pattern: "/abc/:user-id",
+		hasKeep: true,
 	}
 
-	require.Equal(t, "/abc/{replace::user-id;until-slash}", n.Raw())
+	require.Equal(t, 42, n.Value())
 	require.Equal(t, "/abc/{replace::user-id;until-slash}", n.GetPatternWithExpr())
-	require.Equal(t, "/abc/:user-id", n.Canonical())
 	require.Equal(t, "/abc/:user-id", n.GetPattern())
 	require.True(t, n.HasKeep())
-	require.Equal(t, "/abc/100", n.CachedConverted())
 }
 
 // TestNodeGetPatternEndToEnd registers each pattern shape through Mux and
@@ -103,8 +100,6 @@ func TestNodeGetPatternEndToEnd(t *testing.T) {
 			require.NotNil(t, node)
 
 			require.Equal(t, tc.wantWithExpr, node.GetPatternWithExpr())
-			require.Equal(t, tc.wantWithExpr, node.Raw(),
-				"Raw() must alias GetPatternWithExpr()")
 			require.Equal(t, tc.wantPattern, node.GetPattern())
 			PutCaptures(caps)
 		})

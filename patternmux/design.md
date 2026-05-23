@@ -18,9 +18,9 @@
 - 支持字面量 + `{表达式}` 混合的 pattern 语法
 - 泛型挂载值：`Mux[T]`，`Register(pattern, value)` / `Lookup(input)`
 - 匹配结果包含：
-  - `Node` 元信息（Raw / Canonical / HasKeep / CachedConverted）与挂载值
+  - `Node` 公开 accessor：`Value` / `GetPattern` / `GetPatternWithExpr` / `HasKeep`（`Canonical`、`CachedConverted` 是内部字段，仅 Mux 自用）
   - `Captures`（key 可为空串；Lookup 运行时返回，可 pool 复用）
-  - `Converted`（输出串；replace-only 可缓存，含 keep 则每次 Lookup 计算）
+  - `Converted`（输出串；replace-only 由内部缓存返回，含 keep 则每次 Lookup 计算）
 - 不限于 HTTP path；分隔符不限于 `/`
 
 ### 非目标
@@ -43,7 +43,7 @@
 | **Rule（消费规则）** | 描述如何消费后续子串的边界或字符约束（如 `until-slash`、`digit`）；至少一个，未知 rule 在 Register 时报错。 |
 | **Canonical** | Register 期编译出的规范化模板（`:name`、`*name`、保留 `{keep;...}` 原文）；用于索引与 replace-only 输出。 |
 | **Converted** | Lookup 成功时的输出串：replace-only 等于 Canonical 并可缓存；含 keep 时每次按输入现场拼装。 |
-| **Node[T]** | 注册句柄，持有挂载值 `T` 与 Raw / Canonical / HasKeep / CachedConverted 等元信息；Lookup 返回匹配到的 leaf。 |
+| **Node[T]** | 注册句柄，持有挂载值 `T` 与若干 Pattern 视图（公开：`GetPattern` / `GetPatternWithExpr` / `HasKeep`；内部：`canonical`、`cachedConverted`）；Lookup 返回匹配到的 leaf。 |
 | **Captures** | Lookup 期提取的 `(key, value)` 列表，key 可为空；pool 分配，调用方须 `PutCaptures` 归还。 |
 | **WildcardSpec** | 编译期由 rule 推导出的通配符消费规格：`(boundary, class, keep, name)`。所有 rule（含 `digit` / `hexdigit` / `until-blank` / `rest` / `keep`）都内化为 spec 字段，由统一 radix tree 在 Lookup 时按 spec 消费输入。 |
 | **Mux[T]** | 泛型入口：`Register(pattern, value)` 建索引，`Lookup(input)` 返回 Node、Captures、Converted。 |
@@ -219,7 +219,7 @@ Captures:     err-code = 12
 - `{keep;rules...}` → 写入本次匹配到的子串
 - `{replace;...}` → **不写入** Converted（值仅出现在 Captures）
 
-replace-only 时：`Converted == Canonical == node.CachedConverted()`。
+replace-only 时：`Converted == Canonical`，并被缓存到内部 `cachedConverted` 字段，`Lookup` 命中时直接返回该缓存。
 
 ### 4.3 Node（注册句柄）
 
@@ -230,46 +230,47 @@ type Node[T any] struct {
     // 注册期元信息（所有节点共用，仅 leaf 上有意义）
     value           T
     raw             string // 注册原文，含 `{...}` 表达式
-    canonical       string // 去重 / 路由模板 ID
+    canonical       string // 去重 / 路由模板 ID（内部使用）
     pattern         string // 表达式替换为 name 后的形态（unnamed → PlaceholderName）
     hasKeep         bool
-    cachedConverted string // 仅当 !hasKeep
+    cachedConverted string // replace-only 时的预计算 Converted（内部使用）
     registered      bool
 
     // 树内部：static 节点用 prefix / indices / children，
     // wildcard 节点用 spec 描述如何消费输入。
 }
 
-func (n *Node[T]) Value() T
-func (n *Node[T]) Raw() string                // 同 GetPatternWithExpr
-func (n *Node[T]) GetPatternWithExpr() string // 注册原文，等价 Raw
-func (n *Node[T]) GetPattern() string         // 表达式 → name；unnamed → PlaceholderName
-func (n *Node[T]) Canonical() string
-func (n *Node[T]) HasKeep() bool
-func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
+// 公共 API（仅这 4 个）：
+func (n *Node[T]) Value() T                   // 注册值
+func (n *Node[T]) GetPatternWithExpr() string // 注册原文（调试用）
+func (n *Node[T]) GetPattern() string         // 表达式 → name；unnamed → PlaceholderName（监控/日志）
+func (n *Node[T]) HasKeep() bool              // 输出是否动态
 ```
+
+> `canonical` 与 `cachedConverted` 是**内部字段**：前者只在 `Mux.Register` 中用作去重 key（用户感知到的是 `ErrDuplicateCanonical`）；后者只在 `Mux.Lookup` 内部用作 replace-only 路径的输出缓存（用户感知到的是 `Lookup` 返回的 `converted`）。两者都不暴露 getter。
 
 **例 1**：unnamed keep + 命名 replace
 
 pattern = `error code {keep;digit}, tx {replace::id;hexdigit}`
 
-| 输出 | 值 |
-|---|---|
-| `Raw` / `GetPatternWithExpr` | `error code {keep;digit}, tx {replace::id;hexdigit}` |
-| `GetPattern` | `error code noname, tx :id` |
-| `Canonical` | `error code {keep;digit}, tx :id` |
-| `CachedConverted` | （空，含 keep 不缓存） |
+| 字段 / 输出 | 值 | 公开吗 |
+|---|---|---|
+| `GetPatternWithExpr()` | `error code {keep;digit}, tx {replace::id;hexdigit}` | ✓ |
+| `GetPattern()` | `error code noname, tx :id` | ✓ |
+| `HasKeep()` | `true` | ✓ |
+| 内部 `canonical` | `error code {keep;digit}, tx :id` | ✗ |
+| 内部 `cachedConverted` | （空，含 keep 不缓存） | ✗ |
+| Lookup 返回 `converted`（运行期，输入 `error code 42, tx deadbeef`） | `error code 42, tx ` | ✓ |
 
 **例 2**：命名 keep + 命名 replace（`name` 与 action 正交）
 
 pattern = `error code {keep:err-code;digit}, tx {replace::id;hexdigit}`
 
-| 输出 | 值 |
+| 字段 / 输出 | 值 |
 |---|---|
-| `Raw` / `GetPatternWithExpr` | `error code {keep:err-code;digit}, tx {replace::id;hexdigit}` |
-| `GetPattern` | `error code err-code, tx :id` |
-| `Canonical` | `error code {keep:err-code;digit}, tx :id` |
-| `CachedConverted` | （空） |
+| `GetPatternWithExpr()` | `error code {keep:err-code;digit}, tx {replace::id;hexdigit}` |
+| `GetPattern()` | `error code err-code, tx :id` |
+| 内部 `canonical` | `error code {keep:err-code;digit}, tx :id` |
 
 无论 pattern 中含哪些 rule，`Node[T]` 都是同一棵统一 radix tree 的节点；不再区分 Radix / Scan 后端。
 
@@ -292,9 +293,10 @@ func (cs Captures) ByName(name string) string
 
 | 数据 | 归属 | 说明 |
 |------|------|------|
-| `Value`、`Raw`、`Canonical`、`HasKeep`、`CachedConverted` | `*Node[T]` | Register 时确定，跨 Lookup 复用 |
+| `Value`、`GetPatternWithExpr`、`GetPattern`、`HasKeep` | `*Node[T]`（公开） | Register 时确定，跨 Lookup 复用 |
+| `canonical`、`cachedConverted` | `*Node[T]`（内部字段） | 仅 Mux 自用：去重、replace-only 路径输出缓存 |
 | `Captures` | Lookup 返回 `*Captures` | 每次匹配提取；非 nil 时调用方须 `PutCaptures` |
-| `Converted` | Lookup 返回值 | replace-only：`node.CachedConverted()`；含 keep：现场拼装 |
+| `Converted` | Lookup 返回值 | replace-only：内部 `cachedConverted`；含 keep：现场拼装 |
 
 `Captures` 顺序与 pattern 中表达式出现顺序一致。
 
@@ -325,23 +327,23 @@ if caps != nil {
     defer patternmux.PutCaptures(caps)
 }
 v := node.Value()
-canonical := node.Canonical()
-// converted：replace-only 时等于 node.CachedConverted()
+routeID := node.GetPattern() // 例如 "/api/v1/users/:id"，用于监控/日志
+// converted：业务输出串。replace-only 时由 Mux 缓存返回，含 keep 时现场拼装
 ```
 
 ### Register
 
 1. parse pattern → AST（`Literal` | `Expr`）
 2. 校验表达式（action / name / rules，至少一个 rule）
-3. 计算 `Canonical`、`HasKeep`、`cachedConverted`，写入 `Node`
+3. 计算 `canonical`（内部去重 key）、`hasKeep`、`cachedConverted`，写入 `Node`
 4. 插入匹配索引
-5. 冲突处理：**相同 Raw 或相同挂载点重复注册 → 返回 error**（与 `httpmux` 一致，不允许静默覆盖）
+5. 冲突处理：**相同 Raw 或相同 `canonical` 重复注册 → 返回 error**（与 `httpmux` 一致，不允许静默覆盖）
 
 ### Lookup
 
 1. 在索引中查找匹配的 pattern，得到 leaf `*Node[T]`
 2. 提取 `Captures`（pool 分配）
-3. 若 `!node.HasKeep()`：`converted = node.CachedConverted()`；否则现场拼装
+3. 若 `!node.HasKeep()`：`converted` 取内部 `cachedConverted`；否则现场拼装
 4. 返回 `node, captures, converted, true`
 
 ---

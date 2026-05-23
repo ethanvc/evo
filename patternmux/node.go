@@ -1,42 +1,37 @@
 package patternmux
 
+// Value returns the value installed at this leaf during Register. Reading
+// Value on a non-leaf node (a tree internal) returns the zero value of T.
+func (n *Node[T]) Value() T { return n.value }
+
 // GetPatternWithExpr returns the registered pattern verbatim, including every
-// `{...}` expression in its original form.
+// `{...}` expression in its original form. Use this for debugging or for
+// faithfully echoing what was registered; for human-readable route IDs prefer
+// GetPattern.
 func (n *Node[T]) GetPatternWithExpr() string {
 	return n.raw
 }
 
 // GetPattern returns the registered pattern with every `{...}` expression
-// replaced by its name. Unnamed expressions (`{replace;...}`, `{keep;...}`,
-// since the `keep` action does not carry a name) are replaced by
-// PlaceholderName ("noname").
+// replaced by its name. Unnamed expressions (`{replace;...}`, `{keep;...}`)
+// are replaced by PlaceholderName ("noname"). Suitable for use as a
+// human-readable route identifier in metrics, logs, traces.
 //
 // Examples:
 //
-//	"/abc/{replace::user-id;until-slash}"           -> "/abc/:user-id"
-//	"/abc/{replace:*path;rest}"                     -> "/abc/*path"
-//	"v={replace;digit}"                             -> "v=noname"
+//	"/abc/{replace::user-id;until-slash}"            -> "/abc/:user-id"
+//	"/abc/{replace:*path;rest}"                      -> "/abc/*path"
+//	"v={replace;digit}"                              -> "v=noname"
 //	"error code {keep;digit}, tx {replace;hexdigit}" -> "error code noname, tx noname"
 func (n *Node[T]) GetPattern() string {
 	return n.pattern
 }
 
-// Canonical returns the deduplication key used by Mux: literal text plus
-// `:name` / `*name` for replace expressions; `keep` expressions are kept
-// verbatim; unnamed replace expressions contribute nothing.
-func (n *Node[T]) Canonical() string {
-	return n.canonical
-}
-
 // HasKeep reports whether the registered pattern contains any `keep`
-// expression. When true, Lookup must assemble Converted at match time.
+// expression. When true, Lookup assembles its `converted` return value at
+// match time; otherwise `converted` is a constant precomputed at Register.
+// Most callers do not need this; it exists for callers that want to know
+// whether a route's converted output is dynamic.
 func (n *Node[T]) HasKeep() bool {
 	return n.hasKeep
-}
-
-// CachedConverted returns the precomputed Converted output for replace-only
-// patterns. When HasKeep is true, this is empty and callers must obtain
-// Converted from the Lookup return value.
-func (n *Node[T]) CachedConverted() string {
-	return n.cachedConverted
 }

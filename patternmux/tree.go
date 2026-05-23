@@ -154,8 +154,6 @@ type Node[T any] struct {
 	wildcards []*Node[T]
 }
 
-func (n *Node[T]) Value() T { return n.value }
-
 // addPattern installs `value` + `meta` as the leaf for the given segment list.
 // Caller has already deduplicated by raw / canonical.
 func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
