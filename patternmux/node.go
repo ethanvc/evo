@@ -1,12 +1,5 @@
 package patternmux
 
-// Raw returns the registered pattern verbatim, including every `{...}`
-// expression in its original form. Identical to GetPatternWithExpr; kept for
-// backwards compatibility with existing call sites.
-func (n *Node[T]) Raw() string {
-	return n.raw
-}
-
 // GetPatternWithExpr returns the registered pattern verbatim, including every
 // `{...}` expression in its original form.
 func (n *Node[T]) GetPatternWithExpr() string {
