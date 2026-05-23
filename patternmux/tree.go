@@ -1,79 +1,122 @@
 package patternmux
 
+// Tree is a unified radix index. Every registered pattern lives in this tree,
+// regardless of which rules its expressions use. A wildcard segment is a node
+// whose `spec` decides how it consumes input at Lookup time; multiple wildcard
+// children may coexist at the same parent and are tried in priority order.
+//
+// Insertion never panics on static/wildcard mixing: a parent may carry both
+// static `children` (indexed by first byte) and wildcard `wildcards` (linear).
+// On lookup, statics are tried first; wildcards are tried in registration order
+// (later registrations have higher priority per design §6 tie-break).
+
 import "strings"
 
-func min(a, b int) int {
-	if a <= b {
-		return a
-	}
-	return b
-}
-
-func longestCommonPrefix(a, b string) int {
-	i := 0
-	max := min(len(a), len(b))
-	for i < max && a[i] == b[i] {
-		i++
-	}
-	return i
-}
-
-// findWildcard locates the next lowered wildcard in an index key.
-func findWildcard(key string) (token string, i int, isRest bool, valid bool) {
-	for start := 0; start+1 < len(key); start++ {
-		if key[start] != '\x00' {
-			continue
-		}
-		switch key[start+1] {
-		case 'S':
-			isRest = false
-		case 'R':
-			isRest = true
-		default:
-			continue
-		}
-
-		valid = true
-		for end, c := range []byte(key[start+2:]) {
-			switch c {
-			case untilSlashBoundary:
-				return key[start : start+2+end], start, isRest, valid
-			case '\x00':
-				valid = false
-			}
-		}
-		return key[start:], start, isRest, valid
-	}
-	return "", -1, false, false
-}
-
-func countIndexWildcards(key string) uint16 {
-	var n uint16
-	for i := 0; i+1 < len(key); i++ {
-		if key[i] != '\x00' {
-			continue
-		}
-		switch key[i+1] {
-		case 'S', 'R':
-			n++
-		}
-	}
-	return n
-}
-
-func isWildcardMark(b byte) bool {
-	return b == '\x00'
-}
-
-type nodeType uint8
+type boundaryKind uint8
 
 const (
-	static nodeType = iota
-	root
-	untilSlashNode
-	restNode
+	boundaryNone  boundaryKind = iota // no boundary; consume to end of input (rest)
+	boundarySlash                     // until-slash
+	boundaryBlank                     // until-blank
 )
 
+type classKind uint8
+
+const (
+	classAny classKind = iota
+	classDigit
+	classHex
+)
+
+// wildcardSpec encodes a single wildcard's consume rule.
+//
+// `keep` does not affect routing — it only controls Converted assembly.
+// `name` is the capture key written into Captures.
+type wildcardSpec struct {
+	boundary boundaryKind
+	class    classKind
+	keep     bool
+	name     string
+}
+
+func (s wildcardSpec) eq(o wildcardSpec) bool {
+	return s.boundary == o.boundary &&
+		s.class == o.class &&
+		s.keep == o.keep &&
+		s.name == o.name
+}
+
+// consume returns the longest prefix of input that satisfies both the
+// boundary and class constraints (§2.1: rules apply simultaneously to the
+// same span). Returns 0 if no character may be consumed.
+func (s wildcardSpec) consume(input string) int {
+	end := 0
+	for end < len(input) {
+		c := input[end]
+		switch s.boundary {
+		case boundarySlash:
+			if c == '/' {
+				return end
+			}
+		case boundaryBlank:
+			if isBlank(c) {
+				return end
+			}
+		}
+		switch s.class {
+		case classDigit:
+			if !isDigit(c) {
+				return end
+			}
+		case classHex:
+			if !isHexDigit(c) {
+				return end
+			}
+		}
+		end++
+	}
+	return end
+}
+
+func specFromExpr(e Expr) wildcardSpec {
+	s := wildcardSpec{
+		keep: e.Action == ActionKeep,
+		name: e.Name,
+	}
+	for _, r := range e.Rules {
+		switch r {
+		case RuleUntilSlash:
+			s.boundary = boundarySlash
+		case RuleUntilBlank:
+			s.boundary = boundaryBlank
+		case RuleRest:
+			s.boundary = boundaryNone
+		case RuleDigit:
+			s.class = classDigit
+		case RuleHexDigit:
+			s.class = classHex
+		}
+	}
+	return s
+}
+
+func isBlank(b byte) bool {
+	switch b {
+	case ' ', '\t', '\n', '\r', '\v', '\f':
+		return true
+	}
+	return false
+}
+
+func isDigit(b byte) bool { return b >= '0' && b <= '9' }
+
+func isHexDigit(b byte) bool {
+	return (b >= '0' && b <= '9') ||
+		(b >= 'a' && b <= 'f') ||
+		(b >= 'A' && b <= 'F')
+}
+
+// patternMeta is registration-time metadata copied onto a leaf node.
 type patternMeta struct {
 	raw             string
 	canonical       string
@@ -84,367 +127,261 @@ type patternMeta struct {
 }
 
 type Node[T any] struct {
-	// Registration metadata.
+	// Leaf metadata (only meaningful when registered).
+	value           T
 	raw             string
 	canonical       string
 	hasKeep         bool
 	cachedConverted string
 	literalPrefix   int
 	registerOrder   uint64
+	registered      bool
+	segments        []Segment // populated only when hasKeep, for Converted assembly
 
-	// Radix index internals.
-	prefix     string
-	captureKey string
-	indices    string
-	wildChild  bool
-	nType      nodeType
-	priority   uint32
-	children   []*Node[T]
-	value      T
-	registered bool
+	// Static branch fields. prefix is the literal text on this node;
+	// it is empty on the root and on wildcard nodes.
+	prefix   string
+	indices  string
+	children []*Node[T]
+
+	// Wildcard branch fields.
+	spec   wildcardSpec
+	isWild bool
+
+	// Wildcard children of this node. Tried after `children` in matchInput.
+	wildcards []*Node[T]
 }
 
-// Value returns the value registered on this node.
-func (n *Node[T]) Value() T {
-	return n.value
+func (n *Node[T]) Value() T { return n.value }
+
+// addPattern installs `value` + `meta` as the leaf for the given segment list.
+// Caller has already deduplicated by raw / canonical.
+func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
+	cur := n
+	for _, s := range segments {
+		switch v := s.(type) {
+		case Literal:
+			cur = cur.descendOrSplitLiteral(v.Text)
+		case Expr:
+			cur = cur.descendOrAddWildcard(specFromExpr(v))
+		}
+	}
+	cur.value = value
+	cur.registered = true
+	cur.raw = meta.raw
+	cur.canonical = meta.canonical
+	cur.hasKeep = meta.hasKeep
+	cur.cachedConverted = meta.cachedConverted
+	cur.literalPrefix = meta.literalPrefix
+	cur.registerOrder = meta.registerOrder
+	if meta.hasKeep {
+		cur.segments = segments
+	}
 }
 
-func (n *Node[T]) childIndex(i int) int {
-	if n.wildChild {
-		return i + 1
+// descendOrSplitLiteral walks `text` into the static-prefix subtree, splitting
+// nodes as needed. Returns the node where insertion has reached `text`'s end.
+func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
+	cur := n
+	for {
+		// On a wildcard or a fresh root node with no own prefix yet,
+		// the text simply attaches as the prefix or descends into a child.
+		if cur.isWild || (cur.prefix == "" && len(cur.children) == 0 && !cur.registered && len(cur.wildcards) == 0) {
+			// Empty static-only node: own the prefix.
+			if !cur.isWild && cur.prefix == "" && len(cur.children) == 0 && !cur.registered && len(cur.wildcards) == 0 {
+				cur.prefix = text
+				return cur
+			}
+			// Wildcard node: descend into a static child for `text`.
+			child := cur.findOrCreateStaticChild(text[0])
+			if child.prefix == "" {
+				child.prefix = text
+				return child
+			}
+			cur = child
+			continue
+		}
+
+		i := commonPrefixLen(cur.prefix, text)
+		if i < len(cur.prefix) {
+			// Split: extract the diverging tail of cur.prefix into a new child,
+			// preserving cur's existing leaf metadata and children on the split.
+			tail := &Node[T]{
+				prefix:          cur.prefix[i:],
+				indices:         cur.indices,
+				children:        cur.children,
+				wildcards:       cur.wildcards,
+				value:           cur.value,
+				registered:      cur.registered,
+				raw:             cur.raw,
+				canonical:       cur.canonical,
+				hasKeep:         cur.hasKeep,
+				cachedConverted: cur.cachedConverted,
+				literalPrefix:   cur.literalPrefix,
+				registerOrder:   cur.registerOrder,
+				segments:        cur.segments,
+			}
+			cur.prefix = cur.prefix[:i]
+			cur.indices = string([]byte{tail.prefix[0]})
+			cur.children = []*Node[T]{tail}
+			cur.wildcards = nil
+			cur.value = *new(T)
+			cur.registered = false
+			cur.raw = ""
+			cur.canonical = ""
+			cur.hasKeep = false
+			cur.cachedConverted = ""
+			cur.literalPrefix = 0
+			cur.registerOrder = 0
+			cur.segments = nil
+		}
+
+		if i == len(text) {
+			// `text` exactly matches cur.prefix (after possible split).
+			return cur
+		}
+
+		// Some text remains; descend into matching child or create new.
+		text = text[i:]
+		child := cur.findOrCreateStaticChild(text[0])
+		if child.prefix == "" {
+			child.prefix = text
+			return child
+		}
+		cur = child
+	}
+}
+
+// findOrCreateStaticChild returns the static child whose prefix begins with c,
+// creating an empty placeholder if necessary.
+func (n *Node[T]) findOrCreateStaticChild(c byte) *Node[T] {
+	for i := 0; i < len(n.indices); i++ {
+		if n.indices[i] == c {
+			return n.children[i]
+		}
+	}
+	n.indices += string([]byte{c})
+	child := &Node[T]{}
+	n.children = append(n.children, child)
+	return child
+}
+
+// descendOrAddWildcard returns the existing wildcard child whose spec matches,
+// or installs a new one. New wildcards are prepended so later registrations
+// are tried first, implementing the design §6 tie-break (latest registration
+// wins on equal literal prefix).
+func (n *Node[T]) descendOrAddWildcard(spec wildcardSpec) *Node[T] {
+	for _, wc := range n.wildcards {
+		if wc.spec.eq(spec) {
+			return wc
+		}
+	}
+	wc := &Node[T]{
+		isWild: true,
+		spec:   spec,
+	}
+	n.wildcards = append([]*Node[T]{wc}, n.wildcards...)
+	return wc
+}
+
+func commonPrefixLen(a, b string) int {
+	max := len(a)
+	if len(b) < max {
+		max = len(b)
+	}
+	i := 0
+	for i < max && a[i] == b[i] {
+		i++
 	}
 	return i
 }
 
-func (n *Node[T]) incrementChildPrio(pos int) int {
-	ci := n.childIndex(pos)
-	cs := n.children
-	cs[ci].priority++
-	prio := cs[ci].priority
-
-	newPos := pos
-	for ; newPos > 0 && cs[n.childIndex(newPos-1)].priority < prio; newPos-- {
-		a, b := n.childIndex(newPos-1), n.childIndex(newPos)
-		cs[a], cs[b] = cs[b], cs[a]
-	}
-
-	if newPos != pos {
-		n.indices = n.indices[:newPos] +
-			n.indices[pos:pos+1] +
-			n.indices[newPos:pos] + n.indices[pos+1:]
-	}
-
-	return newPos
+// matchInput walks the tree against input. Returns the leaf node, captures, ok.
+//
+// Strategy at each node:
+//  1. Strip the node's static prefix; if input is shorter than prefix, miss.
+//  2. If input has more bytes, try to descend into the matching static child.
+//     Static success short-circuits (longest literal prefix wins, design §6).
+//  3. If statics miss, walk wildcards in registration order; the first whose
+//     consume + downstream lookup succeeds wins. Captures written by a failed
+//     wildcard branch are truncated before trying the next.
+func (n *Node[T]) matchInput(input string, alloc func() *Captures) (*Node[T], *Captures, bool) {
+	return n.matchAt(input, alloc, nil)
 }
 
-// insertIndexed adds a lowered pattern key into the radix index.
-func (n *Node[T]) insertIndexed(key string, value T, meta patternMeta) {
-	fullKey := key
-	n.priority++
-
-	if n.prefix == "" && n.indices == "" {
-		n.insertChild(key, fullKey, value, meta)
-		n.nType = root
-		return
-	}
-
-walk:
-	for {
-		i := longestCommonPrefix(key, n.prefix)
-
-		if i < len(n.prefix) {
-			child := Node[T]{
-				raw:             n.raw,
-				canonical:       n.canonical,
-				hasKeep:         n.hasKeep,
-				cachedConverted: n.cachedConverted,
-				literalPrefix:   n.literalPrefix,
-				registerOrder:   n.registerOrder,
-
-				prefix:     n.prefix[i:],
-				wildChild:  n.wildChild,
-				nType:      static,
-				indices:    n.indices,
-				children:   n.children,
-				value:      n.value,
-				registered: n.registered,
-				priority:   n.priority - 1,
-			}
-
-			n.children = []*Node[T]{&child}
-			n.indices = string([]byte{n.prefix[i]})
-			n.prefix = key[:i]
-			n.value = *new(T)
-			n.registered = false
-			n.wildChild = false
-
-			n.raw = ""
-			n.canonical = ""
-			n.hasKeep = false
-			n.cachedConverted = ""
-			n.literalPrefix = 0
-			n.registerOrder = 0
-		}
-
-		if i < len(key) {
-			key = key[i:]
-
-			if n.wildChild {
-				wc := n.children[0]
-				wc.priority++
-
-				if len(key) >= len(wc.prefix) && wc.prefix == key[:len(wc.prefix)] &&
-					wc.nType != restNode &&
-					(len(wc.prefix) >= len(key) || key[len(wc.prefix)] == untilSlashBoundary) {
-					n = wc
-					continue walk
-				}
-
-				if isWildcardMark(key[0]) {
-					keySeg := key
-					if wc.nType != restNode {
-						keySeg = segmentUntilBoundary(keySeg, untilSlashBoundary)
-					}
-					prefix := fullKey[:strings.Index(fullKey, keySeg)] + wc.prefix
-					panic("'" + keySeg +
-						"' in new pattern '" + fullKey +
-						"' conflicts with existing wildcard '" + wc.prefix +
-						"' in existing prefix '" + prefix +
-						"'")
-				}
-			}
-
-			idxc := key[0]
-
-			if n.nType == untilSlashNode && idxc == untilSlashBoundary && len(n.children) == 1 {
-				n = n.children[0]
-				n.priority++
-				continue walk
-			}
-
-			for i, c := range []byte(n.indices) {
-				if c == idxc {
-					i = n.incrementChildPrio(i)
-					n = n.children[n.childIndex(i)]
-					continue walk
-				}
-			}
-
-			if !isWildcardMark(idxc) {
-				n.indices += string([]byte{idxc})
-				child := &Node[T]{}
-				n.children = append(n.children, child)
-				n.incrementChildPrio(len(n.indices) - 1)
-				n = child
-			}
-			n.insertChild(key, fullKey, value, meta)
-			return
-		}
-
-		if n.registered {
-			panic("a value is already registered for pattern '" + fullKey + "'")
-		}
-		n.value = value
-		n.registered = true
-		n.raw = meta.raw
-		n.canonical = meta.canonical
-		n.hasKeep = meta.hasKeep
-		n.cachedConverted = meta.cachedConverted
-		n.literalPrefix = meta.literalPrefix
-		n.registerOrder = meta.registerOrder
-		return
-	}
-}
-
-func (n *Node[T]) insertChild(key, fullKey string, value T, meta patternMeta) {
-	for {
-		token, i, isRest, valid := findWildcard(key)
-		if i < 0 {
-			break
-		}
-
-		if !valid {
-			panic("only one wildcard per until-slash segment is allowed, has: '" +
-				token + "' in pattern '" + fullKey + "'")
-		}
-
-		if len(token) < 3 {
-			panic("wildcards must be named with a non-empty name in pattern '" + fullKey + "'")
-		}
-
-		if len(n.children) > 0 {
-			panic("wildcard segment '" + token +
-				"' conflicts with existing children in pattern '" + fullKey + "'")
-		}
-
-		captureKey := token[2:]
-
-		if !isRest {
-			if i > 0 {
-				n.prefix = key[:i]
-				key = key[i:]
-			}
-
-			n.wildChild = true
-			child := &Node[T]{
-				nType:      untilSlashNode,
-				prefix:     token,
-				captureKey: captureKey,
-			}
-			n.children = []*Node[T]{child}
-			n = child
-			n.priority++
-
-			if len(token) < len(key) {
-				key = key[len(token):]
-				child := &Node[T]{
-					priority: 1,
-				}
-				n.children = []*Node[T]{child}
-				n = child
-				continue
-			}
-
-			n.value = value
-			n.registered = true
-			n.raw = meta.raw
-			n.canonical = meta.canonical
-			n.hasKeep = meta.hasKeep
-			n.cachedConverted = meta.cachedConverted
-			n.literalPrefix = meta.literalPrefix
-			n.registerOrder = meta.registerOrder
-			return
-		}
-
-		if i+len(token) != len(key) {
-			panic("rest rule expression must be at end of pattern '" + fullKey + "'")
-		}
-
-		if i > 0 {
-			n.prefix = key[:i]
-		}
-
-		n.wildChild = true
-		child := &Node[T]{
-			nType:           restNode,
-			prefix:          token,
-			captureKey:      captureKey,
-			value:           value,
-			registered:      true,
-			priority:        1,
-			raw:             meta.raw,
-			canonical:       meta.canonical,
-			hasKeep:         meta.hasKeep,
-			cachedConverted: meta.cachedConverted,
-			literalPrefix:   meta.literalPrefix,
-			registerOrder:   meta.registerOrder,
-		}
-		n.children = []*Node[T]{child}
-		return
-	}
-
-	n.prefix = key
-	n.value = value
-	n.registered = true
-	n.raw = meta.raw
-	n.canonical = meta.canonical
-	n.hasKeep = meta.hasKeep
-	n.cachedConverted = meta.cachedConverted
-	n.literalPrefix = meta.literalPrefix
-	n.registerOrder = meta.registerOrder
-}
-
-func segmentUntilBoundary(s string, boundary byte) string {
-	if i := strings.IndexByte(s, boundary); i >= 0 {
-		return s[:i]
-	}
-	return s
-}
-
-// matchInput walks the radix index for input against registered patterns.
-func (n *Node[T]) matchInput(input string, alloc func() *Captures) (match *Node[T], caps *Captures, ok bool) {
-walk:
-	for {
-		prefix := n.prefix
-		if len(input) > len(prefix) {
-			if input[:len(prefix)] == prefix {
-				input = input[len(prefix):]
-
-				idxc := input[0]
-				for i, c := range []byte(n.indices) {
-					if c == idxc {
-						n = n.children[n.childIndex(i)]
-						continue walk
-					}
-				}
-
-				if !n.wildChild {
-					return nil, caps, false
-				}
-
-				n = n.children[0]
-				switch n.nType {
-				case untilSlashNode:
-					end := strings.IndexByte(input, untilSlashBoundary)
-					if end < 0 {
-						end = len(input)
-					}
-
-					if alloc != nil {
-						if caps == nil {
-							caps = alloc()
-						}
-						i := len(*caps)
-						*caps = (*caps)[:i+1]
-						(*caps)[i] = Capture{
-							Key:   n.captureKey,
-							Value: input[:end],
-						}
-					}
-
-					if end < len(input) {
-						if len(n.children) > 0 {
-							input = input[end:]
-							n = n.children[0]
-							continue walk
-						}
-						return nil, caps, false
-					}
-
-					if n.registered {
-						return n, caps, true
-					}
-					return nil, caps, false
-
-				case restNode:
-					if alloc != nil {
-						if caps == nil {
-							caps = alloc()
-						}
-						i := len(*caps)
-						*caps = (*caps)[:i+1]
-						(*caps)[i] = Capture{
-							Key:   n.captureKey,
-							Value: input,
-						}
-					}
-
-					if n.registered {
-						return n, caps, true
-					}
-					return nil, caps, false
-
-				default:
-					panic("invalid node type")
-				}
-			}
-		} else if input == prefix {
-			if n.registered {
-				return n, caps, true
-			}
-			return nil, caps, false
-		}
-
+func (n *Node[T]) matchAt(input string, alloc func() *Captures, caps *Captures) (*Node[T], *Captures, bool) {
+	if len(input) < len(n.prefix) || !strings.HasPrefix(input, n.prefix) {
 		return nil, caps, false
+	}
+	input = input[len(n.prefix):]
+
+	if len(input) == 0 {
+		if n.registered {
+			return n, caps, true
+		}
+		// Fall through to wildcards: any wildcard whose consume returns 0 is
+		// skipped, so a node without a leaf and no zero-consuming wildcard
+		// will simply miss.
+	} else {
+		idxc := input[0]
+		for i := 0; i < len(n.indices); i++ {
+			if n.indices[i] == idxc {
+				savedLen := capsLen(caps)
+				leaf, c, ok := n.children[i].matchAt(input, alloc, caps)
+				if ok {
+					return leaf, c, true
+				}
+				caps = c
+				truncCaps(caps, savedLen)
+				// Only one static child may begin with idxc; fall through to
+				// wildcards instead of trying further siblings.
+				break
+			}
+		}
+	}
+
+	for _, wc := range n.wildcards {
+		end := wc.spec.consume(input)
+		if end == 0 {
+			continue
+		}
+		savedLen := capsLen(caps)
+		if alloc != nil {
+			if caps == nil {
+				caps = alloc()
+			}
+			i := len(*caps)
+			*caps = (*caps)[:i+1]
+			(*caps)[i] = Capture{Key: wc.spec.name, Value: input[:end]}
+		}
+
+		rem := input[end:]
+		if len(rem) == 0 {
+			if wc.registered {
+				return wc, caps, true
+			}
+		} else {
+			leaf, c, ok := wc.matchAt(rem, alloc, caps)
+			if ok {
+				return leaf, c, true
+			}
+			caps = c
+		}
+		truncCaps(caps, savedLen)
+	}
+
+	return nil, caps, false
+}
+
+func capsLen(caps *Captures) int {
+	if caps == nil {
+		return 0
+	}
+	return len(*caps)
+}
+
+func truncCaps(caps *Captures, n int) {
+	if caps != nil {
+		*caps = (*caps)[:n]
 	}
 }

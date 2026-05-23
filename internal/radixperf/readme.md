@@ -5,7 +5,7 @@
 - **ServeMux**：Go 标准库 `net/http.ServeMux`（Go 1.22+ 支持 `{param}` 路径参数）
 - **HTTPRouter**：[julienschmidt/httprouter](https://github.com/julienschmidt/httprouter) `@master`（commit `4840180`，2024-01-30），基于 radix tree
 - **HttpMux**：本仓库 `httpmux`，基于 httprouter master 改造的泛型 radix tree
-- **PatternMux**：本仓库 `patternmux`，`{replace::name;until-slash}` 语法，Register 时 lowering 为 `:name` radix tree
+- **PatternMux**：本仓库 `patternmux`，`{replace::name;until-slash}` 语法，所有 rule 统一在一棵 radix tree 内，wildcard 节点按 spec 消费输入
 - **Gin**：[gin-gonic/gin](https://github.com/gin-gonic/gin)，基于 httprouter 的 Web 框架
 
 ## 运行方式
@@ -49,21 +49,21 @@ PatternMux 将 `:id` 路径转为 `/path/{replace::id;until-slash}` 注册；**�
 
 | 场景            | ServeMux | HTTPRouter | HttpMux | PatternMux | Gin    |
 | ------------- | -------- | ---------- | ------- | ---------- | ------ |
-| 静态路由          | 100      | 20         | 17      | **11**     | 31     |
-| 带参路由          | 150      | 35         | 36      | **28**     | 39     |
-| 嵌套参数          | 168      | 39         | 41      | **35**     | 46     |
-| 根路由           | —        | —          | —       | —          | —      |
-| 短静态           | —        | —          | —       | —          | —      |
-| 300 路由 / 静态   | 106      | 19         | 17      | **11**     | 30     |
-| 300 路由 / 参数   | 150      | 33         | 33      | **29**     | 38     |
-| 300 路由 / 最后一条 | 151      | 37         | 37      | **34**     | 42     |
+| 静态路由          | 119      | 23         | 20      | **18**     | 36     |
+| 根路由           | 46       | 15         | 11      | **5**      | 27     |
+| 短静态路由         | 69       | 19         | 14      | **11**     | 31     |
+| 带参路由          | 170      | **41**     | 42      | 46         | 47     |
+| 嵌套参数          | 208      | **50**     | 51      | 64         | 57     |
+| 300 路由 / 静态   | 135      | 25         | 22      | **18**     | 37     |
+| 300 路由 / 参数   | 189      | **42**     | 44      | 48         | 49     |
+| 300 路由 / 最后一条 | 187      | **48**     | 49      | 52         | 53     |
 
 ## 并发结果 (ns/op)
 
 | 场景   | ServeMux | HTTPRouter | HttpMux | PatternMux | Gin    |
 | ---- | -------- | ---------- | ------- | ---------- | ------ |
-| 静态路由 | 167      | 2.1        | 1.8     | **1.2**    | 3.7    |
-| 带参路由 | 167      | 6.9        | 5.3     | **4.8**    | 10     |
+| 静态路由 | 181      | 2.3        | 5.4     | **1.8**    | 3.9    |
+| 带参路由 | 181      | **4.5**    | 7.2     | 5.0        | 11.9   |
 
 ## 内存分配 (allocs/op)
 
@@ -76,22 +76,22 @@ PatternMux 将 `:id` 路径转为 `/path/{replace::id;until-slash}` 注册；**�
 
 | 实现         | ns/op | allocs/op | 说明                          |
 | ---------- | ----- | --------- | --------------------------- |
-| HTTPRouter | 81    | 2 (56B)   | 未归还 params pool（库无导出 API）  |
-| HttpMux    | 32    | **0**     | `Lookup` + `PutParams`      |
-| PatternMux | **28**| **0**     | `Lookup` + `PutCaptures`    |
+| HTTPRouter | 102   | 2 (56B)   | 未归还 params pool（库无导出 API）  |
+| HttpMux    | **41**| 0         | `Lookup` + `PutParams`      |
+| PatternMux | 45    | 0         | `Lookup` + `PutCaptures`    |
 
 HTTPRouter 的 `Lookup` 按值返回 `Params` 且 benchmark 无法归还 pool，会显示 2 次 alloc。**带参 `ServeHTTP` 主表才是公平对比**，radix 方案均为 0 allocs。
 
 ## 结论
 
 1. **ServeMux 最慢**：单线程比 radix tree 慢约 **3–5 倍**；带参路由有 1 次堆分配（16B）。
-2. **PatternMux 静态路由最快**：纯 `Lookup` 约 **11 ns/op**，并发约 **1.2 ns/op**；与 HttpMux 同族 radix，无 method 维度开销更小。
-3. **PatternMux 带参路由略快于 HttpMux/HTTPRouter**：单线程 **~28–35 ns / 0 allocs**；`PutCaptures` 复用 pool，与 Gin 同为 0 alloc。
-4. **HttpMux 与 HTTPRouter master 同量级**：带参 `ServeHTTP` 均为 **~33–40 ns / 0 allocs**。
+2. **PatternMux 静态路由最快**：单线程 **18 ns/op**、根路由 **5 ns/op**、并发 **1.8 ns/op**；统一 radix tree 没有 method 维度，静态前缀查找开销最低。
+3. **PatternMux 带参路由与 HTTPRouter / HttpMux 同量级**：单线程 **~46–64 ns / 0 allocs**，并发 **5 ns / 0 allocs**；含 `until-slash` / `digit` / `hexdigit` / `until-blank` / `keep` 等 rule 都共用同一棵 tree。嵌套参数因每层 wildcard 都要做 capture 截断回溯，比 HTTPRouter 慢约 25%，仍领先 Gin。
+4. **HttpMux 与 HTTPRouter master 同量级**：带参 `ServeHTTP` 均为 **~41–50 ns / 0 allocs**。
 5. **`PutCaptures` / `PutParams` 是关键**：`Lookup` 返回指针后必须归还 pool，否则 slice 逃逸、性能退化。
 6. **选型建议**：
-   - 通用 pattern 语法、路径查找 → **PatternMux**
-   - HTTP method + path → **HttpMux**
+   - 通用 pattern 语法（含 digit / hexdigit / blank / keep 等 rule）→ **PatternMux**
+   - 纯 HTTP method + path → **HttpMux**
    - handler 分发、中间件框架 → **Gin**
    - 路由简单、依赖最少 → **ServeMux**
 

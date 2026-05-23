@@ -45,7 +45,7 @@
 | **Converted** | Lookup 成功时的输出串：replace-only 等于 Canonical 并可缓存；含 keep 时每次按输入现场拼装。 |
 | **Node[T]** | 注册句柄，持有挂载值 `T` 与 Raw / Canonical / HasKeep / CachedConverted 等元信息；Lookup 返回匹配到的 leaf。 |
 | **Captures** | Lookup 期提取的 `(key, value)` 列表，key 可为空；pool 分配，调用方须 `PutCaptures` 归还。 |
-| **MatchBackend** | 按 rule 组合选择的匹配后端：**Radix**（`until-slash` / `rest` → radix 索引）与 **Scan**（`digit` / `hexdigit` / `until-blank` / `keep` / unnamed replace → 线性扫描）。 |
+| **WildcardSpec** | 编译期由 rule 推导出的通配符消费规格：`(boundary, class, keep, name)`。所有 rule（含 `digit` / `hexdigit` / `until-blank` / `rest` / `keep`）都内化为 spec 字段，由统一 radix tree 在 Lookup 时按 spec 消费输入。 |
 | **Mux[T]** | 泛型入口：`Register(pattern, value)` 建索引，`Lookup(input)` 返回 Node、Captures、Converted。 |
 
 ---
@@ -193,13 +193,16 @@ replace-only 时：`Converted == Canonical == node.CachedConverted()`。
 
 ```go
 type Node[T any] struct {
-    // radix 索引内部字段（Radix 后端）或索引条目（Scan 后端）
+    // 注册期元信息（所有节点共用，仅 leaf 上有意义）
     value           T
     raw             string // 注册原文
     canonical       string // 编译期模板
     hasKeep         bool
     cachedConverted string // 仅当 !hasKeep
     registered      bool
+
+    // 树内部：static 节点用 prefix / indices / children，
+    // wildcard 节点用 spec 描述如何消费输入。
 }
 
 func (n *Node[T]) Value() T
@@ -209,7 +212,7 @@ func (n *Node[T]) HasKeep() bool
 func (n *Node[T]) CachedConverted() string // HasKeep 时为 undefined，勿用
 ```
 
-Radix 后端下 Node 即 radix 索引的 leaf；Scan 后端下 Node 为索引条目，类型统一，匹配后端不同。
+无论 pattern 中含哪些 rule，`Node[T]` 都是同一棵统一 radix tree 的节点；不再区分 Radix / Scan 后端。
 
 ---
 
@@ -296,47 +299,59 @@ canonical := node.Canonical()
 
 ## 8. 架构
 
-推荐 **统一 AST + 按 rule 选匹配后端**，分阶段交付。
+**统一 radix tree**：所有 pattern 不论 rule 组合，都注册进同一棵 tree。Lookup 时按 tree 结构走静态前缀，遇到 wildcard 节点再按 spec 消费输入；不再做 Radix / Scan 分流。
 
 ```
 Register(pattern)
-    → Parser → AST
-    → Compiler → Node meta + MatchBackend
-    → Index.Insert
+    → Parser → AST（Literal | Expr）
+    → Compiler → Raw / Canonical / HasKeep / CachedConverted / LiteralPrefix
+    → tree.addPattern（segments 直接驱动插入；Expr → wildcardSpec 节点）
 
 Lookup(input)
-    → Index.Search → *Node[T]
-    → Matcher.Run(input, AST) → *Captures
-    → Build Converted（HasKeep 时）
+    → tree.matchInput → *Node[T] + *Captures
+    → 含 keep 时按 leaf.segments + captures 拼装 Converted
     → node, captures, converted
 ```
 
-### 8.1 MatchBackend
+### 8.1 树结构
 
-| Backend | 触发条件（任一即可） | 匹配实现 |
-|---------|--------------------|---------|
-| **Radix** | 表达式全部为命名 `replace`，且 rule 仅含 `until-slash` 或 `rest` | radix 索引（含 literal 共享前缀压缩） |
-| **Scan** | 出现 `keep` / unnamed `replace`，或包含 `digit` / `hexdigit` / `until-blank` 等非 radix rule | 线性段扫描（按 AST 逐段消费）|
+每个节点要么是 **static**（携带 `prefix string` 的字面量节点），要么是 **wildcard**（携带 `spec wildcardSpec` 的通配段节点）。任一节点同时可挂：
 
-后端选择在 `Compile` 期完成，与「输入像不像路径」无关。
+- `children []*Node[T]` + `indices string`：按首字节索引的静态子节点
+- `wildcards []*Node[T]`：通配子节点列表
 
-### 8.2 多后端共存
+匹配时先查静态（最长字面量前缀优先，自然契合 §7），未命中再按 `wildcards` 逐个尝试；通配子树失败时通过 `Captures` 截断回溯。
 
-`Lookup` 同时在两个后端尝试，若两边都命中则按 §7（最长 literal 前缀 + 同长后注册优先）仲裁。Radix 与 Scan 的 Canonical 共享同一去重表，禁止两条不同 raw 编译成同一 Canonical。
+### 8.2 wildcardSpec
 
-### 8.3 Converted 拼装与并发
+由 Compile 期把 `Expr` 的 rule 列表归约成：
+
+| 字段 | 取值 | 决定 |
+|------|------|------|
+| `boundary` | `none` / `slash` / `blank` | 消费何时停（无、`/`、空白） |
+| `class` | `any` / `digit` / `hex` | 消费的字符类 |
+| `keep` | `bool` | 仅影响 Converted 拼装，不参与路由 |
+| `name` | `string` | Capture key |
+
+`consume(input)` 用一个循环同时检查 boundary 与 class，长度 > 0 才视为命中——单 rule（如 `until-slash`）与多 rule（如 `until-slash;digit`）走同一段代码。
+
+### 8.3 多 wildcard 共位
+
+同一父节点下若出现多个不同 spec 的 wildcard（典型：`/u/{:id;digit}` 与 `/u/{:name;until-slash}`），按 **后注册优先** 的顺序排列（`descendOrAddWildcard` 把新 wildcard 头插到列表），逐一尝试，第一个完整命中（含子树）的胜出，落空时回溯 `Captures`。这与 §6 的 tie-break 一致。
+
+### 8.4 Converted 拼装与并发
 
 - replace-only：Register 期算好 `cachedConverted`，Lookup 直接返回，**无 alloc**
-- 含 `keep`：每次 Lookup 现场拼装；buffer 走 `sync.Pool` 借/还，结果 `string` 独立持有 → **多 goroutine Lookup 并发安全**
+- 含 `keep`：leaf 节点持有 `segments []Segment`，Lookup 用 `sync.Pool` 借出 byte buffer 现场拼装；返回的 `string` 独立持有 → **多 goroutine Lookup 并发安全**
 
-### 8.4 与 httpmux 复用
+### 8.5 与 httpmux 复用
 
-Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
+整体结构与 `httpmux/tree.go` 同族（radix + 通配子节点 + 优先级），差异：
 
 - 无 HTTP method 维度
-- 无「路径」专用抽象；pattern / input 均为普通字符串，消费语义由 rule 决定
-- 表达式 `{replace::name;until-slash}` 在 Register 时 lowering 为索引 key，运行时索引不解析 `{}`
-- `until-slash` / `rest` 的索引行为由 rule lowering 决定，而非 name 中的 `:`` / `*` 前缀
+- 无「路径」专用抽象；pattern / input 均为普通字符串，消费语义由 spec 决定
+- 通配节点用 `wildcardSpec` 而非固定的 param/catchAll 二选一，可承载 `digit` / `hexdigit` / `until-blank` 等非路径 rule
+- 同一父节点允许并存多 wildcard 子节点；httpmux 仅允许一个
 - Lookup 签名对齐：`httpmux` 为 `(*Node[T], *Params, tsr)`；`patternmux` 为 `(*Node[T], *Captures, converted, ok)`
 
 ---
@@ -356,15 +371,14 @@ Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
 | 类别 | 内容 |
 |------|------|
 | Parser | 各 action/name/rules 组合；非法语法、未指定 rule error |
-| Compiler | Canonical、HasKeep、CachedConverted、Backend 选择 |
+| Compiler | Canonical、HasKeep、CachedConverted、LiteralPrefix |
 | Golden | 本文 §3.4 三个示例 |
-| Radix 后端 | until-slash / rest 命中、static-over-wildcard |
-| Scan 后端 | keep + literal、keep+replace 混排、unnamed replace、until-blank/rest 组合 |
+| Tree | until-slash / rest / until-blank / digit / hexdigit 命中；static 优先于同位 wildcard |
 | 多 rule 交叉 | until-slash + digit 取边界交集 |
+| 多 wildcard 共位 | 不同 spec 的 wildcard 共存于同父节点，按后注册优先回溯 |
 | 冲突 | 重复 Raw / Canonical → error |
-| 优先级 | Radix vs Scan 跨后端命中按 §7 仲裁；scan 内部同长后注册优先 |
 | 并发 | 多 goroutine 并发 Lookup 配合 `-race` |
-| Benchmark | Radix 后端与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
+| Benchmark | 与 `httpmux` / `httprouter` / `gin` 同量级（`internal/radixperf` 维护） |
 
 ---
 
@@ -375,10 +389,9 @@ patternmux/
   design.md          # 本文
   ast.go             # AST 类型
   parse.go           # Parser
-  compile.go         # Canonical / HasKeep / CachedConverted / Backend 选择
-  tree.go            # Radix 后端
-  scan.go            # Scan 后端 + Converted buffer pool
-  patternmux.go      # Mux[T]、Register、Lookup 派发与仲裁
+  compile.go         # Canonical / HasKeep / CachedConverted / LiteralPrefix
+  tree.go            # 统一 radix tree：static + wildcardSpec 节点、消费循环
+  patternmux.go      # Mux[T]、Register、Lookup、Converted 拼装 + buffer pool
   captures.go        # Captures 与 pool
   node.go            # Node[T] 公开访问器
   errors.go          # 包级 error
