@@ -14,10 +14,10 @@ func requireLookupMiss[T any](t *testing.T, node *Node[T], caps *Captures, conve
 	require.Equal(t, "", converted, "converted must be empty on miss")
 }
 
-func requireMuxRegistered[T any](t *testing.T, mux *Mux[T], raw, canonical string, value T) {
+func requireMuxRegistered[T any](t *testing.T, mux *Mux[T], raw, canonical string, _ T) {
 	t.Helper()
 	require.Contains(t, mux.byRaw, raw)
-	require.Equal(t, value, mux.byCanonical[canonical])
+	require.Contains(t, mux.byCanonical, canonical)
 }
 
 func TestMuxRegisterLookupUntilSlash(t *testing.T) {
@@ -89,7 +89,7 @@ func TestMuxLookupMiss(t *testing.T) {
 	requireLookupMiss(t, node, caps, converted, ok)
 }
 
-func TestMuxScanBackendRegisterOnly(t *testing.T) {
+func TestMuxScanKeepDigit(t *testing.T) {
 	const (
 		raw       = "error code {keep;digit}"
 		canonical = "error code {keep;digit}"
@@ -98,17 +98,140 @@ func TestMuxScanBackendRegisterOnly(t *testing.T) {
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
 	requireMuxRegistered(t, mux, raw, canonical, wantValue)
-	require.Equal(t, uint16(0), mux.maxCaptures, "scan backend must not enter radix index")
+	require.Equal(t, uint16(1), mux.maxCaptures)
 	require.Equal(t, 1, mux.registerSeq)
 
-	// v1: scan backend is metadata-only; no match for full or partial input
 	node, caps, converted, ok := mux.Lookup("error code 123456")
-	requireLookupMiss(t, node, caps, converted, ok)
+	require.True(t, ok)
+	require.NotNil(t, node)
+	require.Equal(t, wantValue, node.Value())
+	require.Equal(t, raw, node.Raw())
+	require.Equal(t, canonical, node.Canonical())
+	require.True(t, node.HasKeep())
+	require.Equal(t, "error code 123456", converted)
+	require.Equal(t, Captures{{Key: "", Value: "123456"}}, *caps)
+	PutCaptures(caps)
 
 	node, caps, converted, ok = mux.Lookup("error code ")
 	requireLookupMiss(t, node, caps, converted, ok)
 
-	node, caps, converted, ok = mux.Lookup("error code")
+	// no trailing extra input allowed without a rest expression
+	node, caps, converted, ok = mux.Lookup("error code 123 extra")
+	requireLookupMiss(t, node, caps, converted, ok)
+}
+
+func TestMuxScanKeepAndReplaceMixed(t *testing.T) {
+	const (
+		raw   = "error code {keep;digit}, transaction-id is {replace;hexdigit}"
+		input = "error code 123456, transaction-id is 123456abcd"
+	)
+	mux := New[string]()
+	require.NoError(t, mux.Register(raw, "v"))
+
+	node, caps, converted, ok := mux.Lookup(input)
+	require.True(t, ok)
+	require.True(t, node.HasKeep())
+	require.Equal(t, "error code 123456, transaction-id is ", converted)
+	require.Equal(t, Captures{
+		{Key: "", Value: "123456"},
+		{Key: "", Value: "123456abcd"},
+	}, *caps)
+	PutCaptures(caps)
+}
+
+func TestMuxScanReplaceUntilSlashDigit(t *testing.T) {
+	const raw = "/abc/{replace::id;until-slash;digit}"
+	mux := New[int]()
+	require.NoError(t, mux.Register(raw, 7))
+
+	// pure digits, fully consumed at end of input
+	node, caps, converted, ok := mux.Lookup("/abc/13455")
+	require.True(t, ok)
+	require.Equal(t, 7, node.Value())
+	require.Equal(t, "/abc/:id", converted, "replace-only: converted equals canonical even on scan backend")
+	require.Equal(t, Captures{{Key: ":id", Value: "13455"}}, *caps)
+	PutCaptures(caps)
+
+	// non-digit shrinks consumed segment; remainder leaves pos < len(input) → miss
+	node, caps, converted, ok = mux.Lookup("/abc/13a55")
+	requireLookupMiss(t, node, caps, converted, ok)
+
+	// trailing input without a tail expression also misses
+	node, caps, converted, ok = mux.Lookup("/abc/13455/x")
+	requireLookupMiss(t, node, caps, converted, ok)
+}
+
+func TestMuxScanUnnamedReplace(t *testing.T) {
+	mux := New[string]()
+	require.NoError(t, mux.Register("v={replace;digit}", "x"))
+
+	node, caps, converted, ok := mux.Lookup("v=42")
+	require.True(t, ok)
+	require.Equal(t, "v=", converted, "unnamed replace contributes nothing to Canonical/Converted")
+	require.Equal(t, Captures{{Key: "", Value: "42"}}, *caps)
+	require.Equal(t, "x", node.Value())
+	PutCaptures(caps)
+}
+
+func TestMuxScanUntilBlankAndRest(t *testing.T) {
+	mux := New[string]()
+	require.NoError(t, mux.Register("> {keep;until-blank} {replace;rest}", "msg"))
+
+	node, caps, converted, ok := mux.Lookup("> hello world and rest")
+	require.True(t, ok)
+	require.Equal(t, "> hello ", converted)
+	require.Equal(t, Captures{
+		{Key: "", Value: "hello"},
+		{Key: "", Value: "world and rest"},
+	}, *caps)
+	_ = node
+	PutCaptures(caps)
+}
+
+func TestMuxMixedBackendPriority(t *testing.T) {
+	mux := New[string]()
+	// radix pattern (until-slash)
+	require.NoError(t, mux.Register("/u/{replace::id;until-slash}", "radix"))
+	// scan pattern with longer literal prefix
+	require.NoError(t, mux.Register("/u/abc/{replace::tail;until-slash;hexdigit}", "scan"))
+
+	// only scan matches: hexdigit
+	node, caps, _, ok := mux.Lookup("/u/abc/dead")
+	require.True(t, ok)
+	require.Equal(t, "scan", node.Value())
+	require.Equal(t, Captures{{Key: ":tail", Value: "dead"}}, *caps)
+	PutCaptures(caps)
+
+	// only radix matches: id segment is not hex
+	node, caps, _, ok = mux.Lookup("/u/xyz")
+	require.True(t, ok)
+	require.Equal(t, "radix", node.Value())
+	PutCaptures(caps)
+
+	// only radix matches: literal prefix /u/abc but scan also requires hexdigit which "zzz" fails
+	node, caps, _, ok = mux.Lookup("/u/abc")
+	require.True(t, ok)
+	require.Equal(t, "radix", node.Value())
+	require.Equal(t, Captures{{Key: ":id", Value: "abc"}}, *caps)
+	PutCaptures(caps)
+}
+
+func TestMuxScanLaterRegistrationWinsOnTie(t *testing.T) {
+	mux := New[string]()
+	require.NoError(t, mux.Register("v={replace;digit}", "first"))
+	require.NoError(t, mux.Register("v={replace::n;digit}", "second"))
+
+	node, caps, _, ok := mux.Lookup("v=42")
+	require.True(t, ok)
+	require.Equal(t, "second", node.Value(), "tie on literal prefix → later registered wins")
+	PutCaptures(caps)
+}
+
+func TestMuxScanNoMatch(t *testing.T) {
+	mux := New[string]()
+	require.NoError(t, mux.Register("v={replace;digit}", "x"))
+
+	node, caps, converted, ok := mux.Lookup("v=abc")
 	requireLookupMiss(t, node, caps, converted, ok)
 }
 

@@ -102,6 +102,10 @@ func selectBackend(segments []Segment) matchBackend {
 		if e.Action == ActionKeep {
 			return backendScan
 		}
+		// Unnamed replace contributes no key to the radix index; route via scan.
+		if e.Action == ActionReplace && e.Name == "" {
+			return backendScan
+		}
 		for _, r := range e.Rules {
 			switch r {
 			case RuleUntilSlash, RuleRest:
@@ -111,4 +115,16 @@ func selectBackend(segments []Segment) matchBackend {
 		}
 	}
 	return backendRadix
+}
+
+// countCaptureSites returns the number of Exprs in segments. Both backends emit
+// one Capture per Expr (named, unnamed, keep — all participate per design §5).
+func countCaptureSites(segments []Segment) uint16 {
+	var n uint16
+	for _, s := range segments {
+		if _, ok := s.(Expr); ok {
+			n++
+		}
+	}
+	return n
 }

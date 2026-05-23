@@ -23,11 +23,11 @@
   - `Converted`（输出串；replace-only 可缓存，含 keep 则每次 Lookup 计算）
 - 不限于 HTTP path；分隔符不限于 `/`
 
-### 非目标（v1）
+### 非目标
 
 - HTTP method 维度（由 `httpmux` 负责）
 - 正则级通用规则引擎（不做「每个 pattern 编译成一个 regex」）
-- `{keep}` + scan 后端的完整性能优化（v2）
+- 关心 pattern 是否「像路径」；本包只有「字面量 + rule 消费」，无 path 抽象
 
 ---
 
@@ -45,7 +45,7 @@
 | **Converted** | Lookup 成功时的输出串：replace-only 等于 Canonical 并可缓存；含 keep 时每次按输入现场拼装。 |
 | **Node[T]** | 注册句柄，持有挂载值 `T` 与 Raw / Canonical / HasKeep / CachedConverted 等元信息；Lookup 返回匹配到的 leaf。 |
 | **Captures** | Lookup 期提取的 `(key, value)` 列表，key 可为空；pool 分配，调用方须 `PutCaptures` 归还。 |
-| **MatchBackend** | 按 rule 组合选择的匹配后端：**Radix**（`until-slash` / `rest` → radix 索引）与 **Scan**（`digit` / `hexdigit` / `keep` 等 → 线性扫描，v2）。 |
+| **MatchBackend** | 按 rule 组合选择的匹配后端：**Radix**（`until-slash` / `rest` → radix 索引）与 **Scan**（`digit` / `hexdigit` / `until-blank` / `keep` / unnamed replace → 线性扫描）。 |
 | **Mux[T]** | 泛型入口：`Register(pattern, value)` 建索引，`Lookup(input)` 返回 Node、Captures、Converted。 |
 
 ---
@@ -313,23 +313,23 @@ Lookup(input)
 
 ### 8.1 MatchBackend
 
-| Backend | 典型 rule 组合 | 匹配实现 | 版本 |
-|---------|---------------|---------|------|
-| **Radix** | `until-slash`、`rest`（可与其他 rule 叠加） | radix 索引 | v1 |
-| **Scan** | `digit`、`hexdigit` 及多 rule 组合 + keep/replace 混排 | 线性段扫描 / 编译状态机 | v2 |
+| Backend | 触发条件（任一即可） | 匹配实现 |
+|---------|--------------------|---------|
+| **Radix** | 表达式全部为命名 `replace`，且 rule 仅含 `until-slash` 或 `rest` | radix 索引（含 literal 共享前缀压缩） |
+| **Scan** | 出现 `keep` / unnamed `replace`，或包含 `digit` / `hexdigit` / `until-blank` 等非 radix rule | 线性段扫描（按 AST 逐段消费）|
 
-v1 交付：
+后端选择在 `Compile` 期完成，与「输入像不像路径」无关。
 
-- 完整 Parser + Compiler（Canonical / HasKeep / cache 判定）
-- Radix 后端匹配 + Lookup
-- Scan 后端：**Register 可 parse，Lookup 暂不支持（v2）**
+### 8.2 多后端共存
 
-v2 交付：
+`Lookup` 同时在两个后端尝试，若两边都命中则按 §7（最长 literal 前缀 + 同长后注册优先）仲裁。Radix 与 Scan 的 Canonical 共享同一去重表，禁止两条不同 raw 编译成同一 Canonical。
 
-- Scan 后端完整匹配
-- keep / digit / hexdigit 的 Converted 拼装
+### 8.3 Converted 拼装与并发
 
-### 8.2 与 httpmux 复用
+- replace-only：Register 期算好 `cachedConverted`，Lookup 直接返回，**无 alloc**
+- 含 `keep`：每次 Lookup 现场拼装；buffer 走 `sync.Pool` 借/还，结果 `string` 独立持有 → **多 goroutine Lookup 并发安全**
+
+### 8.4 与 httpmux 复用
 
 Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
 
@@ -341,14 +341,13 @@ Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
 
 ---
 
-## 9. 待定默认值（待确认）
-
-以下尚未逐条确认，设计默认如下：
+## 9. 默认值
 
 | 项 | 默认 |
 |----|------|
-| Register 冲突（相同 Canonical 不同 Value） | **不允许**，返回 error |
-| v1 范围 | Radix 后端 + Parser 骨架；Scan 后端 v2 |
+| Register 冲突（相同 Raw 或相同 Canonical） | **不允许**，返回 error |
+| 表达式消费长度 | 必须 > 0；为空段 Lookup miss |
+| Lookup 是否需吃完 input | **是**；trailing 字符无对应段则 miss |
 
 ---
 
@@ -357,25 +356,32 @@ Radix 后端的索引逻辑与 `httpmux/tree.go` 同族，差异：
 | 类别 | 内容 |
 |------|------|
 | Parser | 各 action/name/rules 组合；非法语法、未指定 rule error |
-| Compiler | Canonical、HasKeep、cachedConverted 判定 |
+| Compiler | Canonical、HasKeep、CachedConverted、Backend 选择 |
 | Golden | 本文 §3.4 三个示例 |
-| 冲突 | 重复 Register error |
-| 优先级 | 最长 literal 前缀 + 同长后注册优先 |
-| Benchmark | replace-only 与 `until-slash` rule 的 pattern 与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
+| Radix 后端 | until-slash / rest 命中、static-over-wildcard |
+| Scan 后端 | keep + literal、keep+replace 混排、unnamed replace、until-blank/rest 组合 |
+| 多 rule 交叉 | until-slash + digit 取边界交集 |
+| 冲突 | 重复 Raw / Canonical → error |
+| 优先级 | Radix vs Scan 跨后端命中按 §7 仲裁；scan 内部同长后注册优先 |
+| 并发 | 多 goroutine 并发 Lookup 配合 `-race` |
+| Benchmark | Radix 后端与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
 
 ---
 
-## 11. 文件布局（计划）
+## 11. 文件布局
 
 ```
 patternmux/
   design.md          # 本文
-  patternmux.go      # Mux[T], Register, Lookup
   ast.go             # AST 类型
   parse.go           # Parser
-  compile.go         # Canonical / HasKeep / cache
-  match_radix.go     # Radix 后端（v1）
-  match_scan.go      # Scan 后端（v2）
+  compile.go         # Canonical / HasKeep / CachedConverted / Backend 选择
+  tree.go            # Radix 后端
+  scan.go            # Scan 后端 + Converted buffer pool
+  patternmux.go      # Mux[T]、Register、Lookup 派发与仲裁
+  captures.go        # Captures 与 pool
+  node.go            # Node[T] 公开访问器
+  errors.go          # 包级 error
   *_test.go
 ```
 
@@ -385,6 +391,5 @@ patternmux/
 
 | 阶段 | 交付 |
 |------|------|
-| **v1** | Parser、Compiler、Radix 后端、`Mux[T]` API、replace-only Converted 缓存 |
-| **v2** | Scan 后端、keep Converted 拼装、digit/hexdigit |
-| **v3** | 与 `httpmux` / `httpsvr` 集成评估 |
+| **v1** | Parser、Compiler、Radix 后端、`Mux[T]` API、replace-only `CachedConverted` |
+| **v2** | Scan 后端（`keep` / `digit` / `hexdigit` / `until-blank` / unnamed replace）、Converted 现场拼装（pool 复用，并发安全）、跨后端仲裁 |
