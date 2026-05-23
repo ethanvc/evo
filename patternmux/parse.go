@@ -51,30 +51,27 @@ func parseExpr(raw string) (Expr, error) {
 	inner := raw[1 : len(raw)-1]
 	parts := strings.Split(inner, ";")
 
-	// §3.1 rule 3: segment₁ must be a valid action[:name]. Validate this
-	// before checking rule presence so a fully empty `{}` is reported as
-	// missing-action (ErrInvalidSyntax) rather than missing-rule.
-	head := parts[0]
+	// §3.1 rule 3: segment₁ must be a valid `action[:name]`. Split on the
+	// first `:` to separate the action keyword from the optional name; any
+	// further `:` (e.g. `replace::id`, `keep::name`) stays in the name part.
+	// Validate the action shape before checking rule presence so a fully
+	// empty `{}` is reported as missing-action (ErrInvalidSyntax) rather
+	// than missing-rule.
+	actionPart, name, hasColon := strings.Cut(parts[0], ":")
 	var action Action
-	var name string
-	switch {
-	case strings.HasPrefix(head, "replace:"):
+	switch actionPart {
+	case "replace":
 		action = ActionReplace
-		name = head[len("replace:"):]
-		if name == "" {
-			return Expr{}, ErrInvalidSyntax
-		}
-	case head == "replace":
-		action = ActionReplace
-	case strings.HasPrefix(head, "keep:"):
-		action = ActionKeep
-		name = head[len("keep:"):]
-		if name == "" {
-			return Expr{}, ErrInvalidSyntax
-		}
-	case head == "keep":
+	case "keep":
 		action = ActionKeep
 	default:
+		return Expr{}, ErrInvalidSyntax
+	}
+	if hasColon && name == "" {
+		// `action:` with empty name (e.g. `{replace:;digit}`) is rejected:
+		// writing the colon implies an intent to provide a name, so an
+		// empty one is treated as a typo rather than equivalent to bare
+		// `action`.
 		return Expr{}, ErrInvalidSyntax
 	}
 
