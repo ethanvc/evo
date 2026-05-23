@@ -1,12 +1,15 @@
 package radixperf
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ethanvc/evo/httpmux"
+	"github.com/ethanvc/evo/patternmux"
 	"github.com/gin-gonic/gin"
 	"github.com/julienschmidt/httprouter"
 )
@@ -116,6 +119,52 @@ func setupHttpMux(routes []routeDef) *httpmux.HttpMux[int] {
 	return mux
 }
 
+// toPatternMuxPattern converts :param / *catch-all paths to patternmux syntax.
+func toPatternMuxPattern(path string) string {
+	var b strings.Builder
+	for i := 0; i < len(path); i++ {
+		switch path[i] {
+		case ':':
+			j := i + 1
+			for j < len(path) && path[j] != '/' {
+				j++
+			}
+			b.WriteString("{replace::")
+			b.WriteString(path[i+1 : j])
+			b.WriteString(";until-slash}")
+			i = j - 1
+		case '*':
+			j := i + 1
+			for j < len(path) && path[j] != '/' {
+				j++
+			}
+			b.WriteString("{replace:*")
+			b.WriteString(path[i+1 : j])
+			b.WriteString(";rest}")
+			i = j - 1
+		default:
+			b.WriteByte(path[i])
+		}
+	}
+	return b.String()
+}
+
+// setupPatternMux registers path-only patterns. Duplicate paths (e.g. GET+POST same
+// path) are skipped because patternmux has no HTTP method dimension.
+func setupPatternMux(routes []routeDef) *patternmux.Mux[int] {
+	mux := patternmux.New[int]()
+	for i, r := range routes {
+		if err := mux.Register(toPatternMuxPattern(r.path), i+1); err != nil {
+			if errors.Is(err, patternmux.ErrDuplicatePattern) ||
+				errors.Is(err, patternmux.ErrDuplicateCanonical) {
+				continue
+			}
+			panic(err)
+		}
+	}
+	return mux
+}
+
 // httpMuxBenchHandler adapts HttpMux to http.Handler for benchmarks.
 type httpMuxBenchHandler struct {
 	mux *httpmux.HttpMux[int]
@@ -136,6 +185,26 @@ func (h *httpMuxBenchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 
 func setupHttpMuxHandler(routes []routeDef) http.Handler {
 	return newHttpMuxBenchHandler(routes)
+}
+
+// patternMuxBenchHandler adapts patternmux to http.Handler for param-route benchmarks.
+type patternMuxBenchHandler struct {
+	mux *patternmux.Mux[int]
+}
+
+func newPatternMuxBenchHandler(routes []routeDef) *patternMuxBenchHandler {
+	return &patternMuxBenchHandler{mux: setupPatternMux(routes)}
+}
+
+func (h *patternMuxBenchHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	_, caps, _, ok := h.mux.Lookup(r.URL.Path)
+	if !ok {
+		return
+	}
+	if caps != nil {
+		_ = (*caps)[0].Value
+		patternmux.PutCaptures(caps)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +234,19 @@ func benchmarkHttpMux(b *testing.B, mux *httpmux.HttpMux[int], method, path stri
 	}
 }
 
+func benchmarkPatternMux(b *testing.B, mux *patternmux.Mux[int], path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for range b.N {
+		_, caps, _, ok := mux.Lookup(path)
+		if caps != nil {
+			patternmux.PutCaptures(caps)
+		}
+		_ = ok
+	}
+}
+
 func benchAll(b *testing.B, routes []routeDef, method, path string) {
 	b.Run("ServeMux", func(b *testing.B) {
 		benchmarkRouter(b, setupServeMux(routes), method, path)
@@ -177,6 +259,9 @@ func benchAll(b *testing.B, routes []routeDef, method, path string) {
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouter(b, setupGin(routes), method, path)
+	})
+	b.Run("PatternMux", func(b *testing.B) {
+		benchmarkPatternMux(b, setupPatternMux(routes), path)
 	})
 }
 
@@ -192,6 +277,9 @@ func benchAllParam(b *testing.B, routes []routeDef, method, path string) {
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouter(b, setupGin(routes), method, path)
+	})
+	b.Run("PatternMux", func(b *testing.B) {
+		benchmarkRouter(b, newPatternMuxBenchHandler(routes), method, path)
 	})
 }
 
@@ -278,6 +366,9 @@ func BenchmarkParallel_StaticRoute(b *testing.B) {
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupGin(apiRoutes), "GET", "/api/v1/users")
 	})
+	b.Run("PatternMux", func(b *testing.B) {
+		benchmarkPatternMuxParallel(b, setupPatternMux(apiRoutes), "/api/v1/users")
+	})
 }
 
 func benchmarkHttpMuxParamParallel(b *testing.B, routes []routeDef, method, path string) {
@@ -320,6 +411,9 @@ func BenchmarkParamRoute_Lookup(b *testing.B) {
 	b.Run("HttpMux", func(b *testing.B) {
 		benchmarkHttpMux(b, setupHttpMux(apiRoutes), "GET", "/api/v1/users/12345")
 	})
+	b.Run("PatternMux", func(b *testing.B) {
+		benchmarkPatternMux(b, setupPatternMux(apiRoutes), "/api/v1/users/12345")
+	})
 }
 
 func BenchmarkParallel_ParamRoute(b *testing.B) {
@@ -334,5 +428,37 @@ func BenchmarkParallel_ParamRoute(b *testing.B) {
 	})
 	b.Run("Gin", func(b *testing.B) {
 		benchmarkRouterParallel(b, setupGin(apiRoutes), "GET", "/api/v1/users/12345")
+	})
+	b.Run("PatternMux", func(b *testing.B) {
+		benchmarkPatternMuxParamParallel(b, apiRoutes, "GET", "/api/v1/users/12345")
+	})
+}
+
+func benchmarkPatternMuxParallel(b *testing.B, mux *patternmux.Mux[int], path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			_, caps, _, ok := mux.Lookup(path)
+			if caps != nil {
+				patternmux.PutCaptures(caps)
+			}
+			_ = ok
+		}
+	})
+}
+
+func benchmarkPatternMuxParamParallel(b *testing.B, routes []routeDef, method, path string) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		h := newPatternMuxBenchHandler(routes)
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(method, path, nil)
+		for pb.Next() {
+			h.ServeHTTP(w, req)
+		}
 	})
 }
