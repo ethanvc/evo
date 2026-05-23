@@ -54,7 +54,7 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 		registerOrder:   uint64(m.registerSeq),
 	})
 
-	if n := countParams(cp.RoutePath); n > m.maxCaptures {
+	if n := countRouteWildcards(cp.RoutePath); n > m.maxCaptures {
 		m.maxCaptures = n
 	}
 	return nil
@@ -82,7 +82,7 @@ func normalizeCatchAllCapture(canonical string, captures *Captures) {
 		if c.Key == "" || !strings.HasPrefix(c.Value, "/") {
 			continue
 		}
-		if strings.Contains(canonical, "*"+c.Key) {
+		if strings.Contains(canonical, c.Key) {
 			c.Value = strings.TrimPrefix(c.Value, "/")
 		}
 	}

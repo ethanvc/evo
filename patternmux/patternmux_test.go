@@ -42,7 +42,7 @@ func TestMuxRegisterLookupParamRoute(t *testing.T) {
 	require.Equal(t, canonical, converted)
 	require.Equal(t, node.CachedConverted(), converted)
 	require.NotNil(t, caps)
-	require.Equal(t, Captures{{Key: "user-id", Value: "13455"}}, *caps)
+	require.Equal(t, Captures{{Key: ":user-id", Value: "13455"}}, *caps)
 	PutCaptures(caps)
 }
 
@@ -67,7 +67,7 @@ func TestMuxRegisterLookupCatchAll(t *testing.T) {
 	require.Equal(t, canonical, node.CachedConverted())
 	require.Equal(t, canonical, converted)
 	require.NotNil(t, caps)
-	require.Equal(t, Captures{{Key: "path", Value: "a/b/c"}}, *caps)
+	require.Equal(t, Captures{{Key: "*path", Value: "a/b/c"}}, *caps)
 	PutCaptures(caps)
 }
 

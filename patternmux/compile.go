@@ -9,53 +9,84 @@ const (
 	profileText
 )
 
+// Internal route-path markers; not part of Canonical. Behavior comes from rules at compile time.
+const (
+	routeParamMark    = "\x00P"
+	routeCatchAllMark = "\x00R"
+)
+
 type compiledPattern struct {
 	Raw             string
 	Canonical       string
 	CachedConverted string
 	HasKeep         bool
 	Profile         profile
-	RoutePath       string // canonical when Profile==profileRoute; empty otherwise
+	RoutePath       string // lowered route index; empty when Profile != profileRoute
 	Segments        []Segment
 	LiteralPrefix   int // cumulative literal chars from start (for priority tests)
 }
 
 func Compile(segments []Segment) (compiledPattern, error) {
-	var b strings.Builder
+	var canonical strings.Builder
 	cp := compiledPattern{Segments: segments}
 	for _, seg := range segments {
 		switch s := seg.(type) {
 		case Literal:
 			cp.Raw += s.Text
-			b.WriteString(s.Text)
+			canonical.WriteString(s.Text)
 			cp.LiteralPrefix += len(s.Text)
 		case Expr:
 			cp.Raw += s.Raw
 			switch s.Action {
 			case ActionReplace:
-				if s.Wild == '*' {
-					b.WriteByte('*')
-					b.WriteString(s.Name)
-				} else if s.Wild == ':' {
-					b.WriteByte(':')
-					b.WriteString(s.Name)
+				if s.Name != "" {
+					canonical.WriteString(s.Name)
 				}
-				// unnamed replace: nothing added to canonical
 			case ActionKeep:
 				cp.HasKeep = true
-				b.WriteString(s.Raw)
+				canonical.WriteString(s.Raw)
 			}
 		}
 	}
-	cp.Canonical = b.String()
+	cp.Canonical = canonical.String()
 	cp.Profile = assignProfile(segments)
 	if !cp.HasKeep {
 		cp.CachedConverted = cp.Canonical
 	}
 	if cp.Profile == profileRoute {
-		cp.RoutePath = cp.Canonical
+		cp.RoutePath = compileRoutePath(segments)
 	}
 	return cp, nil
+}
+
+func compileRoutePath(segments []Segment) string {
+	var b strings.Builder
+	for _, seg := range segments {
+		switch s := seg.(type) {
+		case Literal:
+			b.WriteString(s.Text)
+		case Expr:
+			if s.Action != ActionReplace || s.Name == "" {
+				continue
+			}
+			if hasRule(s.Rules, RuleRest) {
+				b.WriteString(routeCatchAllMark)
+			} else {
+				b.WriteString(routeParamMark)
+			}
+			b.WriteString(s.Name)
+		}
+	}
+	return b.String()
+}
+
+func hasRule(rules []Rule, want Rule) bool {
+	for _, r := range rules {
+		if r == want {
+			return true
+		}
+	}
+	return false
 }
 
 func assignProfile(segments []Segment) profile {

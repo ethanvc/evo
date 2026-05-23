@@ -19,8 +19,7 @@ func TestParseReplaceUntilSlash(t *testing.T) {
 	require.Equal(t, Literal{Text: "/abc/"}, segs[0])
 	e := segs[1].(Expr)
 	require.Equal(t, ActionReplace, e.Action)
-	require.Equal(t, "user-id", e.Name)
-	require.Equal(t, byte(':'), e.Wild)
+	require.Equal(t, ":user-id", e.Name)
 	require.Equal(t, []Rule{RuleUntilSlash}, e.Rules)
 }
 
@@ -28,8 +27,7 @@ func TestParseReplaceRest(t *testing.T) {
 	segs, err := Parse("/abc/{replace:*path;rest}")
 	require.NoError(t, err)
 	e := segs[1].(Expr)
-	require.Equal(t, byte('*'), e.Wild)
-	require.Equal(t, "path", e.Name)
+	require.Equal(t, "*path", e.Name)
 	require.Equal(t, []Rule{RuleRest}, e.Rules)
 }
 

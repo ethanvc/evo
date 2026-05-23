@@ -18,40 +18,51 @@ func longestCommonPrefix(a, b string) int {
 	return i
 }
 
-// Search for a wildcard segment and check the name for invalid characters.
-// Returns -1 as index, if no wildcard was found.
-func findWildcard(path string) (wildcard string, i int, valid bool) {
-	// Find start
-	for start, c := range []byte(path) {
-		// A wildcard starts with ':' (param) or '*' (catch-all)
-		if c != ':' && c != '*' {
+// Search for a lowered wildcard segment. Returns -1 as index if none found.
+func findWildcard(path string) (wildcard string, i int, isCatchAll bool, valid bool) {
+	for start := 0; start+1 < len(path); start++ {
+		if path[start] != '\x00' {
+			continue
+		}
+		switch path[start+1] {
+		case 'P':
+			isCatchAll = false
+		case 'R':
+			isCatchAll = true
+		default:
 			continue
 		}
 
-		// Find end and check for invalid characters
 		valid = true
-		for end, c := range []byte(path[start+1:]) {
+		for end, c := range []byte(path[start+2:]) {
 			switch c {
 			case '/':
-				return path[start : start+1+end], start, valid
-			case ':', '*':
+				return path[start : start+2+end], start, isCatchAll, valid
+			case '\x00':
 				valid = false
 			}
 		}
-		return path[start:], start, valid
+		return path[start:], start, isCatchAll, valid
 	}
-	return "", -1, false
+	return "", -1, false, false
 }
 
-func countParams(path string) uint16 {
+func countRouteWildcards(path string) uint16 {
 	var n uint16
-	for i := range []byte(path) {
-		switch path[i] {
-		case ':', '*':
+	for i := 0; i+1 < len(path); i++ {
+		if path[i] != '\x00' {
+			continue
+		}
+		switch path[i+1] {
+		case 'P', 'R':
 			n++
 		}
 	}
 	return n
+}
+
+func isRouteWildcardByte(b byte) bool {
+	return b == '\x00'
 }
 
 type nodeType uint8
@@ -83,6 +94,7 @@ type Node[T any] struct {
 
 	// Radix-tree internals.
 	path       string
+	captureKey string // capture name for wildcard nodes
 	indices    string
 	wildChild  bool
 	nType      nodeType
@@ -202,7 +214,7 @@ walk:
 					continue walk
 				}
 
-				if path[0] == ':' || path[0] == '*' {
+				if isRouteWildcardByte(path[0]) {
 					pathSeg := path
 					if wc.nType != catchAll {
 						pathSeg = strings.SplitN(pathSeg, "/", 2)[0]
@@ -235,7 +247,7 @@ walk:
 			}
 
 			// Otherwise insert it
-			if idxc != ':' && idxc != '*' {
+			if !isRouteWildcardByte(idxc) {
 				// []byte for proper unicode char conversion, see #65
 				n.indices += string([]byte{idxc})
 				child := &Node[T]{}
@@ -266,19 +278,19 @@ walk:
 func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 	for {
 		// Find prefix until first wildcard
-		wildcard, i, valid := findWildcard(path)
+		wildcard, i, isCatchAll, valid := findWildcard(path)
 		if i < 0 { // No wildcard found
 			break
 		}
 
-		// The wildcard name must not contain ':' and '*'
+		// The wildcard name must not contain another marker.
 		if !valid {
 			panic("only one wildcard per path segment is allowed, has: '" +
 				wildcard + "' in path '" + fullPath + "'")
 		}
 
 		// Check if the wildcard has a name
-		if len(wildcard) < 2 {
+		if len(wildcard) < 3 {
 			panic("wildcards must be named with a non-empty name in path '" + fullPath + "'")
 		}
 
@@ -289,8 +301,10 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 				"' conflicts with existing children in path '" + fullPath + "'")
 		}
 
-		// param
-		if wildcard[0] == ':' {
+		captureKey := wildcard[2:]
+
+		// param (until-slash)
+		if !isCatchAll {
 			if i > 0 {
 				// Insert prefix before the current wildcard
 				n.path = path[:i]
@@ -299,8 +313,9 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 
 			n.wildChild = true
 			child := &Node[T]{
-				nType: param,
-				path:  wildcard,
+				nType:      param,
+				path:       wildcard,
+				captureKey: captureKey,
 			}
 			n.children = []*Node[T]{child}
 			n = child
@@ -361,6 +376,7 @@ func (n *Node[T]) insertChild(path, fullPath string, value T, meta routeMeta) {
 		child = &Node[T]{
 			path:       path[i:],
 			nType:      catchAll,
+			captureKey: captureKey,
 			value:      value,
 			registered: true,
 			priority:   1,
@@ -430,7 +446,7 @@ walk: // Outer loop for walking the tree
 						i := len(*caps)
 						*caps = (*caps)[:i+1]
 						(*caps)[i] = Capture{
-							Key:   n.path[1:],
+							Key:   n.captureKey,
 							Value: path[:end],
 						}
 					}
@@ -460,7 +476,7 @@ walk: // Outer loop for walking the tree
 						i := len(*caps)
 						*caps = (*caps)[:i+1]
 						(*caps)[i] = Capture{
-							Key:   n.path[2:],
+							Key:   n.captureKey,
 							Value: path,
 						}
 					}

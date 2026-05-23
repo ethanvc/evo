@@ -31,11 +31,30 @@
 
 ---
 
-## 2. Pattern 语法
+## 2. 核心概念
+
+本包引入以下概念，后文 §3 起展开语法与实现细节。
+
+| 概念 | 说明 |
+|------|------|
+| **Pattern（模式串）** | 注册时写入的模板：字面量子串与 `{表达式}` 交替组成，用于描述「如何匹配输入、挂载何值」。 |
+| **Expression（表达式）** | `{action[:name];rule1[;rule2...]}` 形式的占位段；从当前位置**消费**一段连续子串，多个 rule **同时**约束该段。 |
+| **Action** | `replace`：wildcard 段，Canonical 变为 `:name` / `*name`，捕获值进 Captures；`keep`：匹配子串保留在 Canonical，Converted 中填入实际值。 |
+| **Rule（消费规则）** | 描述如何消费后续子串的边界或字符约束（如 `until-slash`、`digit`）；至少一个，未知 rule 在 Register 时报错。 |
+| **Canonical** | Register 期编译出的规范化模板（`:name`、`*name`、保留 `{keep;...}` 原文）；用于索引与 replace-only 输出。 |
+| **Converted** | Lookup 成功时的输出串：replace-only 等于 Canonical 并可缓存；含 keep 时每次按输入现场拼装。 |
+| **Node[T]** | 注册句柄，持有挂载值 `T` 与 Raw / Canonical / HasKeep / CachedConverted 等元信息；Lookup 返回匹配到的 leaf。 |
+| **Captures** | Lookup 期提取的 `(key, value)` 列表，key 可为空；pool 分配，调用方须 `PutCaptures` 归还。 |
+| **Profile** | 按 rule 组合选择的匹配后端：**Route**（radix tree，路径类）与 **Text**（线性/状态机，文本类）。 |
+| **Mux[T]** | 泛型入口：`Register(pattern, value)` 建索引，`Lookup(input)` 返回 Node、Captures、Converted。 |
+
+---
+
+## 3. Pattern 语法
 
 模式串由 **字面量** 与 **`{表达式}`** 交替组成。
 
-### 2.1 表达式
+### 3.1 表达式
 
 ```
 {action[:name];rule1[;rule2;...]}
@@ -75,16 +94,16 @@
 
 示例：`{replace::id;until-slash;digit}` 同时消费一段子串，该子串须**既**止于 `/` 之前，**又**全为数字（如 `13455`），而不是先按 `/` 切一段再对下一段做 digit。
 
-### 2.2 action
+### 3.2 action
 
 | action | 含义 |
 |--------|------|
 | `replace` | wildcard 段：参与路由索引；Canonical 中变为 `:name` / `*name`（仅输出格式，消费语义由 rule 决定）；Captured 值单独返回 |
 | `keep` | 匹配并捕获，Canonical 保留完整 `{keep;rule1[;rule2...]}`；Converted 中填入本次匹配子串 |
 
-### 2.3 rule（消费字符串的规则）
+### 3.3 rule（消费字符串的规则）
 
-**rule** 描述从当前位置起，**如何消费**后续输入字符串。一个表达式可挂 **多个 rule**，它们同时约束同一次消费（见 §2.1）。
+**rule** 描述从当前位置起，**如何消费**后续输入字符串。一个表达式可挂 **多个 rule**，它们同时约束同一次消费（见 §3.1）。
 
 | rule | 消费约束 |
 |------|---------|
@@ -102,7 +121,7 @@
 
 未知 rule 或未指定任何 rule：Register 时返回 error。
 
-### 2.4 示例
+### 3.4 示例
 
 **路径类（replace-only，Converted 可缓存）**
 
@@ -140,9 +159,9 @@ Captures:   "" = 123456
 
 ---
 
-## 3. Canonical 与 Converted
+## 4. Canonical 与 Converted
 
-### 3.1 Canonical（编译期，Register 时计算）
+### 4.1 Canonical（编译期，Register 时计算）
 
 对每个 segment：
 
@@ -153,7 +172,7 @@ Captures:   "" = 123456
 | `{replace:*name;rules...}` | `*name` |
 | `{keep;rules...}` | 保留 `{keep;rules...}` 原文（含完整 rules） |
 
-### 3.2 Converted（输出串）
+### 4.2 Converted（输出串）
 
 | 模式 | 计算时机 | 是否缓存 |
 |------|---------|---------|
@@ -168,7 +187,7 @@ Captures:   "" = 123456
 
 replace-only 时：`Converted == Canonical == node.CachedConverted()`。
 
-### 3.3 Node（注册句柄）
+### 4.3 Node（注册句柄）
 
 与 `httpmux` 一致：**注册期信息挂在 Node 上**，Lookup 返回匹配到的 leaf `*Node[T]`，而非临时 `Match` 结构体。
 
@@ -194,7 +213,7 @@ Route profile 下 Node 即 radix tree 的 leaf；Text profile 下 Node 为索引
 
 ---
 
-## 4. 匹配结果
+## 5. 匹配结果
 
 ```go
 type Capture struct {
@@ -219,7 +238,7 @@ func (cs Captures) ByName(name string) string
 
 ---
 
-## 5. API
+## 6. API
 
 ```go
 package patternmux
@@ -265,7 +284,7 @@ canonical := node.Canonical()
 
 ---
 
-## 6. 多 pattern 命中策略
+## 7. 多 pattern 命中策略
 
 **已确认：最长 literal 前缀优先。**
 
@@ -275,7 +294,7 @@ canonical := node.Canonical()
 
 ---
 
-## 7. 架构
+## 8. 架构
 
 推荐 **统一 AST + 按 profile 选匹配后端**，分阶段交付。
 
@@ -292,7 +311,7 @@ Lookup(input)
     → node, captures, converted
 ```
 
-### 7.1 Profile
+### 8.1 Profile
 
 | Profile | 典型 rule 组合 | 匹配后端 | 版本 |
 |---------|---------------|---------|------|
@@ -310,7 +329,7 @@ v2 交付：
 - Text profile 完整匹配
 - keep / digit / hexdigit 的 Converted 拼装
 
-### 7.2 与 httpmux 复用
+### 8.2 与 httpmux 复用
 
 Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 
@@ -321,7 +340,7 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 
 ---
 
-## 8. 待定默认值（待确认）
+## 9. 待定默认值（待确认）
 
 以下尚未逐条确认，设计默认如下：
 
@@ -332,20 +351,20 @@ Route profile 的 radix 逻辑与 `httpmux/tree.go` 同族，差异：
 
 ---
 
-## 9. 测试
+## 10. 测试
 
 | 类别 | 内容 |
 |------|------|
 | Parser | 各 action/name/rules 组合；非法语法、未指定 rule error |
 | Compiler | Canonical、HasKeep、cachedConverted 判定 |
-| Golden | 本文 §2.4 三个示例 |
+| Golden | 本文 §3.4 三个示例 |
 | Route 冲突 | 重复 Register error |
 | 优先级 | 最长 literal 前缀 + 同长后注册优先 |
 | Benchmark | replace-only 路径类与 `httpmux` 同量级（后续 `internal/radixperf` 扩展） |
 
 ---
 
-## 10. 文件布局（计划）
+## 11. 文件布局（计划）
 
 ```
 patternmux/
@@ -361,7 +380,7 @@ patternmux/
 
 ---
 
-## 11. 版本计划
+## 12. 版本计划
 
 | 阶段 | 交付 |
 |------|------|

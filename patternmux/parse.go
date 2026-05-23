@@ -56,22 +56,13 @@ func parseExpr(raw string) (Expr, error) {
 	head := parts[0]
 	var action Action
 	var name string
-	var wild byte
 	switch {
 	case strings.HasPrefix(head, "replace:"):
 		action = ActionReplace
-		namePart := head[len("replace:"):]
-		if namePart == "" {
+		name = head[len("replace:"):]
+		if name == "" {
 			return Expr{}, ErrInvalidSyntax
 		}
-		if namePart[0] == ':' || namePart[0] == '*' {
-			wild = namePart[0]
-			namePart = namePart[1:]
-		}
-		if namePart == "" {
-			return Expr{}, ErrInvalidSyntax
-		}
-		name = namePart
 	case head == "replace":
 		action = ActionReplace
 	case head == "keep":
@@ -93,7 +84,6 @@ func parseExpr(raw string) (Expr, error) {
 	return Expr{
 		Action: action,
 		Name:   name,
-		Wild:   wild,
 		Rules:  rules,
 		Raw:    raw,
 	}, nil

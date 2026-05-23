@@ -16,7 +16,7 @@ func TestCompileReplaceUntilSlash(t *testing.T) {
 	require.Equal(t, "/abc/:user-id", cp.CachedConverted)
 	require.False(t, cp.HasKeep)
 	require.Equal(t, profileRoute, cp.Profile)
-	require.Equal(t, "/abc/:user-id", cp.RoutePath)
+	require.Equal(t, "/abc/"+routeParamMark+":user-id", cp.RoutePath)
 }
 
 func TestCompileReplaceRest(t *testing.T) {
@@ -25,7 +25,7 @@ func TestCompileReplaceRest(t *testing.T) {
 	cp, err := Compile(segs)
 	require.NoError(t, err)
 	require.Equal(t, "/abc/*path", cp.Canonical)
-	require.Equal(t, "/abc/*path", cp.RoutePath)
+	require.Equal(t, "/abc/"+routeCatchAllMark+"*path", cp.RoutePath)
 }
 
 func TestCompileKeepIsTextProfile(t *testing.T) {

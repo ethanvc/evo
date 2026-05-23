@@ -29,8 +29,7 @@ func (Literal) segment() {}
 
 type Expr struct {
 	Action Action
-	Name   string // without leading : or *; empty for keep / unnamed replace
-	Wild   byte   // ':' or '*'; 0 if unnamed
+	Name   string // full name after replace:; empty for keep / unnamed replace
 	Rules  []Rule
 	Raw    string // original `{...}` substring
 }
