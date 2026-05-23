@@ -37,14 +37,9 @@ type testRequests []struct {
 	ps         Params
 }
 
-func testGetParams() *Params {
-	ps := make(Params, 0, defaultParamsCap)
-	return &ps
-}
-
 func checkRequests(t *testing.T, tree *Node[int], requests testRequests) {
 	for _, request := range requests {
-		match, psp, _ := tree.getValue(request.path, testGetParams)
+		match, psp, _ := tree.getValue(request.path)
 
 		switch {
 		case match == nil:
@@ -413,7 +408,7 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/vendor/x",
 	}
 	for _, route := range tsrRoutes {
-		match, _, tsr := tree.getValue(route, nil)
+		match, _, tsr := tree.getValue(route)
 		if match != nil {
 			t.Fatalf("non-nil handler for TSR route '%s", route)
 		} else if !tsr {
@@ -430,7 +425,7 @@ func TestTreeTrailingSlashRedirect(t *testing.T) {
 		"/api/world/abc",
 	}
 	for _, route := range noTsrRoutes {
-		match, _, tsr := tree.getValue(route, nil)
+		match, _, tsr := tree.getValue(route)
 		if match != nil {
 			t.Fatalf("non-nil handler for No-TSR route '%s", route)
 		} else if tsr {
@@ -449,7 +444,7 @@ func TestTreeRootTrailingSlashRedirect(t *testing.T) {
 		t.Fatalf("panic inserting test route: %v", recv)
 	}
 
-	match, _, tsr := tree.getValue("/", nil)
+	match, _, tsr := tree.getValue("/")
 	if match != nil {
 		t.Fatalf("non-nil handler")
 	} else if tsr {
@@ -632,7 +627,7 @@ func TestTreeInvalidNodeType(t *testing.T) {
 
 	// normal lookup
 	recv := catchPanic(func() {
-		tree.getValue("/test", nil)
+		tree.getValue("/test")
 	})
 	if rs, ok := recv.(string); !ok || rs != panicMsg {
 		t.Fatalf("Expected panic '"+panicMsg+"', got '%v'", recv)
@@ -703,7 +698,7 @@ func TestRedirectTrailingSlash(t *testing.T) {
 		node.addRoute(item.path, fakeValue("test"))
 	}
 
-	_, _, tsr := node.getValue("/hello/abx/", nil)
+	_, _, tsr := node.getValue("/hello/abx/")
 	if tsr != true {
 		t.Fatalf("want true, is false")
 	}

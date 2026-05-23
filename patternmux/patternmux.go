@@ -64,7 +64,7 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 // must release with PutCaptures; converted is either the cached canonical
 // string or a freshly-built string assembled from Literal + `keep` expressions.
 func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, converted string, ok bool) {
-	node, captures, ok = m.root.matchInput(input, newCaptures)
+	node, captures, ok = m.root.matchInput(input)
 	if !ok {
 		putCaptures(captures)
 		return nil, nil, "", false

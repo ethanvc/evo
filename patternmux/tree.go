@@ -305,11 +305,11 @@ func commonPrefixLen(a, b string) int {
 //  3. If statics miss, walk wildcards in registration order; the first whose
 //     consume + downstream lookup succeeds wins. Captures written by a failed
 //     wildcard branch are truncated before trying the next.
-func (n *Node[T]) matchInput(input string, alloc func() *Captures) (*Node[T], *Captures, bool) {
-	return n.matchAt(input, alloc, nil)
+func (n *Node[T]) matchInput(input string) (*Node[T], *Captures, bool) {
+	return n.matchAt(input, nil)
 }
 
-func (n *Node[T]) matchAt(input string, alloc func() *Captures, caps *Captures) (*Node[T], *Captures, bool) {
+func (n *Node[T]) matchAt(input string, caps *Captures) (*Node[T], *Captures, bool) {
 	if len(input) < len(n.prefix) || !strings.HasPrefix(input, n.prefix) {
 		return nil, caps, false
 	}
@@ -327,7 +327,7 @@ func (n *Node[T]) matchAt(input string, alloc func() *Captures, caps *Captures) 
 		for i := 0; i < len(n.indices); i++ {
 			if n.indices[i] == idxc {
 				savedLen := capsLen(caps)
-				leaf, c, ok := n.children[i].matchAt(input, alloc, caps)
+				leaf, c, ok := n.children[i].matchAt(input, caps)
 				if ok {
 					return leaf, c, true
 				}
@@ -346,14 +346,12 @@ func (n *Node[T]) matchAt(input string, alloc func() *Captures, caps *Captures) 
 			continue
 		}
 		savedLen := capsLen(caps)
-		if alloc != nil {
-			if caps == nil {
-				caps = alloc()
-			}
-			i := len(*caps)
-			*caps = (*caps)[:i+1]
-			(*caps)[i] = Capture{Key: wc.spec.name, Value: input[:end]}
+		if caps == nil {
+			caps = newCaptures()
 		}
+		i := len(*caps)
+		*caps = (*caps)[:i+1]
+		(*caps)[i] = Capture{Key: wc.spec.name, Value: input[:end]}
 
 		rem := input[end:]
 		if len(rem) == 0 {
@@ -361,7 +359,7 @@ func (n *Node[T]) matchAt(input string, alloc func() *Captures, caps *Captures) 
 				return wc, caps, true
 			}
 		} else {
-			leaf, c, ok := wc.matchAt(rem, alloc, caps)
+			leaf, c, ok := wc.matchAt(rem, caps)
 			if ok {
 				return leaf, c, true
 			}

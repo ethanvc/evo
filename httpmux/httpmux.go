@@ -145,7 +145,7 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 // The third return value indicates whether a trailing-slash redirect is recommended.
 func (r *HttpMux[T]) Lookup(method, path string) (*Node[T], *Params, bool) {
 	if root := r.trees[method]; root != nil {
-		match, ps, tsr := root.getValue(path, getParams)
+		match, ps, tsr := root.getValue(path)
 		if match == nil {
 			putParams(ps)
 			return nil, nil, tsr
