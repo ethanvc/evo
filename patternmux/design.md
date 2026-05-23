@@ -386,10 +386,3 @@ patternmux/
 ```
 
 ---
-
-## 12. 版本计划
-
-| 阶段 | 交付 |
-|------|------|
-| **v1** | Parser、Compiler、Radix 后端、`Mux[T]` API、replace-only `CachedConverted` |
-| **v2** | Scan 后端（`keep` / `digit` / `hexdigit` / `until-blank` / unnamed replace）、Converted 现场拼装（pool 复用，并发安全）、跨后端仲裁 |
