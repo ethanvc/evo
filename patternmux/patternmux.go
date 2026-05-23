@@ -7,7 +7,6 @@ import "sync"
 // for `keep` patterns is also pooled.
 type Mux[T any] struct {
 	root        *Node[T]
-	maxCaptures uint16
 	byRaw       map[string]struct{}
 	byCanonical map[string]struct{}
 	registerSeq int
@@ -58,10 +57,6 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 		registerOrder:   uint64(m.registerSeq),
 	}
 	m.root.addPattern(segs, value, meta)
-
-	if n := countCaptureSites(segs); n > m.maxCaptures {
-		m.maxCaptures = n
-	}
 	return nil
 }
 
@@ -69,9 +64,7 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 // must release with PutCaptures; converted is either the cached canonical
 // string or a freshly-built string assembled from Literal + `keep` expressions.
 func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, converted string, ok bool) {
-	node, captures, ok = m.root.matchInput(input, func() *Captures {
-		return newCaptures(int(m.maxCaptures))
-	})
+	node, captures, ok = m.root.matchInput(input, newCaptures)
 	if !ok {
 		putCaptures(captures)
 		return nil, nil, "", false

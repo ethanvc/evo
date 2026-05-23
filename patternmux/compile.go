@@ -45,15 +45,3 @@ func Compile(segments []Segment) (compiledPattern, error) {
 	}
 	return cp, nil
 }
-
-// countCaptureSites returns the number of Exprs in segments. Each Expr emits
-// exactly one Capture per design §5.
-func countCaptureSites(segments []Segment) uint16 {
-	var n uint16
-	for _, s := range segments {
-		if _, ok := s.(Expr); ok {
-			n++
-		}
-	}
-	return n
-}

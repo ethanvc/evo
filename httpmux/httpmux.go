@@ -36,6 +36,25 @@ const defaultParamsCap = 16
 
 var paramsPool sync.Pool
 
+// getParams returns a Params slice from the pool with capacity at least
+// defaultParamsCap. Routes with more than defaultParamsCap params trigger one
+// slice grow on the first lookup; the pool then retains the grown backing
+// array so subsequent lookups reuse it without further growth.
+func getParams() *Params {
+	v := paramsPool.Get()
+	if v == nil {
+		ps := make(Params, 0, defaultParamsCap)
+		return &ps
+	}
+	ps := v.(*Params)
+	if cap(*ps) < defaultParamsCap {
+		*ps = make(Params, 0, defaultParamsCap)
+	} else {
+		*ps = (*ps)[:0]
+	}
+	return ps
+}
+
 func putParams(ps *Params) {
 	if ps != nil {
 		*ps = (*ps)[:0]
@@ -52,43 +71,11 @@ func PutParams(ps *Params) {
 // HttpMux is a generic radix-tree mux keyed by HTTP method and path pattern.
 type HttpMux[T any] struct {
 	trees map[string]*Node[T]
-
-	maxParams uint16
 }
 
 // New returns a new initialized HttpMux.
 func New[T any]() *HttpMux[T] {
 	return &HttpMux[T]{}
-}
-
-func (r *HttpMux[T]) getParams() *Params {
-	v := paramsPool.Get()
-	var ps *Params
-	if v == nil {
-		ps = r.newParams()
-	} else {
-		ps = v.(*Params)
-	}
-
-	wantCap := r.maxParams
-	if wantCap < defaultParamsCap {
-		wantCap = defaultParamsCap
-	}
-	if cap(*ps) < int(wantCap) {
-		*ps = make(Params, 0, wantCap)
-	} else {
-		*ps = (*ps)[:0]
-	}
-	return ps
-}
-
-func (r *HttpMux[T]) newParams() *Params {
-	capacity := r.maxParams
-	if capacity < defaultParamsCap {
-		capacity = defaultParamsCap
-	}
-	ps := make(Params, 0, capacity)
-	return &ps
 }
 
 // GET is a shortcut for mux.Register(http.MethodGet, path, value).
@@ -151,10 +138,6 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 	}
 
 	root.addRoute(path, value)
-
-	if paramsCount := countParams(path); paramsCount > r.maxParams {
-		r.maxParams = paramsCount
-	}
 }
 
 // Lookup returns the node registered for method + path and any captured params.
@@ -162,7 +145,7 @@ func (r *HttpMux[T]) Register(method, path string, value T) {
 // The third return value indicates whether a trailing-slash redirect is recommended.
 func (r *HttpMux[T]) Lookup(method, path string) (*Node[T], *Params, bool) {
 	if root := r.trees[method]; root != nil {
-		match, ps, tsr := root.getValue(path, r.getParams)
+		match, ps, tsr := root.getValue(path, getParams)
 		if match == nil {
 			putParams(ps)
 			return nil, nil, tsr

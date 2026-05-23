@@ -57,7 +57,7 @@ func TestCompileRestWithoutSlashLiteral(t *testing.T) {
 	require.Equal(t, "abc*tail", cp.CachedConverted)
 }
 
-func TestCompileLiteralOnlyHasNoCaptures(t *testing.T) {
+func TestCompileLiteralOnlyNoExpr(t *testing.T) {
 	segs, err := Parse("/api/v1/users")
 	require.NoError(t, err)
 	cp, err := Compile(segs)
@@ -65,5 +65,7 @@ func TestCompileLiteralOnlyHasNoCaptures(t *testing.T) {
 	require.Equal(t, "/api/v1/users", cp.Canonical)
 	require.Equal(t, "/api/v1/users", cp.CachedConverted)
 	require.Equal(t, len("/api/v1/users"), cp.LiteralPrefix)
-	require.Equal(t, uint16(0), countCaptureSites(segs))
+	require.Len(t, segs, 1)
+	_, isLiteral := segs[0].(Literal)
+	require.True(t, isLiteral)
 }

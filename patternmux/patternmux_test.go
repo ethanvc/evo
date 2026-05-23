@@ -98,7 +98,6 @@ func TestMuxScanKeepDigit(t *testing.T) {
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
 	requireMuxRegistered(t, mux, raw, canonical, wantValue)
-	require.Equal(t, uint16(1), mux.maxCaptures)
 	require.Equal(t, 1, mux.registerSeq)
 
 	node, caps, converted, ok := mux.Lookup("error code 123456")

@@ -22,19 +22,19 @@ const defaultCapturesCap = 16
 
 var capturesPool sync.Pool
 
-func newCaptures(wantCap int) *Captures {
+// newCaptures returns a Captures slice from the pool with capacity at least
+// defaultCapturesCap. Patterns with more than defaultCapturesCap capture sites
+// trigger one slice grow on the first lookup; the pool then retains the grown
+// backing array, so subsequent lookups reuse it without further growth.
+func newCaptures() *Captures {
 	v := capturesPool.Get()
-	var cs *Captures
 	if v == nil {
-		cs = &Captures{}
-	} else {
-		cs = v.(*Captures)
+		cs := make(Captures, 0, defaultCapturesCap)
+		return &cs
 	}
-	if wantCap < defaultCapturesCap {
-		wantCap = defaultCapturesCap
-	}
-	if cap(*cs) < wantCap {
-		*cs = make(Captures, 0, wantCap)
+	cs := v.(*Captures)
+	if cap(*cs) < defaultCapturesCap {
+		*cs = make(Captures, 0, defaultCapturesCap)
 	} else {
 		*cs = (*cs)[:0]
 	}
