@@ -8,15 +8,22 @@ const PlaceholderName = "noname"
 
 // compiledPattern is the post-Compile bundle threaded into Register / addPattern.
 //
-// The tree is now unified (see tree.go); we no longer pre-classify patterns
-// into separate backends. CachedConverted is filled when the pattern has no
-// `keep` expression, so Lookup can return the constant string without
-// allocating a buffer.
+// Four string fields describe the same registered pattern from different angles
+// (see design.md §4). Memory aid:
+//
+//   - Raw:             what you registered (verbatim, including {...})
+//   - Canonical:       which route Mux thinks this is (internal dedup key)
+//   - Pattern:         human-readable route label (metrics/logs; Node.GetPattern)
+//   - CachedConverted: precomputed Lookup output for replace-only patterns
+//                      (internal; callers use Lookup's converted return value)
+//
+// CachedConverted is filled only when the pattern has no `keep` expression, so
+// Lookup can return a constant string without allocating a buffer.
 type compiledPattern struct {
-	Raw             string
-	Canonical       string
-	Pattern         string // every Expr replaced by its Name (or PlaceholderName)
-	CachedConverted string
+	Raw             string // what you registered
+	Canonical       string // internal dedup key; replace-only output template
+	Pattern         string // human-readable label; unnamed expr → PlaceholderName
+	CachedConverted string // internal; = Canonical when !HasKeep, else empty
 	HasKeep         bool
 	Segments        []Segment
 	LiteralPrefix   int // cumulative literal chars from start (priority signal)

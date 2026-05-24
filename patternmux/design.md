@@ -195,6 +195,29 @@ Captures:     err-code = 12
 
 ## 4. Canonical 与 Converted
 
+`Compile` 产出 `compiledPattern`，其中四个字符串字段从不同角度描述同一条注册 pattern。**记忆口诀**：
+
+| 字段 | 口诀 | 说明 |
+|------|------|------|
+| **Raw** | 你写了什么 | Register 原文；表达式 `{...}` 原封不动。对应 `Node.GetPatternWithExpr()`。 |
+| **Canonical** | Mux 认为「这是哪条路由」（内部） | Register 期去重 key；replace-only 时兼任输出模板。不暴露 getter。 |
+| **Pattern** | 给人看的标签（监控/日志） | 每个表达式替换成 `name`；unnamed → `PlaceholderName`（`noname`）。对应 `Node.GetPattern()`。 |
+| **CachedConverted** | replace-only 的 Lookup 输出缓存（内部） | `!HasKeep` 时等于 Canonical；含 keep 时为空，Lookup 现场拼装。用户拿 `Lookup` 返回的 `converted` 即可。 |
+
+```
+Register 输入
+    │
+    ▼
+  Raw ────────────── 原文存档（byRaw 去重、GetPatternWithExpr）
+    │
+    ▼ Compile
+    ├── Canonical ── 内部去重 key（byCanonical）；replace-only 时 = CachedConverted
+    ├── Pattern ──── 人读路由 ID（GetPattern）
+    └── CachedConverted
+          ├─ !HasKeep → = Canonical（Lookup 直接返回）
+          └─  HasKeep → ""（Lookup 现场 assembleConverted）
+```
+
 ### 4.1 Canonical（编译期，Register 时计算）
 
 对每个 segment：
