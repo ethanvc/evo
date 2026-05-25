@@ -14,22 +14,21 @@ func requireLookupMiss[T any](t *testing.T, node *Node[T], caps *Captures, conve
 	require.Equal(t, "", converted, "converted must be empty on miss")
 }
 
-func requireMuxRegistered[T any](t *testing.T, mux *Mux[T], raw, canonical string, _ T) {
+func requireMuxRegistered[T any](t *testing.T, mux *Mux[T], raw string, _ T) {
 	t.Helper()
 	require.Contains(t, mux.byRaw, raw)
-	require.Contains(t, mux.byCanonical, canonical)
 }
 
 func TestMuxRegisterLookupUntilSlash(t *testing.T) {
 	const (
-		raw        = "/abc/{replace::user-id;until-slash}"
-		canonical  = "/abc/:user-id"
-		input      = "/abc/13455"
-		wantValue  = "user-get"
+		raw         = "/abc/{replace::user-id;until-slash}"
+		wantPattern = "/abc/:user-id"
+		input       = "/abc/13455"
+		wantValue   = "user-get"
 	)
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
-	requireMuxRegistered(t, mux, raw, canonical, wantValue)
+	requireMuxRegistered(t, mux, raw, wantValue)
 
 	node, caps, converted, ok := mux.Lookup(input)
 	require.True(t, ok)
@@ -37,7 +36,7 @@ func TestMuxRegisterLookupUntilSlash(t *testing.T) {
 	require.Equal(t, wantValue, node.Value())
 	require.Equal(t, raw, node.GetPatternWithExpr())
 	require.False(t, node.HasKeep())
-	require.Equal(t, canonical, converted)
+	require.Equal(t, wantPattern, converted)
 	require.NotNil(t, caps)
 	require.Equal(t, Captures{{Key: ":user-id", Value: "13455"}}, *caps)
 	PutCaptures(caps)
@@ -45,14 +44,14 @@ func TestMuxRegisterLookupUntilSlash(t *testing.T) {
 
 func TestMuxRegisterLookupRest(t *testing.T) {
 	const (
-		raw       = "/abc/{replace:*path;rest}"
-		canonical = "/abc/*path"
-		input     = "/abc/a/b/c"
-		wantValue = "files"
+		raw         = "/abc/{replace:*path;rest}"
+		wantPattern = "/abc/*path"
+		input       = "/abc/a/b/c"
+		wantValue   = "files"
 	)
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
-	requireMuxRegistered(t, mux, raw, canonical, wantValue)
+	requireMuxRegistered(t, mux, raw, wantValue)
 
 	node, caps, converted, ok := mux.Lookup(input)
 	require.True(t, ok)
@@ -60,7 +59,7 @@ func TestMuxRegisterLookupRest(t *testing.T) {
 	require.Equal(t, wantValue, node.Value())
 	require.Equal(t, raw, node.GetPatternWithExpr())
 	require.False(t, node.HasKeep())
-	require.Equal(t, canonical, converted)
+	require.Equal(t, wantPattern, converted)
 	require.NotNil(t, caps)
 	require.Equal(t, Captures{{Key: "*path", Value: "a/b/c"}}, *caps)
 	PutCaptures(caps)
@@ -69,12 +68,11 @@ func TestMuxRegisterLookupRest(t *testing.T) {
 func TestMuxLookupMiss(t *testing.T) {
 	const (
 		raw       = "/abc/{replace::user-id;until-slash}"
-		canonical = "/abc/:user-id"
 		wantValue = "v"
 	)
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
-	requireMuxRegistered(t, mux, raw, canonical, wantValue)
+	requireMuxRegistered(t, mux, raw, wantValue)
 
 	node, caps, converted, ok := mux.Lookup("/other/1")
 	requireLookupMiss(t, node, caps, converted, ok)
@@ -87,12 +85,11 @@ func TestMuxLookupMiss(t *testing.T) {
 func TestMuxScanKeepDigit(t *testing.T) {
 	const (
 		raw       = "error code {keep;digit}"
-		canonical = "error code {keep;digit}"
 		wantValue = "log-parser"
 	)
 	mux := New[string]()
 	require.NoError(t, mux.Register(raw, wantValue))
-	requireMuxRegistered(t, mux, raw, canonical, wantValue)
+	requireMuxRegistered(t, mux, raw, wantValue)
 	require.Equal(t, 1, mux.registerSeq)
 
 	node, caps, converted, ok := mux.Lookup("error code 123456")
@@ -124,7 +121,7 @@ func TestMuxScanKeepAndReplaceMixed(t *testing.T) {
 	node, caps, converted, ok := mux.Lookup(input)
 	require.True(t, ok)
 	require.True(t, node.HasKeep())
-	require.Equal(t, "error code 123456, transaction-id is ", converted)
+	require.Equal(t, "error code 123456, transaction-id is "+PlaceholderName, converted)
 	require.Equal(t, Captures{
 		{Key: "", Value: "123456"},
 		{Key: "", Value: "123456abcd"},
@@ -141,7 +138,7 @@ func TestMuxScanReplaceUntilSlashDigit(t *testing.T) {
 	node, caps, converted, ok := mux.Lookup("/abc/13455")
 	require.True(t, ok)
 	require.Equal(t, 7, node.Value())
-	require.Equal(t, "/abc/:id", converted, "replace-only: converted equals canonical even on scan backend")
+	require.Equal(t, "/abc/:id", converted, "replace-only: converted equals Pattern even on scan backend")
 	require.Equal(t, Captures{{Key: ":id", Value: "13455"}}, *caps)
 	PutCaptures(caps)
 
@@ -160,7 +157,7 @@ func TestMuxScanUnnamedReplace(t *testing.T) {
 
 	node, caps, converted, ok := mux.Lookup("v=42")
 	require.True(t, ok)
-	require.Equal(t, "v=", converted, "unnamed replace contributes nothing to Canonical/Converted")
+	require.Equal(t, "v="+PlaceholderName, converted, "replace-only converted follows Pattern")
 	require.Equal(t, Captures{{Key: "", Value: "42"}}, *caps)
 	require.Equal(t, "x", node.Value())
 	PutCaptures(caps)
@@ -172,7 +169,7 @@ func TestMuxScanUntilBlankAndRest(t *testing.T) {
 
 	node, caps, converted, ok := mux.Lookup("> hello world and rest")
 	require.True(t, ok)
-	require.Equal(t, "> hello ", converted)
+	require.Equal(t, "> hello "+PlaceholderName, converted)
 	require.Equal(t, Captures{
 		{Key: "", Value: "hello"},
 		{Key: "", Value: "world and rest"},
@@ -229,50 +226,56 @@ func TestMuxScanNoMatch(t *testing.T) {
 }
 
 func TestMuxDuplicateRaw(t *testing.T) {
-	const (
-		raw       = "/a/{replace::id;until-slash}"
-		canonical = "/a/:id"
-	)
+	const raw = "/a/{replace::id;until-slash}"
 	mux := New[int]()
 	require.NoError(t, mux.Register(raw, 1))
-	requireMuxRegistered(t, mux, raw, canonical, 1)
+	requireMuxRegistered(t, mux, raw, 1)
 
 	err := mux.Register(raw, 2)
 	require.ErrorIs(t, err, ErrDuplicatePattern)
-	requireMuxRegistered(t, mux, raw, canonical, 1)
+	requireMuxRegistered(t, mux, raw, 1)
 }
 
-func TestMuxDuplicateCanonical(t *testing.T) {
+func TestMuxSameOutputTemplateDifferentRulesCanCoexist(t *testing.T) {
 	const (
-		rawRadix = "/p/{replace::id;until-slash}"
-		rawScan  = "/p/{replace::id;until-slash;digit}"
-		canonical = "/p/:id"
+		rawRadix  = "/p/{replace::id;until-slash}"
+		rawScan   = "/p/{replace::id;until-slash;digit}"
+		converted = "/p/:id"
 	)
 	mux := New[int]()
 	require.NoError(t, mux.Register(rawRadix, 1))
-	requireMuxRegistered(t, mux, rawRadix, canonical, 1)
+	requireMuxRegistered(t, mux, rawRadix, 1)
+	require.NoError(t, mux.Register(rawScan, 2))
+	requireMuxRegistered(t, mux, rawScan, 2)
 
-	// digit rule => scan backend, but canonical still /p/:id
-	err := mux.Register(rawScan, 2)
-	require.ErrorIs(t, err, ErrDuplicateCanonical)
-	requireMuxRegistered(t, mux, rawRadix, canonical, 1)
-	require.NotContains(t, mux.byRaw, rawScan)
+	node, caps, gotConverted, ok := mux.Lookup("/p/123")
+	require.True(t, ok)
+	require.Equal(t, 2, node.Value(), "digit-constrained pattern should win when it matches")
+	require.Equal(t, converted, gotConverted)
+	require.Equal(t, Captures{{Key: ":id", Value: "123"}}, *caps)
+	PutCaptures(caps)
+
+	node, caps, gotConverted, ok = mux.Lookup("/p/abc")
+	require.True(t, ok)
+	require.Equal(t, 1, node.Value(), "plain until-slash pattern should remain the fallback")
+	require.Equal(t, converted, gotConverted)
+	require.Equal(t, Captures{{Key: ":id", Value: "abc"}}, *caps)
+	PutCaptures(caps)
 }
 
 func TestMuxStaticOverUntilSlashWildcard(t *testing.T) {
 	const (
-		paramRaw       = "/api/{replace::id;until-slash}"
-		paramCanonical = "/api/:id"
-		staticRaw      = "/api/v1/users"
-		staticCanonical = "/api/v1/users"
-		input          = "/api/v1/users"
-		wantValue      = "static-users"
+		paramRaw          = "/api/{replace::id;until-slash}"
+		staticRaw         = "/api/v1/users"
+		staticWantPattern = "/api/v1/users"
+		input             = "/api/v1/users"
+		wantValue         = "static-users"
 	)
 	mux := New[string]()
 	require.NoError(t, mux.Register(paramRaw, "by-id"))
 	require.NoError(t, mux.Register(staticRaw, wantValue))
-	requireMuxRegistered(t, mux, paramRaw, paramCanonical, "by-id")
-	requireMuxRegistered(t, mux, staticRaw, staticCanonical, wantValue)
+	requireMuxRegistered(t, mux, paramRaw, "by-id")
+	requireMuxRegistered(t, mux, staticRaw, wantValue)
 
 	node, caps, converted, ok := mux.Lookup(input)
 	require.True(t, ok)
@@ -280,7 +283,7 @@ func TestMuxStaticOverUntilSlashWildcard(t *testing.T) {
 	require.Equal(t, wantValue, node.Value())
 	require.Equal(t, staticRaw, node.GetPatternWithExpr())
 	require.False(t, node.HasKeep())
-	require.Equal(t, staticCanonical, converted)
+	require.Equal(t, staticWantPattern, converted)
 	require.Nil(t, caps)
 }
 

@@ -4,19 +4,17 @@ import "sync"
 
 // Mux is a generic pattern multiplexer. All registered patterns live in a
 // single radix tree (see tree.go). Captures are pooled; the converted buffer
-// for `keep` patterns is also pooled.
+// for patterns with `keep` expressions is also pooled.
 type Mux[T any] struct {
 	root        *Node[T]
 	byRaw       map[string]struct{}
-	byCanonical map[string]struct{}
 	registerSeq int
 }
 
 func New[T any]() *Mux[T] {
 	return &Mux[T]{
-		root:        &Node[T]{},
-		byRaw:       make(map[string]struct{}),
-		byCanonical: make(map[string]struct{}),
+		root:  &Node[T]{},
+		byRaw: make(map[string]struct{}),
 	}
 }
 
@@ -24,7 +22,6 @@ func New[T any]() *Mux[T] {
 //
 // Errors:
 //   - ErrDuplicatePattern   when the same Raw was already registered.
-//   - ErrDuplicateCanonical when a different Raw produced the same Canonical.
 //   - parser/syntax errors from Parse.
 func (m *Mux[T]) Register(pattern string, value T) error {
 	segs, err := Parse(pattern)
@@ -40,30 +37,24 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 	if _, exists := m.byRaw[cp.Raw]; exists {
 		return ErrDuplicatePattern
 	}
-	if _, exists := m.byCanonical[cp.Canonical]; exists {
-		return ErrDuplicateCanonical
-	}
 
 	m.byRaw[cp.Raw] = struct{}{}
-	m.byCanonical[cp.Canonical] = struct{}{}
 	m.registerSeq++
 
 	meta := patternMeta{
-		raw:             cp.Raw,
-		canonical:       cp.Canonical,
-		pattern:         cp.Pattern,
-		hasKeep:         cp.HasKeep,
-		cachedConverted: cp.CachedConverted,
-		literalPrefix:   cp.LiteralPrefix,
-		registerOrder:   uint64(m.registerSeq),
+		raw:           cp.Raw,
+		pattern:       cp.Pattern,
+		hasKeep:       cp.HasKeep,
+		literalPrefix: cp.LiteralPrefix,
+		registerOrder: uint64(m.registerSeq),
 	}
 	m.root.addPattern(segs, value, meta)
 	return nil
 }
 
 // Lookup walks the tree once. On a hit, captures is a pooled slice the caller
-// must release with PutCaptures; converted is either the cached canonical
-// string or a freshly-built string assembled from Literal + `keep` expressions.
+// must release with PutCaptures; converted is either the Pattern for
+// replace-only patterns or a freshly-built string for patterns with `keep`.
 func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, converted string, ok bool) {
 	node, captures, ok = m.root.matchInput(input)
 	if !ok {
@@ -73,7 +64,7 @@ func (m *Mux[T]) Lookup(input string) (node *Node[T], captures *Captures, conver
 	if node.hasKeep {
 		converted = assembleConverted(node.segments, captures)
 	} else {
-		converted = node.cachedConverted
+		converted = node.pattern
 	}
 	return node, captures, converted, true
 }
@@ -87,8 +78,8 @@ var convertedBufPool = sync.Pool{
 }
 
 // assembleConverted walks the pattern's original segments and builds the
-// Converted string by emitting every Literal verbatim and inlining each
-// `keep` expression's captured value (replace expressions contribute nothing).
+// Converted string by emitting every Literal verbatim, inlining each `keep`
+// expression's captured value, and emitting each `replace` expression's label.
 //
 // Captures are appended to `caps` in segment order — one per Expr — so we walk
 // them in lockstep with the segment list.
@@ -108,6 +99,10 @@ func assembleConverted(segments []Segment, caps *Captures) string {
 		case Expr:
 			if v.Action == ActionKeep {
 				*bp = append(*bp, (*caps)[capIdx].Value...)
+			} else if v.Name != "" {
+				*bp = append(*bp, v.Name...)
+			} else {
+				*bp = append(*bp, PlaceholderName...)
 			}
 			capIdx++
 		}

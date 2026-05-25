@@ -17,12 +17,11 @@ func compileMust(t *testing.T, raw string) ([]Segment, compiledPattern) {
 
 func metaFor(cp compiledPattern, order uint64) patternMeta {
 	return patternMeta{
-		raw:             cp.Raw,
-		canonical:       cp.Canonical,
-		hasKeep:         cp.HasKeep,
-		cachedConverted: cp.CachedConverted,
-		literalPrefix:   cp.LiteralPrefix,
-		registerOrder:   order,
+		raw:           cp.Raw,
+		pattern:       cp.Pattern,
+		hasKeep:       cp.HasKeep,
+		literalPrefix: cp.LiteralPrefix,
+		registerOrder: order,
 	}
 }
 

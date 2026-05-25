@@ -155,8 +155,7 @@ func setupPatternMux(routes []routeDef) *patternmux.Mux[int] {
 	mux := patternmux.New[int]()
 	for i, r := range routes {
 		if err := mux.Register(toPatternMuxPattern(r.path), i+1); err != nil {
-			if errors.Is(err, patternmux.ErrDuplicatePattern) ||
-				errors.Is(err, patternmux.ErrDuplicateCanonical) {
+			if errors.Is(err, patternmux.ErrDuplicatePattern) {
 				continue
 			}
 			panic(err)

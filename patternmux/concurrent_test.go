@@ -8,7 +8,7 @@ import (
 )
 
 // TestLookupConcurrentSafety exercises the unified tree under concurrent
-// Lookups for both a replace-only pattern (cached Converted) and a keep
+// Lookups for both a replace-only pattern (Pattern-backed Converted) and a keep
 // pattern (Converted assembled per call from a pooled buffer).
 func TestLookupConcurrentSafety(t *testing.T) {
 	mux := New[int]()

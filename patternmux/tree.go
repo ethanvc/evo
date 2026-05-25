@@ -118,27 +118,23 @@ func isHexDigit(b byte) bool {
 
 // patternMeta is registration-time metadata copied onto a leaf node.
 type patternMeta struct {
-	raw             string
-	canonical       string
-	pattern         string
-	hasKeep         bool
-	cachedConverted string
-	literalPrefix   int
-	registerOrder   uint64
+	raw           string
+	pattern       string
+	hasKeep       bool
+	literalPrefix int
+	registerOrder uint64
 }
 
 type Node[T any] struct {
 	// Leaf metadata (only meaningful when registered).
-	value           T
-	raw             string
-	canonical       string
-	pattern         string
-	hasKeep         bool
-	cachedConverted string
-	literalPrefix   int
-	registerOrder   uint64
-	registered      bool
-	segments        []Segment // populated only when hasKeep, for Converted assembly
+	value         T
+	raw           string
+	pattern       string
+	hasKeep       bool
+	literalPrefix int
+	registerOrder uint64
+	registered    bool
+	segments      []Segment // populated only when hasKeep, for Converted assembly
 
 	// Static branch fields. prefix is the literal text on this node;
 	// it is empty on the root and on wildcard nodes.
@@ -155,7 +151,7 @@ type Node[T any] struct {
 }
 
 // addPattern installs `value` + `meta` as the leaf for the given segment list.
-// Caller has already deduplicated by raw / canonical.
+// Caller has already deduplicated by raw.
 func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
 	cur := n
 	for _, s := range segments {
@@ -169,10 +165,8 @@ func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
 	cur.value = value
 	cur.registered = true
 	cur.raw = meta.raw
-	cur.canonical = meta.canonical
 	cur.pattern = meta.pattern
 	cur.hasKeep = meta.hasKeep
-	cur.cachedConverted = meta.cachedConverted
 	cur.literalPrefix = meta.literalPrefix
 	cur.registerOrder = meta.registerOrder
 	if meta.hasKeep {
@@ -208,20 +202,18 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 			// Split: extract the diverging tail of cur.prefix into a new child,
 			// preserving cur's existing leaf metadata and children on the split.
 			tail := &Node[T]{
-				prefix:          cur.prefix[i:],
-				indices:         cur.indices,
-				children:        cur.children,
-				wildcards:       cur.wildcards,
-				value:           cur.value,
-				registered:      cur.registered,
-				raw:             cur.raw,
-				canonical:       cur.canonical,
-				pattern:         cur.pattern,
-				hasKeep:         cur.hasKeep,
-				cachedConverted: cur.cachedConverted,
-				literalPrefix:   cur.literalPrefix,
-				registerOrder:   cur.registerOrder,
-				segments:        cur.segments,
+				prefix:        cur.prefix[i:],
+				indices:       cur.indices,
+				children:      cur.children,
+				wildcards:     cur.wildcards,
+				value:         cur.value,
+				registered:    cur.registered,
+				raw:           cur.raw,
+				pattern:       cur.pattern,
+				hasKeep:       cur.hasKeep,
+				literalPrefix: cur.literalPrefix,
+				registerOrder: cur.registerOrder,
+				segments:      cur.segments,
 			}
 			cur.prefix = cur.prefix[:i]
 			cur.indices = string([]byte{tail.prefix[0]})
@@ -230,10 +222,8 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 			cur.value = *new(T)
 			cur.registered = false
 			cur.raw = ""
-			cur.canonical = ""
 			cur.pattern = ""
 			cur.hasKeep = false
-			cur.cachedConverted = ""
 			cur.literalPrefix = 0
 			cur.registerOrder = 0
 			cur.segments = nil

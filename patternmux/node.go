@@ -29,7 +29,7 @@ func (n *Node[T]) GetPattern() string {
 
 // HasKeep reports whether the registered pattern contains any `keep`
 // expression. When true, Lookup assembles its `converted` return value at
-// match time; otherwise `converted` is a constant precomputed at Register.
+// match time; otherwise `converted` is the registered Pattern.
 // Most callers do not need this; it exists for callers that want to know
 // whether a route's converted output is dynamic.
 func (n *Node[T]) HasKeep() bool {
