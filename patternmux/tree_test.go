@@ -20,7 +20,7 @@ func metaFor(cp compiledPattern, order uint64) patternMeta {
 		raw:           cp.Raw,
 		pattern:       cp.Pattern,
 		hasKeep:       cp.HasKeep,
-		literalPrefix: cp.LiteralPrefix,
+		literalChars:  cp.LiteralChars,
 		registerOrder: order,
 	}
 }

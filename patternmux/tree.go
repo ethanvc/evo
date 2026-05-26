@@ -121,7 +121,7 @@ type patternMeta struct {
 	raw           string
 	pattern       string
 	hasKeep       bool
-	literalPrefix int
+	literalChars  int
 	registerOrder uint64
 }
 
@@ -131,7 +131,7 @@ type Node[T any] struct {
 	raw           string
 	pattern       string
 	hasKeep       bool
-	literalPrefix int
+	literalChars  int
 	registerOrder uint64
 	registered    bool
 	segments      []Segment // populated only when hasKeep, for Converted assembly
@@ -167,7 +167,7 @@ func (n *Node[T]) addPattern(segments []Segment, value T, meta patternMeta) {
 	cur.raw = meta.raw
 	cur.pattern = meta.pattern
 	cur.hasKeep = meta.hasKeep
-	cur.literalPrefix = meta.literalPrefix
+	cur.literalChars = meta.literalChars
 	cur.registerOrder = meta.registerOrder
 	if meta.hasKeep {
 		cur.segments = segments
@@ -211,7 +211,7 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 				raw:           cur.raw,
 				pattern:       cur.pattern,
 				hasKeep:       cur.hasKeep,
-				literalPrefix: cur.literalPrefix,
+				literalChars:  cur.literalChars,
 				registerOrder: cur.registerOrder,
 				segments:      cur.segments,
 			}
@@ -224,7 +224,7 @@ func (n *Node[T]) descendOrSplitLiteral(text string) *Node[T] {
 			cur.raw = ""
 			cur.pattern = ""
 			cur.hasKeep = false
-			cur.literalPrefix = 0
+			cur.literalChars = 0
 			cur.registerOrder = 0
 			cur.segments = nil
 		}

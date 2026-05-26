@@ -45,7 +45,7 @@ func (m *Mux[T]) Register(pattern string, value T) error {
 		raw:           cp.Raw,
 		pattern:       cp.Pattern,
 		hasKeep:       cp.HasKeep,
-		literalPrefix: cp.LiteralPrefix,
+		literalChars:  cp.LiteralChars,
 		registerOrder: uint64(m.registerSeq),
 	}
 	m.root.addPattern(segs, value, meta)

@@ -14,11 +14,11 @@ const PlaceholderName = "noname"
 //   - Raw:     what you registered (verbatim, including {...})
 //   - Pattern: expression labels and the replace-only Lookup output template
 type compiledPattern struct {
-	Raw           string // what you registered
-	Pattern       string // human-readable label; unnamed expr → PlaceholderName
-	HasKeep       bool
-	Segments      []Segment
-	LiteralPrefix int // cumulative literal chars from start (priority signal)
+	Raw          string // what you registered
+	Pattern      string // human-readable label; unnamed expr → PlaceholderName
+	HasKeep      bool
+	Segments     []Segment
+	LiteralChars int // total literal chars in the pattern
 }
 
 func Compile(segments []Segment) (compiledPattern, error) {
@@ -29,7 +29,7 @@ func Compile(segments []Segment) (compiledPattern, error) {
 		case Literal:
 			cp.Raw += s.Text
 			pattern.WriteString(s.Text)
-			cp.LiteralPrefix += len(s.Text)
+			cp.LiteralChars += len(s.Text)
 		case Expr:
 			cp.Raw += s.Raw
 			if s.Action == ActionKeep {

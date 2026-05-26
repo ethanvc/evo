@@ -361,11 +361,11 @@ routeID := node.GetPattern() // 例如 "/api/v1/users/:id"，用于监控/日志
 
 ## 7. 多 pattern 命中策略
 
-**已确认：最长 literal 前缀优先。**
+**已确认：静态路径优先，literal 总字符数作为优先级信号。**
 
-当多个 pattern 同时匹配同一输入时，选择 **literal 前缀累计长度最大** 的 pattern。长度相同时，以 **Register 顺序靠后** 的为准（后注册优先）。
+当多个 pattern 同时匹配同一输入时，优先选择静态路径更具体的 pattern；`LiteralChars` 记录 pattern 中所有 literal segment 的总字符数，作为注册期优先级信号。长度相同时，以 **Register 顺序靠后** 的为准（后注册优先）。
 
-> literal 前缀长度：从 pattern 起点开始，连续 literal segment 的字符数之和（不含 `{expr}` 占位段）。
+> `LiteralChars`：pattern 中所有 literal segment 的字符数之和（不含 `{expr}` 占位段）。
 
 ---
 
@@ -376,7 +376,7 @@ routeID := node.GetPattern() // 例如 "/api/v1/users/:id"，用于监控/日志
 ```
 Register(pattern)
     → Parser → AST（Literal | Expr）
-    → Compiler → Raw / Pattern / HasKeep / LiteralPrefix
+    → Compiler → Raw / Pattern / HasKeep / LiteralChars
     → tree.addPattern（segments 直接驱动插入；Expr → wildcardSpec 节点）
 
 Lookup(input)
@@ -443,7 +443,7 @@ Lookup(input)
 | 类别 | 内容 |
 |------|------|
 | Parser | 各 action/name/rules 组合；非法语法、未指定 rule error |
-| Compiler | Pattern、HasKeep、LiteralPrefix |
+| Compiler | Pattern、HasKeep、LiteralChars |
 | Golden | 本文 §3.4 三个示例 |
 | Tree | until-slash / rest / until-blank / digit / hexdigit 命中；static 优先于同位 wildcard |
 | 多 rule 交叉 | until-slash + digit 取边界交集 |
@@ -461,7 +461,7 @@ patternmux/
   design.md          # 本文
   ast.go             # AST 类型
   parse.go           # Parser
-  compile.go         # Pattern / HasKeep / LiteralPrefix
+  compile.go         # Pattern / HasKeep / LiteralChars
   tree.go            # 统一 radix tree：static + wildcardSpec 节点、消费循环
   patternmux.go      # Mux[T]、Register、Lookup、Converted 拼装 + buffer pool
   captures.go        # Captures 与 pool

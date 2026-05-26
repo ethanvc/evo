@@ -14,7 +14,7 @@ func TestCompileReplaceUntilSlash(t *testing.T) {
 	require.Equal(t, "/abc/{replace::user-id;until-slash}", cp.Raw)
 	require.Equal(t, "/abc/:user-id", cp.Pattern)
 	require.False(t, cp.HasKeep)
-	require.Equal(t, len("/abc/"), cp.LiteralPrefix)
+	require.Equal(t, len("/abc/"), cp.LiteralChars)
 }
 
 func TestCompileReplaceRest(t *testing.T) {
@@ -78,7 +78,7 @@ func TestCompileLiteralOnlyNoExpr(t *testing.T) {
 	cp, err := Compile(segs)
 	require.NoError(t, err)
 	require.Equal(t, "/api/v1/users", cp.Pattern)
-	require.Equal(t, len("/api/v1/users"), cp.LiteralPrefix)
+	require.Equal(t, len("/api/v1/users"), cp.LiteralChars)
 	require.Len(t, segs, 1)
 	_, isLiteral := segs[0].(Literal)
 	require.True(t, isLiteral)
