@@ -9,7 +9,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/ethanvc/evo/httpsvr/ginradix"
+	"github.com/ethanvc/evo/httpmux"
 )
 
 type Server struct {
@@ -43,7 +43,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	_ = h.Handle(ctx, callInfo)
 }
 
-func (s *Server) getNotFoundHandler() (*Handler, string, ginradix.Params) {
+func (s *Server) getNotFoundHandler() (*Handler, string, httpmux.Params) {
 	h := DefaultNotFoundHandler
 	if s.NotFoundHandler != nil {
 		h = s.NotFoundHandler
@@ -126,7 +126,7 @@ type CallInfo struct {
 	Pattern     string
 	Request     *http.Request
 	Writer      http.ResponseWriter
-	PathParms   ginradix.Params
+	PathParms   httpmux.Params
 	Server      *Server
 	RequestBody []byte
 

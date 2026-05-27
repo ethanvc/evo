@@ -6,8 +6,7 @@
 
 | 包 | 关系 |
 |----|------|
-| `httpmux` | HTTP method + `/` 分隔 + replace-only 的特化；未来可 built on `patternmux` |
-| `httpsvr/ginradix` | 旧 path radix 实现；`patternmux` radix 后端可逐步替代 |
+| `httpmux` | HTTP method + `/` 分隔 + replace-only 的特化；`httpsvr` 路由层使用；未来可 built on `patternmux` |
 
 ---
 

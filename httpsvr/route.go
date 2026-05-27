@@ -3,49 +3,45 @@ package httpsvr
 import (
 	"fmt"
 
-	"github.com/ethanvc/evo/httpsvr/ginradix"
+	"github.com/ethanvc/evo/httpmux"
 )
 
 type Router struct {
-	raidx ginradix.Tree[*RouteNode]
+	mux *httpmux.HttpMux[*Handler]
+}
+
+func (r *Router) initMux() {
+	if r.mux == nil {
+		r.mux = httpmux.New[*Handler]()
+	}
 }
 
 func (r *Router) Register(pattern string, h *Handler, methodSlice ...string) {
+	r.initMux()
 	for _, method := range methodSlice {
 		h, _, _ := r.Get(method, pattern)
 		if h != nil {
 			panic(fmt.Errorf("%s %s already exist, the formal func is %s", method, pattern, h.NameOfFunc()))
 		}
 	}
-	routeNode := &RouteNode{}
-	r.raidx.MustInsert(pattern, routeNode)
-	routeNode.nodes = append(routeNode.nodes, Node{
-		Handler: h,
-		Method:  methodSlice,
-	})
+	for _, method := range methodSlice {
+		r.mux.Register(method, pattern, h)
+	}
 }
 
-func (r *Router) Get(method string, pattern string) (*Handler, string, ginradix.Params) {
-	n, params := r.raidx.Search(pattern, nil)
+func (r *Router) Get(method string, path string) (*Handler, string, httpmux.Params) {
+	r.initMux()
+	n, ps, _ := r.mux.Lookup(method, path)
 	if n == nil {
+		if ps != nil {
+			httpmux.PutParams(ps)
+		}
 		return nil, "", nil
 	}
-
-	for _, nn := range n.Val.nodes {
-		for _, m := range nn.Method {
-			if m == method {
-				return nn.Handler, n.Pattern, params
-			}
-		}
+	var out httpmux.Params
+	if ps != nil {
+		out = append(httpmux.Params{}, *ps...)
+		httpmux.PutParams(ps)
 	}
-	return nil, "", nil
-}
-
-type RouteNode struct {
-	nodes []Node
-}
-
-type Node struct {
-	Method  []string
-	Handler *Handler
+	return n.Value(), n.Pattern(), out
 }
