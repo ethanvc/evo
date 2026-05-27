@@ -1,4 +1,4 @@
-package xobs
+package obs
 
 import (
 	"fmt"
@@ -14,15 +14,15 @@ type Attr struct {
 	Val Value
 }
 
-func String(key, val string) Attr   { return Attr{Key: key, Val: StringValue(val)} }
-func Int64(key string, val int64) Attr  { return Attr{Key: key, Val: Int64Value(val)} }
-func Int(key string, val int) Attr    { return Attr{Key: key, Val: Int64Value(int64(val))} }
-func Uint64(key string, val uint64) Attr { return Attr{Key: key, Val: Uint64Value(val)} }
-func Float64(key string, val float64) Attr { return Attr{Key: key, Val: Float64Value(val)} }
-func Bool(key string, val bool) Attr   { return Attr{Key: key, Val: BoolValue(val)} }
-func Time(key string, val time.Time) Attr { return Attr{Key: key, Val: TimeValue(val)} }
+func String(key, val string) Attr                 { return Attr{Key: key, Val: StringValue(val)} }
+func Int64(key string, val int64) Attr            { return Attr{Key: key, Val: Int64Value(val)} }
+func Int(key string, val int) Attr                { return Attr{Key: key, Val: Int64Value(int64(val))} }
+func Uint64(key string, val uint64) Attr          { return Attr{Key: key, Val: Uint64Value(val)} }
+func Float64(key string, val float64) Attr        { return Attr{Key: key, Val: Float64Value(val)} }
+func Bool(key string, val bool) Attr              { return Attr{Key: key, Val: BoolValue(val)} }
+func Time(key string, val time.Time) Attr         { return Attr{Key: key, Val: TimeValue(val)} }
 func Duration(key string, val time.Duration) Attr { return Attr{Key: key, Val: DurationValue(val)} }
-func Any(key string, val any) Attr { return Attr{Key: key, Val: AnyValue(val)} }
+func Any(key string, val any) Attr                { return Attr{Key: key, Val: AnyValue(val)} }
 
 func (a Attr) Equal(b Attr) bool {
 	return a.Key == b.Key && a.Val.Equal(b.Val)

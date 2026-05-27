@@ -5,15 +5,14 @@ import (
 	"sync/atomic"
 
 	"github.com/ethanvc/evo/logjson/logjsonbase"
-	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 )
 
 type Plugin struct {
 	getName          GetNameFuncT
-	getErr           func(c *gin.Context, w *Writer) *xobs.Error
-	getSpanConfig    func(c *gin.Context) *xobs.SpanConfig
+	getErr           func(c *gin.Context, w *Writer) *obs.Error
+	getSpanConfig    func(c *gin.Context) *obs.SpanConfig
 	headerLogMaskMap atomic.Pointer[logjsonbase.LogJsonConfigT]
 }
 
@@ -36,50 +35,50 @@ func (p *Plugin) init(conf *PluginConfig) {
 
 func (p *Plugin) Handle(c *gin.Context) {
 	spanConfig := p.getSpanConfigWrapper(c)
-	ctx := xobs.WithSpanContext(c.Request.Context(), spanConfig)
+	ctx := obs.WithSpanContext(c.Request.Context(), spanConfig)
 	c.Request = c.Request.WithContext(ctx)
 	w := newWriter(c.Writer)
 	c.Writer = w
 	r := newReader(c.Request.Body)
 	c.Request.Body = r
 	defer func() {
-		var err *xobs.Error
+		var err *obs.Error
 		if r := recover(); r != nil {
-			err = xobs.New(codes.Internal, "").AppendKvEvent("Panic", xobs.GetPanicPosition(0))
+			err = obs.New(codes.Internal, "").AppendKvEvent("Panic", obs.GetPanicPosition(0))
 		}
 		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
 		if err == nil {
 			err = p.getErrWrapper(c, w)
 		}
-		xobs.GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, labels, extra...)
+		obs.GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, labels, extra...)
 	}()
 	c.Next()
 }
 
-func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *xobs.SpanConfig {
+func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
 	if p.getSpanConfig != nil {
 		return p.getSpanConfig(c)
 	}
-	conf := &xobs.SpanConfig{
+	conf := &obs.SpanConfig{
 		Method: c.FullPath(),
 	}
 	return conf
 }
 
-func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *xobs.Error {
+func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 	if p.getErr != nil {
 		return p.getErr(c, w)
 	}
 	status := w.Status()
 	if status == 0 {
-		return xobs.New(codes.Internal, "StatusMustNotZero")
+		return obs.New(codes.Internal, "StatusMustNotZero")
 	} else if status >= http.StatusOK && status < http.StatusBadRequest {
-		xobs.ReportInfo(c.Request.Context(), xobs.MakeKvEventStr("StatusCode", status))
+		obs.ReportInfo(c.Request.Context(), obs.MakeKvEventStr("StatusCode", status))
 		return nil
 	} else if status >= http.StatusBadRequest && w.Status() < http.StatusInternalServerError {
-		return xobs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
+		return obs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
 	}
-	return xobs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
+	return obs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
 }
 
 func (p *Plugin) getNameWrapper(c *gin.Context) string {
@@ -89,7 +88,7 @@ func (p *Plugin) getNameWrapper(c *gin.Context) string {
 	return c.FullPath()
 }
 
-func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req any, resp any, labels []xobs.KV, extra []any) {
+func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req any, resp any, labels []obs.KV, extra []any) {
 	req = r.Bytes()
 	resp = w.Bytes()
 	extra = append(extra, "http_url", c.Request.URL.String())
@@ -102,8 +101,8 @@ func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req
 
 type PluginConfig struct {
 	GetName       GetNameFuncT
-	GetErr        func(c *gin.Context, w *Writer) (err *xobs.Error)
-	GetSpanConfig func(c *gin.Context) *xobs.SpanConfig
+	GetErr        func(c *gin.Context, w *Writer) (err *obs.Error)
+	GetSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
 type GetNameFuncT func(c *gin.Context) string

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/ethanvc/evo/dkit"
-	"github.com/ethanvc/evo/xobs"
 	"github.com/spf13/cobra"
 )
 
@@ -14,7 +13,7 @@ import (
 // GOPROXY=direct GOBIN=$(pwd) go install github.com/ethanvc/evo/dkit/cmd/dkit@latest
 func main() {
 	ctx := context.Background()
-	xobs.Info(ctx, "DkitStart")
+	obs.Info(ctx, "DkitStart")
 	rootCmd := &cobra.Command{
 		Use:          "dkit",
 		Short:        "dkit",

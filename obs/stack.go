@@ -1,4 +1,4 @@
-package xobs
+package obs
 
 import (
 	"fmt"

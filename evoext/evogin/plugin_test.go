@@ -6,18 +6,17 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/ethanvc/evo/xobs"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
 func Test_Return200(t *testing.T) {
 	buf := bytes.NewBuffer(nil)
-	geSpanConfig := func(c *gin.Context) *xobs.SpanConfig {
-		return &xobs.SpanConfig{
+	geSpanConfig := func(c *gin.Context) *obs.SpanConfig {
+		return &obs.SpanConfig{
 			Method: c.FullPath(),
-			ObsConfig: xobs.ObsConfig{
-				Handler: xobs.NewJsonHandler(buf),
+			ObsConfig: obs.ObsConfig{
+				Handler: obs.NewJsonHandler(buf),
 			},
 		}
 	}

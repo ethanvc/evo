@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/ethanvc/evo/xobs"
 	"github.com/spf13/cobra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -137,25 +136,25 @@ func (r *GrpcMainReq) Validate() error {
 
 func validateHost(host string) error {
 	if strings.TrimSpace(host) == "" {
-		return xobs.New(codes.InvalidArgument, "MissingHost").SetMsg("--host must not be empty")
+		return obs.New(codes.InvalidArgument, "MissingHost").SetMsg("--host must not be empty")
 	}
 	if !strings.Contains(host, ":") {
-		return xobs.New(codes.InvalidArgument, "InvalidHost").SetMsg("--host must be in host:port format")
+		return obs.New(codes.InvalidArgument, "InvalidHost").SetMsg("--host must be in host:port format")
 	}
 	return nil
 }
 
 func (r *GrpcMainReq) validateQueryMode() error {
 	if !validQueryValues[r.Query] {
-		return xobs.New(codes.InvalidArgument, "InvalidQueryValue").
+		return obs.New(codes.InvalidArgument, "InvalidQueryValue").
 			SetMsg(fmt.Sprintf("--query %q is invalid; allowed values: list-svr | list-method | show-method", r.Query))
 	}
 	if r.Query == "list-method" && strings.TrimSpace(r.Svr) == "" {
-		return xobs.New(codes.InvalidArgument, "MissingSvr").
+		return obs.New(codes.InvalidArgument, "MissingSvr").
 			SetMsg("--svr is required when --query=list-method")
 	}
 	if r.Query == "show-method" && strings.TrimSpace(r.Method) == "" {
-		return xobs.New(codes.InvalidArgument, "MissingMethod").
+		return obs.New(codes.InvalidArgument, "MissingMethod").
 			SetMsg("--method is required when --query=show-method")
 	}
 	return nil
@@ -163,11 +162,11 @@ func (r *GrpcMainReq) validateQueryMode() error {
 
 func (r *GrpcMainReq) validateSendMode() error {
 	if strings.TrimSpace(r.Method) == "" {
-		return xobs.New(codes.InvalidArgument, "MissingMethod").
+		return obs.New(codes.InvalidArgument, "MissingMethod").
 			SetMsg("--method must not be empty; expected format: /package.Service/Method")
 	}
 	if _, _, err := parseMethodPath(r.Method); err != nil {
-		return xobs.New(codes.InvalidArgument, "InvalidMethod").SetMsg(err.Error())
+		return obs.New(codes.InvalidArgument, "InvalidMethod").SetMsg(err.Error())
 	}
 	return nil
 }
@@ -199,7 +198,7 @@ func queryByReflect(req *GrpcMainReq) error {
 		return queryShowMethod(req)
 	default:
 		// unreachable: already rejected by Validate()
-		return xobs.New(codes.InvalidArgument, "InvalidQueryValue").SetMsg("invalid query value")
+		return obs.New(codes.InvalidArgument, "InvalidQueryValue").SetMsg("invalid query value")
 	}
 }
 
@@ -340,17 +339,17 @@ func (c *reflectionClientV1Alpha) Close() error { return c.cc.Close() }
 func (c *reflectionClientV1Alpha) ListServices(ctx context.Context) ([]string, error) {
 	stream, err := reflectionv1alpha.NewServerReflectionClient(c.cc).ServerReflectionInfo(ctx)
 	if err != nil {
-		return nil, xobs.New(codes.Internal, "CallServerReflectionInfoErr").SetMsg(err.Error())
+		return nil, obs.New(codes.Internal, "CallServerReflectionInfoErr").SetMsg(err.Error())
 	}
 	if err = stream.Send(&reflectionv1alpha.ServerReflectionRequest{
 		MessageRequest: &reflectionv1alpha.ServerReflectionRequest_ListServices{},
 	}); err != nil {
-		return nil, xobs.New(codes.Internal, "CallStreamSendErr").SetMsg(err.Error())
+		return nil, obs.New(codes.Internal, "CallStreamSendErr").SetMsg(err.Error())
 	}
 	stream.CloseSend()
 	resp, err := stream.Recv()
 	if err != nil {
-		return nil, xobs.New(codes.Internal, "CallStreamRecvErr").SetMsg(err.Error())
+		return nil, obs.New(codes.Internal, "CallStreamRecvErr").SetMsg(err.Error())
 	}
 	list := resp.GetListServicesResponse()
 	if list == nil {
