@@ -34,7 +34,7 @@ func Test_CustomProxy(t *testing.T) {
 		return u, nil
 	}
 	ctx = httptrace.WithClientTrace(ctx, trace)
-	err := cli.Do(ctx, "http://www.xx.com", "hello", nil, nil)
+	_, err := cli.Do(ctx, "http://www.xx.com", "hello", nil, nil)
 	_ = err
 	require.Equal(t, "www.abc.com:80", target)
 }

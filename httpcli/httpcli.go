@@ -18,7 +18,7 @@ type Client struct {
 	DefaultClient *http.Client
 }
 
-func (cli *Client) Do(ctx context.Context, url string, req, resp any, opts *Options) error {
+func (cli *Client) Do(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error) {
 	if opts == nil {
 		opts = &Options{}
 	} else {
@@ -37,14 +37,14 @@ func (cli *Client) Do(ctx context.Context, url string, req, resp any, opts *Opti
 	return next.Next(ctx, url, req, resp, opts)
 }
 
-func (cli *Client) handle(ctx context.Context, url string, req, resp any, opts *Options) error {
+func (cli *Client) handle(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error) {
 	contentType, reqBody, err := cli.marshal(ctx, req, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, opts.GetMethod(), url, reqBody)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if len(opts.Header) > 0 {
 		httpReq.Header = opts.Header
@@ -54,15 +54,15 @@ func (cli *Client) handle(ctx context.Context, url string, req, resp any, opts *
 	}
 	httpResp, err := cli.getHttpClient().Do(httpReq)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	opts.StatusCode = httpResp.StatusCode
 	opts.RespHeader = httpResp.Header
 	err = cli.unmarshal(ctx, httpResp, resp, opts)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return nil, nil
 }
 
 func (cli *Client) marshal(ctx context.Context, req any, opts *Options) (string, io.Reader, error) {
@@ -143,15 +143,15 @@ func (cli *Client) getSerializer(opts *Options) Serializer {
 	return DefaultSerializer
 }
 
-type Interceptor func(ctx context.Context, url string, req, resp any, opts *Options, next Next) error
+type Interceptor func(ctx context.Context, url string, req, resp any, opts *Options, next Next) (*CliResp, error)
 
 type Next struct {
 	i            int
 	interceptors []Interceptor
-	handler      func(ctx context.Context, url string, req, resp any, opts *Options) error
+	handler      func(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error)
 }
 
-func (n Next) Next(ctx context.Context, url string, req, resp any, opts *Options) error {
+func (n Next) Next(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error) {
 	if n.i >= len(n.interceptors) {
 		return n.handler(ctx, url, req, resp, opts)
 	}
@@ -172,6 +172,7 @@ type Options struct {
 	StatusCode int
 	RespBody   []byte
 	RespHeader http.Header
+	Response   *http.Response
 }
 
 func (opts *Options) AddCustomOpt(key any, val any) *Options {
@@ -211,4 +212,9 @@ func (s *JsonSerializer) Unmarshal(ctx context.Context, httpResp *http.Response,
 		return fmt.Errorf("unmarshal error: %s. body is %s", err.Error(), string(body))
 	}
 	return nil
+}
+
+type CliResp struct {
+	Body     []byte
+	Response *http.Response
 }

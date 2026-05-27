@@ -31,15 +31,15 @@ func Test_Sign(t *testing.T) {
 		Interceptors: []Interceptor{sign},
 	}
 	signVar := ""
-	err := cli.Do(ctx, svr.URL, "TEST", &signVar, nil)
+	_, err := cli.Do(ctx, svr.URL, "TEST", &signVar, nil)
 	require.NoError(t, err)
 	require.Equal(t, "29263cf66af2f73a34bbcdf8bae8edd6e24a7e34c42a235f98ec59a4e331977e", signVar)
 }
 
-func sign(ctx context.Context, url string, req, resp any, opts *Options, next Next) error {
+func sign(ctx context.Context, url string, req, resp any, opts *Options, next Next) (*CliResp, error) {
 	newReq, err := json.Marshal(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if opts.Header == nil {
 		opts.Header = http.Header{}
