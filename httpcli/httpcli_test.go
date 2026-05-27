@@ -26,23 +26,23 @@ func TestClient_Do(t *testing.T) {
 
 	// req is nil
 	opts := &Options{}
-	err := Do(ctx, svr.URL, nil, nil, opts)
+	cliResp, err := Do(ctx, svr.URL, nil, nil, opts)
 	require.NoError(t, err)
-	require.Zero(t, len(opts.RespBody))
+	require.Zero(t, len(cliResp.Body))
 	var tmpStr string
-	err = Do(ctx, svr.URL, "TEST", &tmpStr, nil)
+	cliResp, err = Do(ctx, svr.URL, "TEST", &tmpStr, nil)
 	require.NoError(t, err)
 	require.Equal(t, "TEST", tmpStr)
 	var tmpAny map[string]string
-	err = Do(ctx, svr.URL, `{"a":"3""}`, &tmpAny, nil)
+	cliResp, err = Do(ctx, svr.URL, `{"a":"3""}`, &tmpAny, nil)
 	require.Equal(t, `unmarshal error: invalid character '"' after object key:value pair. body is {"a":"3""}`, err.Error())
 
 	tmpAny = nil
-	err = Do(ctx, svr.URL, `{"a":"3"}`, &tmpAny, nil)
+	cliResp, err = Do(ctx, svr.URL, `{"a":"3"}`, &tmpAny, nil)
 	require.NoError(t, err)
 	require.Equal(t, "3", tmpAny["a"])
 
-	err = Do(ctx, svr.URL, bytes.NewBuffer([]byte("hello")), &tmpStr, nil)
+	cliResp, err = Do(ctx, svr.URL, bytes.NewBuffer([]byte("hello")), &tmpStr, nil)
 	require.NoError(t, err)
 	require.Equal(t, "hello", tmpStr)
 }

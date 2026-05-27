@@ -21,10 +21,6 @@ type Client struct {
 func (cli *Client) Do(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error) {
 	if opts == nil {
 		opts = &Options{}
-	} else {
-		opts.StatusCode = 0
-		opts.RespBody = nil
-		opts.RespHeader = nil
 	}
 	ctx, cancel := cli.handleTimeout(ctx, opts.Timeout)
 	if cancel != nil {
@@ -56,13 +52,14 @@ func (cli *Client) handle(ctx context.Context, url string, req, resp any, opts *
 	if err != nil {
 		return nil, err
 	}
-	opts.StatusCode = httpResp.StatusCode
-	opts.RespHeader = httpResp.Header
-	err = cli.unmarshal(ctx, httpResp, resp, opts)
-	if err != nil {
-		return nil, err
+	cliResp := &CliResp{
+		Response: httpResp,
 	}
-	return nil, nil
+	err = cli.unmarshal(ctx, resp, opts, cliResp)
+	if err != nil {
+		return cliResp, err
+	}
+	return cliResp, nil
 }
 
 func (cli *Client) marshal(ctx context.Context, req any, opts *Options) (string, io.Reader, error) {
@@ -81,17 +78,17 @@ func (cli *Client) marshal(ctx context.Context, req any, opts *Options) (string,
 	return serializer.Marshal(ctx, req, opts)
 }
 
-func (cli *Client) unmarshal(ctx context.Context, httpResp *http.Response, resp any, opts *Options) error {
+func (cli *Client) unmarshal(ctx context.Context, resp any, opts *Options, cliResp *CliResp) error {
 	if readCloser, ok := resp.(*io.ReadCloser); ok {
-		*readCloser = httpResp.Body
+		*readCloser = cliResp.Response.Body
 		return nil
 	}
-	defer httpResp.Body.Close()
-	body, err := io.ReadAll(httpResp.Body)
+	defer cliResp.Response.Body.Close()
+	body, err := io.ReadAll(cliResp.Response.Body)
 	if err != nil {
 		return err
 	}
-	opts.RespBody = body
+	cliResp.Body = body
 	if resp == nil || len(body) == 0 {
 		return nil
 	}
@@ -104,7 +101,7 @@ func (cli *Client) unmarshal(ctx context.Context, httpResp *http.Response, resp 
 		return nil
 	}
 	serializer := cli.getSerializer(opts)
-	return serializer.Unmarshal(ctx, httpResp, body, resp, opts)
+	return serializer.Unmarshal(ctx, cliResp, resp, opts)
 }
 
 func (cli *Client) handleTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
@@ -167,12 +164,6 @@ type Options struct {
 	Serializer Serializer
 	// interceptors can use custom opts to extend ability.
 	CustomOpts map[any]any
-
-	// output fields
-	StatusCode int
-	RespBody   []byte
-	RespHeader http.Header
-	Response   *http.Response
 }
 
 func (opts *Options) AddCustomOpt(key any, val any) *Options {
@@ -192,7 +183,7 @@ func (opts *Options) GetMethod() string {
 
 type Serializer interface {
 	Marshal(ctx context.Context, v any, opts *Options) (string, io.Reader, error)
-	Unmarshal(ctx context.Context, httpResp *http.Response, body []byte, resp any, opts *Options) error
+	Unmarshal(ctx context.Context, cliResp *CliResp, resp any, opts *Options) error
 }
 
 type JsonSerializer struct {
@@ -206,10 +197,10 @@ func (s *JsonSerializer) Marshal(ctx context.Context, req any, opts *Options) (s
 	return "application/json; charset=utf-8", bytes.NewReader(buf), nil
 }
 
-func (s *JsonSerializer) Unmarshal(ctx context.Context, httpResp *http.Response, body []byte, resp any, opts *Options) error {
-	err := json.Unmarshal(body, resp)
+func (s *JsonSerializer) Unmarshal(ctx context.Context, cliResp *CliResp, resp any, opts *Options) error {
+	err := json.Unmarshal(cliResp.Body, resp)
 	if err != nil {
-		return fmt.Errorf("unmarshal error: %s. body is %s", err.Error(), string(body))
+		return fmt.Errorf("unmarshal error: %s. body is %s", err.Error(), string(cliResp.Body))
 	}
 	return nil
 }
