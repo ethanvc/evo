@@ -5,7 +5,7 @@ import (
 )
 
 type Recoder struct {
-	w        io.Reader
+	reader   io.Reader
 	maxBytes int
 	buf      []byte
 	off      int
@@ -18,7 +18,7 @@ func NewRecoder(w io.Reader, maxBytes int) *Recoder {
 		maxBytes = 1024 * 1024
 	}
 	return &Recoder{
-		w:        w,
+		reader:   w,
 		maxBytes: maxBytes,
 	}
 }
@@ -34,7 +34,7 @@ func (r *Recoder) Recod() {
 		}
 		s := min(r.maxBytes-oldLen, 1024)
 		r.buf = append(r.buf, make([]byte, s)...)
-		n, err := r.w.Read(r.buf[oldLen:])
+		n, err := r.reader.Read(r.buf[oldLen:])
 		r.buf = r.buf[:oldLen+n]
 		if err != nil {
 			r.err = err
@@ -59,7 +59,7 @@ func (r *Recoder) Read(p []byte) (n int, err error) {
 		r.err = nil
 		return 0, err
 	}
-	return r.w.Read(p)
+	return r.reader.Read(p)
 }
 
 func (r *Recoder) Bytes() []byte {
@@ -69,4 +69,11 @@ func (r *Recoder) Bytes() []byte {
 
 func (r *Recoder) String() string {
 	return string(r.buf)
+}
+
+func (r *Recoder) Close() error {
+	if readerCloser, ok := r.reader.(io.ReadCloser); ok {
+		return readerCloser.Close()
+	}
+	return nil
 }
