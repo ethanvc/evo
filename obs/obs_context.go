@@ -29,13 +29,13 @@ type ObsConfig struct {
 	Level               Level
 }
 
-func WithObsContext(ctx context.Context, config *ObsConfig) context.Context {
+func WithObsContext(ctx context.Context, config *ObsConfig) (context.Context, *ObsContext) {
 	obsCtx := &ObsContext{
 		getLogLevelAndEventFunc: config.GetLogLevelAndEvent,
 		lvl:                     config.Level,
 		handler:                 config.Handler,
 	}
-	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx)
+	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx), obsCtx
 }
 
 func withObsContext(ctx context.Context) (context.Context, *ObsContext) {

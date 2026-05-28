@@ -19,10 +19,15 @@ func (t *LogTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 func (t *LogTransport) init(req *http.Request) *http.Request {
-	ctx := obs.WithSpanContext(req.Context(), &obs.SpanConfig{
-		Method: req.URL.Path,
+	ctx, span := obs.WithSpan(req.Context(), &obs.SpanConfig{
+		Method: req.URL.Host + req.URL.Path,
 	})
 	req = req.WithContext(ctx)
+	span.SetAttr("http.url", req.URL.String())
+	span.SetAttr("http.method", req.Method)
+	span.SetAttr("http.host", req.Host)
+	span.SetAttr("http.scheme", req.URL.Scheme)
+	span.SetAttr("http.header", req.Header)
 	return req
 }
 

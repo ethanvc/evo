@@ -22,13 +22,12 @@ type SpanConfig struct {
 	ObsConfig
 }
 
-func WithSpanContext(ctx context.Context, config *SpanConfig) context.Context {
+func WithSpan(ctx context.Context, config *SpanConfig) (context.Context, *Span) {
 	span := &Span{}
 	span.init(ctx, config)
-	ctx = WithObsContext(ctx, &config.ObsConfig)
-	obsCtx := GetObsContext(ctx)
+	ctx, obsCtx := WithObsContext(ctx, &config.ObsConfig)
 	obsCtx.span = span
-	return ctx
+	return ctx, span
 }
 
 func NewSpan(ctx context.Context, config *SpanConfig) *Span {

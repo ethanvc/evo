@@ -66,7 +66,7 @@ func Test_Case(t *testing.T) {
 			// do operation with newCtx
 			return &CreateOrderResp{}, nil
 		}
-		ctx := WithSpanContext(ctx, &SpanConfig{Name: "YourApiName"})
+		ctx := WithSpan(ctx, &SpanConfig{Name: "YourApiName"})
 		req := &CreateOrderReq{}
 		resp, err := f(ctx, req)
 		// in real case, you should get report kvs after verified.
@@ -87,7 +87,7 @@ func Test_Case(t *testing.T) {
 				return LevelErr
 			}
 		}
-		ctx := WithSpanContext(ctx, &SpanConfig{Name: "RedisAccess", GetLogLevel: getLvl})
+		ctx := WithSpan(ctx, &SpanConfig{Name: "RedisAccess", GetLogLevel: getLvl})
 		// do redis operation ...
 		err := New(codes.NotFound, "KeyNotFound")
 		GetObsContext(ctx).AccessLogReport(err, nil, nil, nil)
