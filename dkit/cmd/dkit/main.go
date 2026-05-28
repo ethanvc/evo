@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/ethanvc/evo/dkit"
+	"github.com/ethanvc/evo/obs"
 	"github.com/spf13/cobra"
 )
 

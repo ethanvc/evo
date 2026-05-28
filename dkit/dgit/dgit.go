@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/ethanvc/evo/obs"
 	"google.golang.org/grpc/codes"
 )
 
