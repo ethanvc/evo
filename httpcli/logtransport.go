@@ -11,6 +11,10 @@ type LogTransport struct {
 	next http.RoundTripper
 }
 
+func NewLogTransport(conf *LogTransportConfig) *LogTransport {
+	return &LogTransport{}
+}
+
 func (t *LogTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = t.initSpan(req)
 	reader := bevo.NewReader(req.Body)
@@ -43,5 +47,12 @@ func (t *LogTransport) initSpan(req *http.Request) *http.Request {
 
 func (t *LogTransport) report(req *http.Request, reqBody []byte, resp *http.Response, respBody []byte, err error) {
 	obsCtx := obs.GetObsContext(req.Context())
+	span := obsCtx.GetSpan()
+	if resp != nil {
+		span.SetAttr("http.status_code", resp.StatusCode)
+	}
 	obsCtx.AccessLogReport(req.Context(), err, reqBody, respBody, nil)
+}
+
+type LogTransportConfig struct {
 }
