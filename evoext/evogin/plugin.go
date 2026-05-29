@@ -5,6 +5,7 @@ import (
 	"sync/atomic"
 
 	"github.com/ethanvc/evo/logjson/logjsonbase"
+	"github.com/ethanvc/evo/obs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 )
@@ -13,7 +14,7 @@ type Plugin struct {
 	getName          GetNameFuncT
 	getErr           func(c *gin.Context, w *Writer) *obs.Error
 	getSpanConfig    func(c *gin.Context) *obs.SpanConfig
-	headerLogMaskMap atomic.Pointer[logjsonbase.LogJsonConfigT]
+	headerLogMaskMap atomic.Pointer[logjsonbase.HeaderLogConfig]
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
@@ -35,7 +36,7 @@ func (p *Plugin) init(conf *PluginConfig) {
 
 func (p *Plugin) Handle(c *gin.Context) {
 	spanConfig := p.getSpanConfigWrapper(c)
-	ctx := obs.WithSpanContext(c.Request.Context(), spanConfig)
+	ctx, _ := obs.WithSpan(c.Request.Context(), spanConfig)
 	c.Request = c.Request.WithContext(ctx)
 	w := newWriter(c.Writer)
 	c.Writer = w
