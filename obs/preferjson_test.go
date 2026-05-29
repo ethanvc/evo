@@ -10,6 +10,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func ptr(s string) *string { return &s }
+
+func ptrBytes(b []byte) *[]byte { return &b }
+
 func TestPreferJson_MarshalJSON(t *testing.T) {
 	tests := []struct {
 		name string
@@ -50,6 +54,31 @@ func TestPreferJson_MarshalJSON(t *testing.T) {
 			name: "invalid text falls back to string",
 			in:   PreferJSON(`not-json`),
 			want: `"not-json"`,
+		},
+		{
+			name: "valid object string pointer",
+			in:   PreferJSON(ptr(`{"a":1}`)),
+			want: `{"a":1}`,
+		},
+		{
+			name: "valid array bytes pointer",
+			in:   PreferJSON(ptrBytes([]byte("[1,2]"))),
+			want: `[1,2]`,
+		},
+		{
+			name: "invalid string pointer falls back to string",
+			in:   PreferJSON(ptr("not-json")),
+			want: `"not-json"`,
+		},
+		{
+			name: "nil string pointer uses generic marshal",
+			in:   PreferJSON((*string)(nil)),
+			want: `null`,
+		},
+		{
+			name: "nil bytes pointer uses generic marshal",
+			in:   PreferJSON((*[]byte)(nil)),
+			want: `null`,
 		},
 		{
 			name: "other type uses generic marshal",

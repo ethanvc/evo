@@ -18,6 +18,16 @@ func preferJSONPayload(v any) (b []byte, ok bool) {
 		return []byte(x), true
 	case []byte:
 		return x, true
+	case *string:
+		if x == nil {
+			return nil, false
+		}
+		return []byte(*x), true
+	case *[]byte:
+		if x == nil {
+			return nil, false
+		}
+		return *x, true
 	default:
 		return nil, false
 	}

@@ -46,5 +46,5 @@ func (i *LogInterceptor) report(ctx context.Context, url string, req any, resp a
 		span.SetAttr("http.status_code", httpResp.StatusCode)
 		span.SetAttr("http.resp_header", httpResp.Header)
 	}
-	obsCtx.AccessLogReport(ctx, err, req, resp, nil)
+	obsCtx.AccessLogReport(ctx, err, obs.PreferJSON(req), obs.PreferJSON(resp), nil)
 }
