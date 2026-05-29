@@ -8,6 +8,9 @@ import (
 type LogJsonConfigT map[string]func(string) string
 
 func GetHttpHeader(logJsonConfig LogJsonConfigT, header http.Header) http.Header {
+	if logJsonConfig == nil {
+		logJsonConfig = defaultJsonConfig
+	}
 	var resultHeader http.Header
 	for key, values := range header {
 		f, ok := logJsonConfig[key]
@@ -45,4 +48,9 @@ func ConvertToHttpLogJsonConfig(config map[string]string) LogJsonConfigT {
 		}
 	}
 	return logJsonConfig
+}
+
+var defaultJsonConfig = LogJsonConfigT{
+	"Authorization": nil,
+	"Connection":    nil,
 }

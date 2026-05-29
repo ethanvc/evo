@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 
+	"github.com/ethanvc/evo/logjson/logjsonbase"
 	"github.com/ethanvc/evo/obs"
 )
 
@@ -40,11 +41,11 @@ func (i *LogInterceptor) report(ctx context.Context, url string, req any, resp a
 	span := obsCtx.GetSpan()
 	span.SetAttr("http.url", url)
 	span.SetAttr("http.method", opts.GetMethod())
-	span.SetAttr("http.header", opts.Header)
+	span.SetAttr("http.header", logjsonbase.GetHttpHeader(nil, opts.Header))
 	if cliResp != nil && cliResp.Response != nil {
 		httpResp := cliResp.Response
 		span.SetAttr("http.status_code", httpResp.StatusCode)
-		span.SetAttr("http.resp_header", httpResp.Header)
+		span.SetAttr("http.resp_header", logjsonbase.GetHttpHeader(nil, httpResp.Header))
 	}
 	obsCtx.AccessLogReport(ctx, err, obs.PreferJSON(req), obs.PreferJSON(resp), nil)
 }
