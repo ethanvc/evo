@@ -1,4 +1,4 @@
-package bevo
+package xbufio
 
 import (
 	"bufio"

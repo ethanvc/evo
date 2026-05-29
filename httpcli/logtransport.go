@@ -3,8 +3,8 @@ package httpcli
 import (
 	"net/http"
 
-	"github.com/ethanvc/evo/bevo"
 	"github.com/ethanvc/evo/obs"
+	"github.com/ethanvc/evo/xbufio"
 )
 
 type LogTransport struct {
@@ -17,13 +17,13 @@ func NewLogTransport(conf *LogTransportConfig) *LogTransport {
 
 func (t *LogTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req = t.initSpan(req)
-	reader := bevo.NewReader(req.Body)
+	reader := xbufio.NewReader(req.Body)
 	req.Body = reader
 	reqBody, _ := reader.Peek(1024 * 5)
 	resp, err := t.next.RoundTrip(req)
 	var respBody []byte
 	if resp != nil {
-		reader := bevo.NewReader(resp.Body)
+		reader := xbufio.NewReader(resp.Body)
 		resp.Body = reader
 		respBody, _ = reader.Peek(1024 * 5)
 	}
