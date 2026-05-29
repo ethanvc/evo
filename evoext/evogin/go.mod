@@ -1,4 +1,4 @@
-module github.com/ethanvc/evo/xobsext/evogin
+module github.com/ethanvc/evo/evoext/evogin
 
 go 1.26.0
 
