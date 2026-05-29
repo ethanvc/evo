@@ -46,3 +46,11 @@ func TestClient_Do(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "hello", tmpStr)
 }
+
+func Test_Manul(t *testing.T) {
+	ctx := context.Background()
+	body := ""
+	cliResp, err := Do(ctx, "http://www.baidu.com", nil, &body, nil)
+	_ = err
+	_ = cliResp
+}

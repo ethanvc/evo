@@ -4,7 +4,9 @@ import "context"
 
 var DefaultSerializer = &JsonSerializer{}
 
-var sDefaultClient = &Client{}
+var sDefaultClient = &Client{
+	Interceptors: []Interceptor{NewLogInterceptor().Intercept},
+}
 
 func GetDefault() *Client {
 	return sDefaultClient
