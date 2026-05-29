@@ -61,35 +61,40 @@ func Test_Case(t *testing.T) {
 			}
 			_ = voucher
 			// make below log level to error
-			newCtx := WithObsContext(ctx, &ObsConfig{Level: LevelErr})
+			newCtx, _ := WithObsContext(ctx, &ObsConfig{Level: LevelErr})
 			_ = newCtx
 			// do operation with newCtx
 			return &CreateOrderResp{}, nil
 		}
-		ctx := WithSpan(ctx, &SpanConfig{Name: "YourApiName"})
+		ctx, _ = WithSpan(ctx, &SpanConfig{Method: "YourApiName"})
 		req := &CreateOrderReq{}
 		resp, err := f(ctx, req)
 		// in real case, you should get report kvs after verified.
-		GetObsContext(ctx).AccessLogReport(err, req, resp, []KV{{Key: "business_id", Val: "333"}})
+		GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, []KV{{Key: "business_id", Val: "333"}})
 	}
 
 	{
 		// for redis access log, need adjust the log level to reduce log.
-		getLvl := func(err error) Level {
+		getLvl := func(err error) (Level, string) {
 			obsErr, ok := err.(*Error)
 			if !ok {
-				return LevelErr
+				return LevelErr, "UnknownErr"
 			}
 			switch obsErr.GetCode() {
 			case codes.OK, codes.NotFound, codes.AlreadyExists:
-				return LevelDbg
+				return LevelDbg, obsErr.GetReportEvent()
 			default:
-				return LevelErr
+				return LevelErr, obsErr.GetReportEvent()
 			}
 		}
-		ctx := WithSpan(ctx, &SpanConfig{Name: "RedisAccess", GetLogLevel: getLvl})
+		ctx, _ = WithSpan(ctx, &SpanConfig{
+			Method: "RedisAccess",
+			ObsConfig: ObsConfig{
+				GetLogLevelAndEvent: getLvl,
+			},
+		})
 		// do redis operation ...
 		err := New(codes.NotFound, "KeyNotFound")
-		GetObsContext(ctx).AccessLogReport(err, nil, nil, nil)
+		GetObsContext(ctx).AccessLogReport(ctx, err, nil, nil, nil)
 	}
 }
