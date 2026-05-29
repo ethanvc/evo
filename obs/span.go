@@ -12,6 +12,7 @@ type Span struct {
 	traceId      string
 	spanId       string
 	parentSpanId string
+	attrs        map[string]any
 }
 
 type SpanConfig struct {
@@ -75,5 +76,12 @@ func (s *Span) GetParentSpanId() string {
 }
 
 func (s *Span) SetAttr(key string, val any) {
+	if s.attrs == nil {
+		s.attrs = make(map[string]any)
+	}
+	s.attrs[key] = val
+}
 
+func (s *Span) GetAttrs() map[string]any {
+	return s.attrs
 }

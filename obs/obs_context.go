@@ -90,6 +90,8 @@ func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp 
 	oc.reportAccessLog(ctx, lvl, event, labels...)
 	args2 := append([]any{}, "err", err, "req", req, "resp", resp)
 	args2 = append(args2, args...)
+	span := oc.GetSpan()
+	args2 = append(args2, "attris", span.GetAttrs())
 	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
 }
 

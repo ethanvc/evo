@@ -50,7 +50,7 @@ func TestClient_Do(t *testing.T) {
 func Test_Manul(t *testing.T) {
 	ctx := context.Background()
 	body := ""
-	cliResp, err := Do(ctx, "http://www.baidu.com", nil, &body, nil)
+	cliResp, err := Do(ctx, "https://chat.baidu.com/aichat/api/messages/list", nil, &body, nil)
 	_ = err
 	_ = cliResp
 }
