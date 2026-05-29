@@ -5,15 +5,15 @@ import (
 	"net/http"
 )
 
-type LogJsonConfigT map[string]func(string) string
+type HeaderLogConfig map[string]func(string) string
 
-func GetHttpHeader(logJsonConfig LogJsonConfigT, header http.Header) http.Header {
-	if logJsonConfig == nil {
-		logJsonConfig = defaultJsonConfig
+func GetHttpHeader(logConfig HeaderLogConfig, header http.Header) http.Header {
+	if logConfig == nil {
+		logConfig = defaultHeaderLogConfig
 	}
 	var resultHeader http.Header
 	for key, values := range header {
-		f, ok := logJsonConfig[key]
+		f, ok := logConfig[key]
 		if !ok {
 			continue
 		}
@@ -36,8 +36,8 @@ func GetHttpHeader(logJsonConfig LogJsonConfigT, header http.Header) http.Header
 	return resultHeader
 }
 
-func ConvertToHttpLogJsonConfig(config map[string]string) LogJsonConfigT {
-	logJsonConfig := make(LogJsonConfigT, len(config))
+func ConvertToHeaderLogConfig(config map[string]string) HeaderLogConfig {
+	logJsonConfig := make(HeaderLogConfig, len(config))
 	for key, value := range config {
 		opt := ParseTag(value)
 		newKey := http.CanonicalHeaderKey(key)
@@ -50,7 +50,7 @@ func ConvertToHttpLogJsonConfig(config map[string]string) LogJsonConfigT {
 	return logJsonConfig
 }
 
-var defaultJsonConfig = LogJsonConfigT{
+var defaultHeaderLogConfig = HeaderLogConfig{
 	"Authorization": nil,
 	"Connection":    nil,
 }

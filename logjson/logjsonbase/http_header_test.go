@@ -16,7 +16,7 @@ func TestGetHttpHeader(t *testing.T) {
 			"X-Trace-Id":    []string{"trace-id"},
 		}
 
-		got := GetHttpHeader(LogJsonConfigT{"Authorization": nil}, header)
+		got := GetHttpHeader(HeaderLogConfig{"Authorization": nil}, header)
 		require.Equal(t, 1, len(got))
 		assert.Equal(t, "trace-id", got.Get("X-Trace-Id"))
 	})
@@ -26,7 +26,7 @@ func TestGetHttpHeader(t *testing.T) {
 			"X-Trace-Id": []string{"trace-id"},
 		}
 
-		got := GetHttpHeader(LogJsonConfigT{
+		got := GetHttpHeader(HeaderLogConfig{
 			"Authorization": nil,
 			"X-Body":        LogMd5Str,
 		}, header)
