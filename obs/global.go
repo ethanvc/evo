@@ -15,7 +15,7 @@ var generateSpanIdFunc = GenerateSpanId
 
 var defaultSpan = newDefaultSpan()
 
-var defaultReporter = newDefaultReporter()
+var defaultReporter = newReporter()
 
 var defaultHandler = NewJsonHandler(os.Stdout)
 

@@ -7,16 +7,11 @@ import (
 
 type GetLogLvlAndEventFuncT func(err error) (Level, string)
 
-type Reporter interface {
-	Report(ctx context.Context, lvl Level, event string, labels ...KV)
-	ReportDuration(ctx context.Context, duration time.Duration, labels ...KV)
-}
-
 type ObsContext struct {
 	parent                  *ObsContext
 	span                    *Span
 	handler                 Handler
-	reporter                Reporter
+	reporter                *Reporter
 	lvl                     Level
 	getLogLevelAndEventFunc GetLogLvlAndEventFuncT
 }
@@ -156,7 +151,7 @@ func (oc *ObsContext) reportAccessLog(ctx context.Context, lvl Level, event stri
 	reporter.ReportDuration(ctx, time.Since(span.GetStartTime()), labels...)
 }
 
-func (oc *ObsContext) getReporter() Reporter {
+func (oc *ObsContext) getReporter() *Reporter {
 	for oc != nil {
 		if oc.reporter != nil {
 			return oc.reporter
