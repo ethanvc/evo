@@ -10,7 +10,7 @@ import (
 )
 
 type Serializer struct {
-	httpcli.Serializer
+	httpcli.JsonSerializer
 }
 
 func (s *Serializer) Unmarshal(ctx context.Context, cliResp *httpcli.CliResp, resp any, opts *httpcli.Options) error {
