@@ -42,12 +42,21 @@ func (r *Reporter) ReportDuration(ctx context.Context, duration time.Duration, l
 	r.eventDurationSeconds.WithLabelValues(getLabelValues(r.eventSecondsLabelNames, labels...)...).Observe(duration.Seconds())
 }
 
-func getLabelValues(labelNames []string, labels ...KV) []string {
+func getLabelValues(labelNames []string, lvl Level, event string, labels ...KV) []string {
 	labelValues := make([]string, len(labelNames))
 	for i, labelName := range labelNames {
 		for _, label := range labels {
+			if labelName == "lvl" {
+				labelValues[i] = lvl.String()
+				continue
+			}
+			if labelName == "event" {
+				labelValues[i] = event
+				continue
+			}
 			if label.Key == labelName {
 				labelValues[i] = label.Val
+				continue
 			}
 		}
 	}
