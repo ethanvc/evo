@@ -21,7 +21,7 @@ func newReporter() *Reporter {
 }
 
 func (r *Reporter) init() {
-	r.eventLabelNames = []string{"method", "lvl"}
+	r.eventLabelNames = []string{"method", "lvl", "event"}
 	r.eventSecondsLabelNames = []string{"method"}
 	r.eventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "evo_event_total",
