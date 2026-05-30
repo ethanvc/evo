@@ -35,11 +35,11 @@ func (r *Reporter) init() {
 }
 
 func (r *Reporter) Report(ctx context.Context, lvl Level, event string, labels ...KV) {
-	r.eventTotal.WithLabelValues(getLabelValues(r.eventLabelNames, labels...)...).Inc()
+	r.eventTotal.WithLabelValues(getLabelValues(r.eventLabelNames, lvl, event, labels...)...).Inc()
 }
 
-func (r *Reporter) ReportDuration(ctx context.Context, duration time.Duration, labels ...KV) {
-	r.eventDurationSeconds.WithLabelValues(getLabelValues(r.eventSecondsLabelNames, labels...)...).Observe(duration.Seconds())
+func (r *Reporter) ReportDuration(ctx context.Context, lvl Level, event string, duration time.Duration, labels ...KV) {
+	r.eventDurationSeconds.WithLabelValues(getLabelValues(r.eventSecondsLabelNames, lvl, event, labels...)...).Observe(duration.Seconds())
 }
 
 func getLabelValues(labelNames []string, lvl Level, event string, labels ...KV) []string {
