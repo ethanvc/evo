@@ -86,7 +86,7 @@ func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp 
 	tc := time.Since(span.GetStartTime())
 	oc.reportAccessLog(ctx, tc, lvl, event, labels...)
 	args2 := append([]any{}, "tc", tc)
-	args2 = append([]any{}, "err", err, "req", req, "resp", resp)
+	args2 = append(args2, "err", err, "req", req, "resp", resp)
 	args2 = append(args2, args...)
 	args2 = append(args2, "attris", span.GetAttrs())
 	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
