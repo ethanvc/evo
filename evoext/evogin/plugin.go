@@ -34,28 +34,44 @@ func (p *Plugin) init(conf *PluginConfig) {
 func (p *Plugin) Handle(c *gin.Context) {
 	patternConfig := getPatternConfig(c.Request.Method, c.FullPath())
 	spanConfig := p.getSpanConfigWrapper(c)
-	ctx, _ := obs.WithSpan(c.Request.Context(), spanConfig)
+	ctx, span := obs.WithSpan(c.Request.Context(), spanConfig)
 	c.Request = c.Request.WithContext(ctx)
-	if patternConfig.GetIgnoreResponseLog() {
+	var w *Writer
+	var r *Reader
+	if !patternConfig.GetIgnoreResponseLog() {
 		w := newWriter(c.Writer)
 		c.Writer = w
 	}
-	w := newWriter(c.Writer)
-	c.Writer = w
-	r := newReader(c.Request.Body)
+	r = newReader(c.Request.Body)
 	c.Request.Body = r
 	defer func() {
 		var err *obs.Error
 		if r := recover(); r != nil {
 			err = obs.New(codes.Internal, "").AppendKvEvent("Panic", obs.GetPanicPosition(0))
 		}
-		req, resp, labels, extra := p.getLogContentWrapper(c, r, w)
-		if err == nil {
-			err = p.getErrWrapper(c, w)
-		}
-		obs.GetObsContext(ctx).AccessLogReport(ctx, err, req, resp, labels, extra...)
+		p.endHandle(span, c, r, w, err)
 	}()
 	c.Next()
+}
+
+func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer, err error) {
+	req := r.Bytes()
+	var resp []byte
+	if w != nil {
+		resp = w.Bytes()
+	} else {
+		resp = []byte("<ignored>")
+	}
+	var extra []any
+	extra = append(extra, "http_url", c.Request.URL.String())
+	extra = append(extra, "http_status_code", w.Status())
+	extra = append(extra, "http_req_header", c.Request.Header)
+	extra = append(extra, "http_resp_header", w.Header())
+	extra = append(extra, "client_ip", c.Request.RemoteAddr)
+	if err == nil {
+		err = p.getErrWrapper(c, w)
+	}
+	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, resp, nil, extra...)
 }
 
 func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
@@ -82,24 +98,6 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 		return obs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
 	}
 	return obs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
-}
-
-func (p *Plugin) getNameWrapper(c *gin.Context) string {
-	if p.getName != nil {
-		return p.getName(c)
-	}
-	return c.FullPath()
-}
-
-func (p *Plugin) getLogContentWrapper(c *gin.Context, r *Reader, w *Writer) (req any, resp any, labels []obs.KV, extra []any) {
-	req = r.Bytes()
-	resp = w.Bytes()
-	extra = append(extra, "http_url", c.Request.URL.String())
-	extra = append(extra, "http_status_code", w.Status())
-	extra = append(extra, "http_req_header", c.Request.Header)
-	extra = append(extra, "http_resp_header", w.Header())
-	extra = append(extra, "client_ip", c.Request.RemoteAddr)
-	return
 }
 
 type PluginConfig struct {
