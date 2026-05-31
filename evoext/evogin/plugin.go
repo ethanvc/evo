@@ -2,19 +2,16 @@ package evogin
 
 import (
 	"net/http"
-	"sync/atomic"
 
-	"github.com/ethanvc/evo/logjson/logjsonbase"
 	"github.com/ethanvc/evo/obs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
 )
 
 type Plugin struct {
-	getName          GetNameFuncT
-	getErr           func(c *gin.Context, w *Writer) *obs.Error
-	getSpanConfig    func(c *gin.Context) *obs.SpanConfig
-	headerLogMaskMap atomic.Pointer[logjsonbase.HeaderLogConfig]
+	getName       GetNameFuncT
+	getErr        func(c *gin.Context, w *Writer) *obs.Error
+	getSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
 func NewPlugin(conf *PluginConfig) *Plugin {
