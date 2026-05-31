@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ethanvc/evo/obs"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
