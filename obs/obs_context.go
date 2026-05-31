@@ -82,10 +82,12 @@ func (oc *ObsContext) getSpan() *Span {
 
 func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp any, labels []KV, args ...any) {
 	lvl, event := oc.getLoggerLevelAndEventWrapper(err)
-	oc.reportAccessLog(ctx, lvl, event, labels...)
-	args2 := append([]any{}, "err", err, "req", req, "resp", resp)
-	args2 = append(args2, args...)
 	span := oc.GetSpan()
+	tc := time.Since(span.GetStartTime())
+	oc.reportAccessLog(ctx, tc, lvl, event, labels...)
+	args2 := append([]any{}, "tc", tc)
+	args2 = append([]any{}, "err", err, "req", req, "resp", resp)
+	args2 = append(args2, args...)
 	args2 = append(args2, "attris", span.GetAttrs())
 	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
 }
@@ -142,13 +144,13 @@ func (oc *ObsContext) Log(ctx context.Context, skip int, lvl Level, event string
 	oc.GetHandler().Handle(ctx, item)
 }
 
-func (oc *ObsContext) reportAccessLog(ctx context.Context, lvl Level, event string, labels ...KV) {
+func (oc *ObsContext) reportAccessLog(ctx context.Context, tc time.Duration, lvl Level, event string, labels ...KV) {
 	reporter := oc.getReporter()
 	span := oc.GetSpan()
 	labels = append(labels, KV{Key: "method", Val: span.GetMethod()})
 	labels = append(labels, KV{Key: "lvl", Val: lvl.String()})
 	reporter.Report(ctx, lvl, "REQ_END;"+event, labels...)
-	reporter.ReportDuration(ctx, lvl, event, time.Since(span.GetStartTime()), labels...)
+	reporter.ReportDuration(ctx, lvl, event, tc, labels...)
 }
 
 func (oc *ObsContext) getReporter() *Reporter {
