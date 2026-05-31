@@ -11,6 +11,12 @@ import (
 	"github.com/ethanvc/evo/logjson"
 )
 
+type Handler interface {
+	Handle(ctx context.Context, item LogItem)
+	Flush()
+	io.Closer
+}
+
 type JsonHandler struct {
 	writer io.Writer
 }
@@ -89,6 +95,14 @@ func (h *JsonHandler) Flush() {
 	if flusher, ok := h.writer.(interface{ Flush() error }); ok {
 		flusher.Flush()
 	}
+}
+
+func (h *JsonHandler) Close() error {
+	h.Flush()
+	if closer, ok := h.writer.(io.Closer); ok {
+		return closer.Close()
+	}
+	return nil
 }
 
 var sLogStatePool = sync.Pool{

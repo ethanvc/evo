@@ -35,7 +35,3 @@ type KV struct {
 	Key string
 	Val string
 }
-
-type Handler interface {
-	Handle(ctx context.Context, item LogItem)
-}

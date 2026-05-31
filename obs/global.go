@@ -17,7 +17,16 @@ var defaultSpan = newDefaultSpan()
 
 var defaultReporter = newReporter()
 
-var defaultHandler = NewJsonHandler(os.Stdout)
+var defaultHandler Handler = NewJsonHandler(os.Stdout)
+
+func SetDefaultHandler(handler Handler) {
+	if handler == nil {
+		panic("handler is nil")
+	}
+	defaultHandler.Flush()
+	_ = defaultHandler.Close()
+	defaultHandler = handler
+}
 
 var defaultLogLevel = LevelInfo
 
