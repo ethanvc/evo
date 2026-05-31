@@ -22,22 +22,29 @@ func getPatternConfig(method string, pattern string) *PatternConfig {
 	return m[patternKey(method, pattern)]
 }
 
-func SetPatternConfig(pattern string, config *PatternConfig) {
+func SetPatternConfig(configPattern string, config *PatternConfig) {
 	m := getPatternConfigMap()
 	m = maps.Clone(m)
 	if config != nil {
-		m[pattern] = config
+		m[configPattern] = config
 	} else {
-		delete(m, pattern)
+		delete(m, configPattern)
 	}
 	patternConfigMap.Store(m)
 }
 
 func patternKey(method string, pattern string) string {
-	return method + "|" + pattern
+	return method + " " + pattern
 }
 
 type PatternConfig struct {
 	pattern           string
 	IgnoreResponseLog bool
+}
+
+func (conf *PatternConfig) GetIgnoreResponseLog() bool {
+	if conf == nil {
+		return false
+	}
+	return conf.IgnoreResponseLog
 }

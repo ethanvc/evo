@@ -32,9 +32,14 @@ func (p *Plugin) init(conf *PluginConfig) {
 }
 
 func (p *Plugin) Handle(c *gin.Context) {
+	patternConfig := getPatternConfig(c.Request.Method, c.FullPath())
 	spanConfig := p.getSpanConfigWrapper(c)
 	ctx, _ := obs.WithSpan(c.Request.Context(), spanConfig)
 	c.Request = c.Request.WithContext(ctx)
+	if patternConfig.GetIgnoreResponseLog() {
+		w := newWriter(c.Writer)
+		c.Writer = w
+	}
 	w := newWriter(c.Writer)
 	c.Writer = w
 	r := newReader(c.Request.Body)
