@@ -39,7 +39,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 	var w *Writer
 	var r *Reader
 	if !patternConfig.GetIgnoreResponseLog() {
-		w := newWriter(c.Writer)
+		w = newWriter(c.Writer)
 		c.Writer = w
 	}
 	r = newReader(c.Request.Body)
