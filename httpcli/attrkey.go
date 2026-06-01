@@ -1,9 +1,9 @@
 package httpcli
 
 const (
-	AttrKeyMethod     = "http.method"
-	AttrKeyUrl        = "http.url"
-	AttrKeyHeader     = "http.header"
-	AttrKeyStatusCode = "http.status_code"
-	AttrKeyRespHeader = "http.resp_header"
+	AttrKeyHttpMethod     = "http.method"
+	AttrKeyHttpUrl        = "http.url"
+	AttrKeyHttpHeader     = "http.header"
+	AttrKeyHttpStatusCode = "http.status_code"
+	AttrKeyHttpRespHeader = "http.resp_header"
 )

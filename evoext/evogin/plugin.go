@@ -63,11 +63,11 @@ func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer,
 	} else {
 		respBody = []byte("<ignored>")
 	}
-	span.SetAttr(httpcli.AttrKeyMethod, c.Request.Method)
-	span.SetAttr(httpcli.AttrKeyUrl, c.Request.URL.String())
-	span.SetAttr(httpcli.AttrKeyHeader, c.Request.Header)
-	span.SetAttr(httpcli.AttrKeyStatusCode, c.Writer.Status())
-	span.SetAttr(httpcli.AttrKeyRespHeader, c.Writer.Header())
+	span.SetAttr(httpcli.AttrKeyHttpMethod, c.Request.Method)
+	span.SetAttr(httpcli.AttrKeyHttpUrl, c.Request.URL.String())
+	span.SetAttr(httpcli.AttrKeyHttpHeader, c.Request.Header)
+	span.SetAttr(httpcli.AttrKeyHttpStatusCode, c.Writer.Status())
+	span.SetAttr(httpcli.AttrKeyHttpRespHeader, c.Writer.Header())
 	if err == nil {
 		err = p.getErrWrapper(c, w)
 	}

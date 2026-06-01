@@ -33,11 +33,6 @@ func WithObsContext(ctx context.Context, config *ObsConfig) (context.Context, *O
 	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx), obsCtx
 }
 
-func withObsContext(ctx context.Context) (context.Context, *ObsContext) {
-	obsCtx := &ObsContext{}
-	return context.WithValue(ctx, ctxKeyObsContext{}, obsCtx), obsCtx
-}
-
 func GetObsContext(ctx context.Context) *ObsContext {
 	val, _ := ctx.Value(ctxKeyObsContext{}).(*ObsContext)
 	return val
@@ -85,7 +80,9 @@ func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp 
 	span := oc.GetSpan()
 	tc := time.Since(span.GetStartTime())
 	oc.reportAccessLog(ctx, tc, lvl, event, labels...)
-	args2 := append([]any{}, "tc", tc)
+	var args2 []any
+	args2 = append(args2, "method", span.GetMethod())
+	args2 = append(args2, "tc", tc)
 	args2 = append(args2, "err", err, "req", req, "resp", resp)
 	args2 = append(args2, args...)
 	args2 = append(args2, "attris", span.GetAttrs())
