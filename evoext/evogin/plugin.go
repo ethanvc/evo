@@ -11,7 +11,7 @@ import (
 
 type Plugin struct {
 	getName       GetNameFuncT
-	getErr        func(c *gin.Context, respBody []byte) *obs.Error
+	getErr        func(c *gin.Context, w *Writer) *obs.Error
 	getSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
@@ -69,7 +69,7 @@ func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer,
 	span.SetAttr(httpcli.AttrKeyStatusCode, c.Writer.Status())
 	span.SetAttr(httpcli.AttrKeyRespHeader, c.Writer.Header())
 	if err == nil {
-		err = p.getErrWrapper(c, respBody)
+		err = p.getErrWrapper(c, w)
 	}
 	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, respBody, nil)
 }
@@ -84,9 +84,9 @@ func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
 	return conf
 }
 
-func (p *Plugin) getErrWrapper(c *gin.Context, respBody []byte) *obs.Error {
+func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 	if p.getErr != nil {
-		return p.getErr(c, respBody)
+		return p.getErr(c, w)
 	}
 	status := c.Writer.Status()
 	if status == 0 {
@@ -102,7 +102,7 @@ func (p *Plugin) getErrWrapper(c *gin.Context, respBody []byte) *obs.Error {
 
 type PluginConfig struct {
 	GetName       GetNameFuncT
-	GetErr        func(c *gin.Context, respBody []byte) (err *obs.Error)
+	GetErr        func(c *gin.Context, w *Writer) (err *obs.Error)
 	GetSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
