@@ -10,7 +10,7 @@ import (
 
 type Plugin struct {
 	getName       GetNameFuncT
-	getErr        func(c *gin.Context, w *Writer) *obs.Error
+	getErr        func(c *gin.Context, respBody []byte) *obs.Error
 	getSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
@@ -56,22 +56,21 @@ func (p *Plugin) Handle(c *gin.Context) {
 
 func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer, err error) {
 	req := r.Bytes()
-	var resp []byte
+	var respBody []byte
 	if w != nil {
-		resp = w.Bytes()
+		respBody = w.Bytes()
 	} else {
-		resp = []byte("<ignored>")
+		respBody = []byte("<ignored>")
 	}
 	var extra []any
-	extra = append(extra, "http_url", c.Request.URL.String())
-	extra = append(extra, "http_status_code", w.Status())
-	extra = append(extra, "http_req_header", c.Request.Header)
-	extra = append(extra, "http_resp_header", w.Header())
-	extra = append(extra, "client_ip", c.Request.RemoteAddr)
+	span.SetAttr("http.status_code", c.Writer.Status())
+	span.SetAttr("http.method", c.Request.Method)
+	span.SetAttr("http.url", c.Request.URL.String())
+	span.SetAttr("http.header", c.Request.Header)
 	if err == nil {
-		err = p.getErrWrapper(c, w)
+		err = p.getErrWrapper(c, respBody)
 	}
-	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, resp, nil, extra...)
+	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, respBody, nil, extra...)
 }
 
 func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
@@ -84,17 +83,17 @@ func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
 	return conf
 }
 
-func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
+func (p *Plugin) getErrWrapper(c *gin.Context, respBody []byte) *obs.Error {
 	if p.getErr != nil {
-		return p.getErr(c, w)
+		return p.getErr(c, respBody)
 	}
-	status := w.Status()
+	status := c.Writer.Status()
 	if status == 0 {
 		return obs.New(codes.Internal, "StatusMustNotZero")
 	} else if status >= http.StatusOK && status < http.StatusBadRequest {
 		obs.ReportInfo(c.Request.Context(), obs.MakeKvEventStr("StatusCode", status))
 		return nil
-	} else if status >= http.StatusBadRequest && w.Status() < http.StatusInternalServerError {
+	} else if status >= http.StatusBadRequest && status < http.StatusInternalServerError {
 		return obs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
 	}
 	return obs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
@@ -102,7 +101,7 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 
 type PluginConfig struct {
 	GetName       GetNameFuncT
-	GetErr        func(c *gin.Context, w *Writer) (err *obs.Error)
+	GetErr        func(c *gin.Context, respBody []byte) (err *obs.Error)
 	GetSpanConfig func(c *gin.Context) *obs.SpanConfig
 }
 
