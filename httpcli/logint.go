@@ -39,13 +39,13 @@ func (i *LogInterceptor) initSpan(ctx context.Context, urlStr string, opts *Opti
 func (i *LogInterceptor) report(ctx context.Context, url string, req any, resp any, opts *Options, cliResp *CliResp, err error) {
 	obsCtx := obs.GetObsContext(ctx)
 	span := obsCtx.GetSpan()
-	span.SetAttr("http.url", url)
-	span.SetAttr("http.method", opts.GetMethod())
-	span.SetAttr("http.header", logjsonbase.GetHttpHeader(nil, opts.Header))
+	span.SetAttr(AttrKeyUrl, url)
+	span.SetAttr(AttrKeyMethod, opts.GetMethod())
+	span.SetAttr(AttrKeyHeader, logjsonbase.GetHttpHeader(nil, opts.Header))
 	if cliResp != nil && cliResp.Response != nil {
 		httpResp := cliResp.Response
-		span.SetAttr("http.status_code", httpResp.StatusCode)
-		span.SetAttr("http.resp_header", logjsonbase.GetHttpHeader(nil, httpResp.Header))
+		span.SetAttr(AttrKeyStatusCode, httpResp.StatusCode)
+		span.SetAttr(AttrKeyRespHeader, logjsonbase.GetHttpHeader(nil, httpResp.Header))
 	}
 	obsCtx.AccessLogReport(ctx, err, obs.PreferJSON(req), obs.PreferJSON(resp), nil)
 }

@@ -3,6 +3,7 @@ package evogin
 import (
 	"net/http"
 
+	"github.com/ethanvc/evo/httpcli"
 	"github.com/ethanvc/evo/obs"
 	"github.com/gin-gonic/gin"
 	"google.golang.org/grpc/codes"
@@ -62,15 +63,15 @@ func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer,
 	} else {
 		respBody = []byte("<ignored>")
 	}
-	var extra []any
-	span.SetAttr("http.status_code", c.Writer.Status())
-	span.SetAttr("http.method", c.Request.Method)
-	span.SetAttr("http.url", c.Request.URL.String())
-	span.SetAttr("http.header", c.Request.Header)
+	span.SetAttr(httpcli.AttrKeyMethod, c.Request.Method)
+	span.SetAttr(httpcli.AttrKeyUrl, c.Request.URL.String())
+	span.SetAttr(httpcli.AttrKeyHeader, c.Request.Header)
+	span.SetAttr(httpcli.AttrKeyStatusCode, c.Writer.Status())
+	span.SetAttr(httpcli.AttrKeyRespHeader, c.Writer.Header())
 	if err == nil {
 		err = p.getErrWrapper(c, respBody)
 	}
-	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, respBody, nil, extra...)
+	obs.GetObsContext(c.Request.Context()).AccessLogReport(c.Request.Context(), err, req, respBody, nil)
 }
 
 func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
