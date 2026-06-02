@@ -79,7 +79,7 @@ func (p *Plugin) getSpanConfigWrapper(c *gin.Context) *obs.SpanConfig {
 		return p.getSpanConfig(c)
 	}
 	conf := &obs.SpanConfig{
-		Method: c.FullPath(),
+		Method: c.Request.Method + " " + c.FullPath(),
 	}
 	return conf
 }

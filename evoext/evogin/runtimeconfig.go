@@ -26,6 +26,9 @@ func SetPatternConfig(configPattern string, config *PatternConfig) {
 	m := getPatternConfigMap()
 	m = maps.Clone(m)
 	if config != nil {
+		if m == nil {
+			m = make(map[string]*PatternConfig)
+		}
 		m[configPattern] = config
 	} else {
 		delete(m, configPattern)
@@ -47,4 +50,10 @@ func (conf *PatternConfig) GetIgnoreResponseLog() bool {
 		return false
 	}
 	return conf.IgnoreResponseLog
+}
+
+func init() {
+	SetPatternConfig("GET /metrics", &PatternConfig{
+		IgnoreResponseLog: true,
+	})
 }
