@@ -56,12 +56,12 @@ func (p *Plugin) Handle(c *gin.Context) {
 }
 
 func (p *Plugin) endHandle(span *obs.Span, c *gin.Context, r *Reader, w *Writer, err error) {
-	req := r.Bytes()
-	var respBody []byte
+	req := obs.PreferJSON(r.Bytes())
+	var respBody any
 	if w != nil {
-		respBody = w.Bytes()
+		respBody = obs.PreferJSON(w.Bytes())
 	} else {
-		respBody = []byte("<ignored>")
+		respBody = "<ignored>"
 	}
 	span.SetAttr(httpcli.AttrKeyHttpMethod, c.Request.Method)
 	span.SetAttr(httpcli.AttrKeyHttpUrl, c.Request.URL.String())
