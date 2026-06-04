@@ -15,23 +15,27 @@ type Reporter struct {
 }
 
 func newReporter() *Reporter {
-	reporter := &Reporter{}
-	reporter.init()
-	return reporter
+	return NewReporter(prometheus.DefaultRegisterer)
 }
 
-func (r *Reporter) init() {
-	r.eventLabelNames = []string{"method", "lvl", "event"}
-	r.eventSecondsLabelNames = []string{"method"}
-	r.eventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+// NewReporter creates a Reporter and registers its metrics with reg.
+func NewReporter(reg prometheus.Registerer) *Reporter {
+	if reg == nil {
+		reg = prometheus.DefaultRegisterer
+	}
+	reporter := &Reporter{}
+	reporter.eventLabelNames = []string{"method", "lvl", "event"}
+	reporter.eventSecondsLabelNames = []string{"method"}
+	reporter.eventTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "evo_event_total",
 		Help: "Total number of events",
-	}, r.eventLabelNames)
-	r.eventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+	}, reporter.eventLabelNames)
+	reporter.eventDurationSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name: "evo_event_duration_seconds",
 		Help: "Duration of events",
-	}, r.eventSecondsLabelNames)
-	prometheus.MustRegister(r.eventTotal, r.eventDurationSeconds)
+	}, reporter.eventSecondsLabelNames)
+	reg.MustRegister(reporter.eventTotal, reporter.eventDurationSeconds)
+	return reporter
 }
 
 func (r *Reporter) Report(ctx context.Context, lvl Level, event string, labels ...KV) {
