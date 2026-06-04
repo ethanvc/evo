@@ -3,8 +3,6 @@ package obs
 import (
 	"context"
 	"testing"
-
-	"google.golang.org/grpc/codes"
 )
 
 func GetUserAccount(ctx context.Context, userId int64) (*UserAccount, error) {
@@ -41,14 +39,14 @@ func Test_Case(t *testing.T) {
 		type CreateOrderResp struct{}
 		f := func(ctx context.Context, req *CreateOrderReq) (*CreateOrderResp, error) {
 			if req.Amount <= 0 {
-				return nil, New(codes.InvalidArgument, "AmountNotValid").SetMsg("amount must be greater than 0")
+				return nil, New(InvalidArgument, "AmountNotValid").SetMsg("amount must be greater than 0")
 			}
 			// set something to print in access log and as report label.
 			GetRootSpan(ctx).SetAttr("business_id", req.BusinessId)
 			// access downstream and can not downgrade
 			account, err := GetUserAccount(ctx, req.UserId)
 			if err != nil {
-				return nil, New(codes.Unknown, "CallGetUserAccountErr").SetMsg(err.Error()).
+				return nil, New(Unknown, "CallGetUserAccountErr").SetMsg(err.Error()).
 					LogReport(ctx, "req", req)
 			}
 			_ = account
@@ -81,7 +79,7 @@ func Test_Case(t *testing.T) {
 				return LevelErr, "UnknownErr"
 			}
 			switch obsErr.GetCode() {
-			case codes.OK, codes.NotFound, codes.AlreadyExists:
+			case OK, NotFound, AlreadyExists:
 				return LevelDbg, obsErr.GetReportEvent()
 			default:
 				return LevelErr, obsErr.GetReportEvent()
@@ -94,7 +92,7 @@ func Test_Case(t *testing.T) {
 			},
 		})
 		// do redis operation ...
-		err := New(codes.NotFound, "KeyNotFound")
+		err := New(NotFound, "KeyNotFound")
 		GetObsContext(ctx).AccessLogReport(ctx, err, nil, nil, nil)
 	}
 }

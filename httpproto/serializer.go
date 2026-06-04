@@ -6,7 +6,6 @@ import (
 
 	"github.com/ethanvc/evo/httpcli"
 	"github.com/ethanvc/evo/obs"
-	"google.golang.org/grpc/codes"
 )
 
 type Serializer struct {
@@ -21,7 +20,7 @@ func (s *Serializer) Unmarshal(ctx context.Context, cliResp *httpcli.CliResp, re
 		return err
 	}
 	if dto.GetCode() != 0 {
-		return obs.New(codes.Code(dto.GetCode()), dto.GetMsg())
+		return obs.New(obs.Code(dto.GetCode()), dto.GetMsg())
 	}
 	return nil
 }

@@ -5,8 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
-	"google.golang.org/grpc/codes"
 )
 
 type Payload struct {
@@ -16,13 +14,13 @@ type Payload struct {
 
 type Error struct {
 	// DO NOT ACCESS DIRECTLY. here use public field only for marshal/unmarshal
-	Code    codes.Code `json:"code"`
-	Event   []string   `json:"event,omitempty"`
-	Msg     string     `json:"msg,omitempty"`
-	Details []Payload  `json:"details,omitempty"`
+	Code    Code      `json:"code"`
+	Event   []string  `json:"event,omitempty"`
+	Msg     string    `json:"msg,omitempty"`
+	Details []Payload `json:"details,omitempty"`
 }
 
-func New(code codes.Code, event string) *Error {
+func New(code Code, event string) *Error {
 	err := &Error{
 		Code: code,
 	}
@@ -32,9 +30,9 @@ func New(code codes.Code, event string) *Error {
 	return err
 }
 
-func (e *Error) GetCode() codes.Code {
+func (e *Error) GetCode() Code {
 	if e == nil {
-		return codes.OK
+		return OK
 	}
 	return e.Code
 }
@@ -87,8 +85,8 @@ func (e *Error) AppendKvEvent(k string, v any) *Error {
 const delimiter = ';'
 
 func (e *Error) GetReportEvent() string {
-	if e.GetCode() == codes.OK {
-		return codes.OK.String()
+	if e.GetCode() == OK {
+		return OK.String()
 	}
 	buf := bytes.NewBuffer(nil)
 	buf.WriteString(e.Code.String())
@@ -100,8 +98,8 @@ func (e *Error) GetReportEvent() string {
 }
 
 func (e *Error) Error() string {
-	if e.GetCode() == codes.OK {
-		return codes.OK.String()
+	if e.GetCode() == OK {
+		return OK.String()
 	}
 	return e.GetReportEvent() + ";" + e.Msg
 }
@@ -117,15 +115,15 @@ func (e *Error) clone() *Error {
 	return newErr
 }
 
-func Code(err error) codes.Code {
+func GetCode(err error) Code {
 	if err == nil {
-		return codes.OK
+		return OK
 	}
 	var realErr *Error
 	if errors.As(err, &realErr) {
 		return realErr.GetCode()
 	}
-	return codes.Unknown
+	return Unknown
 }
 
 func BlockBusinessErr(err error) error {
@@ -137,26 +135,26 @@ func BlockBusinessErr(err error) error {
 		return nil
 	}
 	switch realErr.GetCode() {
-	case codes.Unknown, codes.Internal, codes.DeadlineExceeded, codes.Aborted,
-		codes.Unimplemented, codes.Unavailable, codes.DataLoss:
+	case Unknown, Internal, DeadlineExceeded, Aborted,
+		Unimplemented, Unavailable, DataLoss:
 		return err
 	default:
 		newErr := realErr.clone()
 		newErr.AppendKvEvent("BlockedCode", realErr.GetCode().String())
-		newErr.Code = codes.Internal
+		newErr.Code = Internal
 		return newErr
 	}
 }
 
 func Convert(err error) *Error {
 	if err == nil {
-		return New(codes.OK, "")
+		return New(OK, "")
 	}
 	realErr, ok := err.(*Error)
 	if ok {
 		return realErr
 	}
-	return New(codes.Unknown, "UnknownErr").SetMsg(err.Error())
+	return New(Unknown, "UnknownErr").SetMsg(err.Error())
 }
 
 func MakeKvEventStr(kvs ...any) string {

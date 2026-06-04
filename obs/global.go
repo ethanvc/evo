@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"os"
 	"time"
-
-	"google.golang.org/grpc/codes"
 )
 
 var generateTraceIdFunc = GenerateTraceId
@@ -88,17 +86,17 @@ func newDefaultSpan() *Span {
 
 func GetLogLevelAndEvent(err error) (Level, string) {
 	if err == nil {
-		return LevelInfo, codes.OK.String()
+		return LevelInfo, OK.String()
 	}
 	switch realErr := err.(type) {
 	case *Error:
 		switch realErr.GetCode() {
-		case codes.OK, codes.NotFound, codes.AlreadyExists, codes.InvalidArgument, codes.Unauthenticated, codes.FailedPrecondition:
+		case OK, NotFound, AlreadyExists, InvalidArgument, Unauthenticated, FailedPrecondition:
 			return LevelInfo, realErr.GetCode().String()
 		default:
 			return LevelErr, realErr.GetCode().String()
 		}
 	default:
-		return LevelErr, codes.Internal.String()
+		return LevelErr, Internal.String()
 	}
 }

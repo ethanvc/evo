@@ -6,7 +6,6 @@ import (
 	"github.com/ethanvc/evo/httpcli"
 	"github.com/ethanvc/evo/obs"
 	"github.com/gin-gonic/gin"
-	"google.golang.org/grpc/codes"
 )
 
 type Plugin struct {
@@ -48,7 +47,7 @@ func (p *Plugin) Handle(c *gin.Context) {
 	defer func() {
 		var err *obs.Error
 		if r := recover(); r != nil {
-			err = obs.New(codes.Internal, "").AppendKvEvent("Panic", obs.GetPanicPosition(0))
+			err = obs.New(obs.Internal, "").AppendKvEvent("Panic", obs.GetPanicPosition(0))
 		}
 		p.endHandle(span, c, r, w, err)
 	}()
@@ -90,14 +89,14 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 	}
 	status := c.Writer.Status()
 	if status == 0 {
-		return obs.New(codes.Internal, "StatusMustNotZero")
+		return obs.New(obs.Internal, "StatusMustNotZero")
 	} else if status >= http.StatusOK && status < http.StatusBadRequest {
 		obs.ReportInfo(c.Request.Context(), obs.MakeKvEventStr("StatusCode", status))
 		return nil
 	} else if status >= http.StatusBadRequest && status < http.StatusInternalServerError {
-		return obs.New(codes.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
+		return obs.New(obs.FailedPrecondition, "").AppendKvEvent("StatusCode", status)
 	}
-	return obs.New(codes.Internal, "").AppendKvEvent("StatusCode", status)
+	return obs.New(obs.Internal, "").AppendKvEvent("StatusCode", status)
 }
 
 type PluginConfig struct {
