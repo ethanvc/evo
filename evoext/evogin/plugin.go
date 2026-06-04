@@ -87,6 +87,18 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 	if p.getErr != nil {
 		return p.getErr(c, w)
 	}
+	return GetErrorObject(c, w)
+}
+
+type PluginConfig struct {
+	GetName       GetNameFuncT
+	GetErr        func(c *gin.Context, w *Writer) (err *obs.Error)
+	GetSpanConfig func(c *gin.Context) *obs.SpanConfig
+}
+
+type GetNameFuncT func(c *gin.Context) string
+
+func GetErrorObject(c *gin.Context, w *Writer) (err *obs.Error) {
 	status := c.Writer.Status()
 	if status == 0 {
 		return obs.New(obs.Internal, "StatusMustNotZero")
@@ -98,11 +110,3 @@ func (p *Plugin) getErrWrapper(c *gin.Context, w *Writer) *obs.Error {
 	}
 	return obs.New(obs.Internal, "").AppendKvEvent("StatusCode", status)
 }
-
-type PluginConfig struct {
-	GetName       GetNameFuncT
-	GetErr        func(c *gin.Context, w *Writer) (err *obs.Error)
-	GetSpanConfig func(c *gin.Context) *obs.SpanConfig
-}
-
-type GetNameFuncT func(c *gin.Context) string
