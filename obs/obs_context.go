@@ -2,10 +2,14 @@ package obs
 
 import (
 	"context"
+	"errors"
 	"time"
 )
 
 type GetLogLvlAndEventFuncT func(err error) (Level, string)
+
+type GetLogErrorObjectT func(err error) *Error
+type GetLogErrorLevelT func(err error) Level
 
 type ObsContext struct {
 	parent                  *ObsContext
@@ -14,14 +18,18 @@ type ObsContext struct {
 	reporter                *Reporter
 	lvl                     Level
 	getLogLevelAndEventFunc GetLogLvlAndEventFuncT
+	GetLogErrorObjectFunc   GetLogErrorObjectT
+	GetLogErrorLevelFunc    GetLogErrorLevelT
 }
 
 type ctxKeyObsContext struct{}
 
 type ObsConfig struct {
-	Handler             Handler
-	GetLogLevelAndEvent GetLogLvlAndEventFuncT
-	Level               Level
+	Handler               Handler
+	GetLogLevelAndEvent   GetLogLvlAndEventFuncT
+	GetLogErrorObjectFunc GetLogErrorObjectT
+	GetLogErrorLevel      GetLogErrorLevelT
+	Level                 Level
 }
 
 func WithObsContext(ctx context.Context, config *ObsConfig) (context.Context, *ObsContext) {
@@ -76,10 +84,14 @@ func (oc *ObsContext) getSpan() *Span {
 }
 
 func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp any, labels []KV, args ...any) {
-	lvl, event := oc.getLoggerLevelAndEventWrapper(err)
+	typErr := oc.getLogErrorObject(err)
+	if typErr != nil {
+		err = typErr
+	}
+	lvl := oc.getLogErrorLevel(typErr)
 	span := oc.GetSpan()
 	tc := time.Since(span.GetStartTime())
-	oc.reportAccessLog(ctx, tc, lvl, event, labels...)
+	oc.reportAccessLog(ctx, tc, lvl, typErr.GetReportEvent(), labels...)
 	var args2 []any
 	args2 = append(args2, "method", span.GetMethod())
 	args2 = append(args2, "tc", tc)
@@ -87,17 +99,6 @@ func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp 
 	args2 = append(args2, args...)
 	args2 = append(args2, "attris", span.GetAttrs())
 	oc.Log(ctx, 1, lvl, "REQ_END", args2...)
-}
-
-func (oc *ObsContext) getLoggerLevelAndEventWrapper(err error) (Level, string) {
-	occ := oc
-	for occ != nil {
-		if occ.getLogLevelAndEventFunc != nil {
-			return occ.getLogLevelAndEventFunc(err)
-		}
-		occ = occ.parent
-	}
-	return GetDefaultGetLogLevelAndEvent()(err)
 }
 
 func (oc *ObsContext) SetAttr(key string, val any) {}
@@ -158,4 +159,44 @@ func (oc *ObsContext) getReporter() *Reporter {
 		oc = oc.parent
 	}
 	return defaultReporter
+}
+
+func (oc *ObsContext) getLogErrorObject(err error) *Error {
+	for oc != nil {
+		if oc.GetLogErrorObjectFunc != nil {
+			return oc.GetLogErrorObjectFunc(err)
+		}
+		oc = oc.parent
+	}
+	return GetLogErrorObject(err)
+}
+
+func (oc *ObsContext) getLogErrorLevel(err *Error) Level {
+	for oc != nil {
+		if oc.GetLogErrorLevelFunc != nil {
+			return oc.GetLogErrorLevelFunc(err)
+		}
+		oc = oc.parent
+	}
+	return GetLogErrorLevel(err)
+}
+
+func GetLogErrorObject(err error) *Error {
+	if err == nil {
+		return nil
+	}
+	if realErr, ok := errors.AsType[*Error](err); ok {
+		return realErr
+	}
+	typErr := New(Unknown, err.Error())
+	return typErr
+}
+
+func GetLogErrorLevel(err *Error) Level {
+	switch err.GetCode() {
+	case OK, NotFound, AlreadyExists, InvalidArgument, Unauthenticated, FailedPrecondition:
+		return LevelInfo
+	default:
+		return LevelErr
+	}
 }

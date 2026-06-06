@@ -32,3 +32,12 @@ func TestObsContext_AccessLogReport_plainError(t *testing.T) {
 	logLine := logBuf.String()
 	require.Contains(t, logLine, `{"method":"TestAPI","tc":"1.75µs","err":"xxx","req":"req-body","resp":"resp-body","attris":{}}`)
 }
+
+func Test1(t *testing.T) {
+	var myErr *Error
+	var err error
+	err = myErr
+	myErr2, ok := errors.AsType[*Error](err)
+	require.True(t, ok)
+	require.Equal(t, myErr, myErr2)
+}
