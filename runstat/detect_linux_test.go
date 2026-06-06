@@ -17,6 +17,68 @@ func writeFile(t *testing.T, path, content string) {
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o644))
 }
 
+func TestCgroupV2CPUReader_GetCPU(t *testing.T) {
+	root := t.TempDir()
+	podDir := filepath.Join(root, "kubepods", "pod-123")
+	writeFile(t, filepath.Join(podDir, "cpu.max"), "100000 100000\n")
+	writeFile(t, filepath.Join(podDir, "cpu.stat"), "usage_usec 2500000\n")
+
+	r := &cgroupV2CPUReader{root: root, relPath: "/kubepods/pod-123"}
+	info, err := r.GetCPU()
+	require.NoError(t, err)
+	assert.Equal(t, 1.0, info.LimitCores)
+	assert.InDelta(t, 2.5, info.UsageSeconds, 1e-9)
+	assert.Equal(t, SourceCgroupV2, info.Source)
+}
+
+func TestCgroupV1CPUReader_GetCPU(t *testing.T) {
+	root := t.TempDir()
+	cpuDir := filepath.Join(root, "cpu", "docker", "abc")
+	cpuAcctDir := filepath.Join(root, "cpuacct", "docker", "abc")
+	writeFile(t, filepath.Join(cpuDir, "cpu.cfs_quota_us"), "50000\n")
+	writeFile(t, filepath.Join(cpuDir, "cpu.cfs_period_us"), "100000\n")
+	writeFile(t, filepath.Join(cpuAcctDir, "cpuacct.usage"), "1500000000\n")
+
+	r := &cgroupV1CPUReader{root: root, cpuPath: "/docker/abc", cpuAcctPath: "/docker/abc"}
+	info, err := r.GetCPU()
+	require.NoError(t, err)
+	assert.InDelta(t, 0.5, info.LimitCores, 1e-9)
+	assert.InDelta(t, 1.5, info.UsageSeconds, 1e-9)
+	assert.Equal(t, SourceCgroupV1, info.Source)
+}
+
+func TestDetectCPUReader_v2(t *testing.T) {
+	root := t.TempDir()
+	podDir := filepath.Join(root, "kubepods", "pod-123")
+	writeFile(t, filepath.Join(podDir, "cpu.max"), "100000 100000\n")
+	writeFile(t, filepath.Join(podDir, "cpu.stat"), "usage_usec 1\n")
+
+	oldRead := readProcCgroup
+	readProcCgroup = func() (string, error) {
+		return "0::/kubepods/pod-123\n", nil
+	}
+	t.Cleanup(func() { readProcCgroup = oldRead })
+
+	r := detectCPUReaderForLinux(root)
+	_, ok := r.(*cgroupV2CPUReader)
+	assert.True(t, ok, "expected cgroupV2CPUReader")
+}
+
+func TestDetectCPUReader_host(t *testing.T) {
+	root := t.TempDir()
+	writeFile(t, filepath.Join(root, "cpu.max"), "max\n")
+
+	oldRead := readProcCgroup
+	readProcCgroup = func() (string, error) {
+		return "0::/\n", nil
+	}
+	t.Cleanup(func() { readProcCgroup = oldRead })
+
+	r := detectCPUReaderForLinux(root)
+	_, ok := r.(*hostCPUReader)
+	assert.True(t, ok, "expected hostCPUReader")
+}
+
 func TestCgroupV2Reader_GetMemory(t *testing.T) {
 	root := t.TempDir()
 	podDir := filepath.Join(root, "kubepods", "pod-123")
@@ -101,11 +163,14 @@ func TestDetectMemoryReader_host(t *testing.T) {
 
 func TestParseProcCgroup(t *testing.T) {
 	data := `12:memory:/docker/abc
+11:cpu,cpuacct:/docker/abc
 0::/kubepods/pod-123
-11:cpuset:/`
+10:cpuset:/`
 	paths := parseProcCgroup(data)
 	assert.Equal(t, "/kubepods/pod-123", paths.v2Path)
 	assert.Equal(t, "/docker/abc", paths.v1Memory)
+	assert.Equal(t, "/docker/abc", paths.v1CPU)
+	assert.Equal(t, "/docker/abc", paths.v1CPUAcct)
 }
 
 func TestIsValidV1Limit(t *testing.T) {

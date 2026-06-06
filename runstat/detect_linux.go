@@ -36,3 +36,22 @@ func detectMemoryReaderForLinux(root string) MemoryReader {
 	}
 	return newHostReader()
 }
+
+func detectCPUReader() CPUReader {
+	return detectCPUReaderForLinux(cgroupRoot)
+}
+
+func detectCPUReaderForLinux(root string) CPUReader {
+	data, err := readProcCgroup()
+	if err != nil {
+		return newHostCPUReader()
+	}
+	paths := parseProcCgroup(data)
+	if r := tryCgroupV2CPUReader(root, paths.v2Path); r != nil {
+		return r
+	}
+	if r := tryCgroupV1CPUReader(root, paths.v1CPU, paths.v1CPUAcct); r != nil {
+		return r
+	}
+	return newHostCPUReader()
+}

@@ -9,16 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestEnableRunStat_memoryGauges(t *testing.T) {
+func TestEnableRunStat_runtimeMetrics(t *testing.T) {
 	reg := prometheus.NewRegistry()
 	EnableRunStat(reg)
 
-	got := gaugeValues(mustGather(t, reg), "evo_gauge_info")
+	mfs := mustGather(t, reg)
+	got := gaugeValues(mfs, "evo_gauge_info")
 	require.Contains(t, got, "memory_limit")
 	require.Contains(t, got, "memory_current")
+	require.Contains(t, got, "cpu_limit_cores")
 	assert.Greater(t, got["memory_limit"], float64(0))
 	assert.Greater(t, got["memory_current"], float64(0))
+	assert.Greater(t, got["cpu_limit_cores"], float64(0))
 	assert.LessOrEqual(t, got["memory_current"], got["memory_limit"])
+
+	counter := counterValue(mfs, "evo_cpu_usage_seconds_total")
+	require.NotNil(t, counter)
+	assert.GreaterOrEqual(t, *counter, float64(0))
 }
 
 func gaugeValues(mfs []*dto.MetricFamily, name string) map[string]float64 {
@@ -32,6 +39,19 @@ func gaugeValues(mfs []*dto.MetricFamily, name string) map[string]float64 {
 		}
 	}
 	return out
+}
+
+func counterValue(mfs []*dto.MetricFamily, name string) *float64 {
+	for _, mf := range mfs {
+		if mf.GetName() != name {
+			continue
+		}
+		for _, m := range mf.GetMetric() {
+			v := m.GetCounter().GetValue()
+			return &v
+		}
+	}
+	return nil
 }
 
 func mustGather(t *testing.T, reg *prometheus.Registry) []*dto.MetricFamily {

@@ -3,6 +3,7 @@
 package runstat
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -12,8 +13,10 @@ import (
 const v1Unlimited = uint64(1 << 62)
 
 type cgroupPaths struct {
-	v2Path   string
-	v1Memory string
+	v2Path     string
+	v1Memory   string
+	v1CPU      string
+	v1CPUAcct  string
 }
 
 func parseProcCgroup(data string) cgroupPaths {
@@ -32,9 +35,13 @@ func parseProcCgroup(data string) cgroupPaths {
 			paths.v2Path = path
 		}
 		for c := range strings.SplitSeq(controllers, ",") {
-			if c == "memory" {
+			switch c {
+			case "memory":
 				paths.v1Memory = path
-				break
+			case "cpu":
+				paths.v1CPU = path
+			case "cpuacct":
+				paths.v1CPUAcct = path
 			}
 		}
 	}
@@ -50,11 +57,23 @@ func cgroupDir(root, relPath string) string {
 }
 
 func cgroupV1Dir(root, relPath string) string {
+	return cgroupV1ControllerDir(root, "memory", relPath)
+}
+
+func cgroupV1ControllerDir(root, controller, relPath string) string {
 	relPath = strings.TrimPrefix(relPath, "/")
 	if relPath == "" {
-		return filepath.Join(root, "memory")
+		return filepath.Join(root, controller)
 	}
-	return filepath.Join(root, "memory", relPath)
+	return filepath.Join(root, controller, relPath)
+}
+
+func readInt64File(path string) (int64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+	return strconv.ParseInt(strings.TrimSpace(string(data)), 10, 64)
 }
 
 func readUint64File(path string) (uint64, error) {
@@ -82,6 +101,8 @@ func readStringFile(path string) (string, error) {
 }
 
 var errUnlimited = strconv.ErrSyntax
+
+var errCPUStatNotFound = errors.New("cpu.stat usage_usec not found")
 
 func isValidV1Limit(limit uint64) bool {
 	return limit > 0 && limit < v1Unlimited

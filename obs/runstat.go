@@ -1,57 +1,50 @@
 package obs
 
-import (
-	"github.com/ethanvc/evo/runstat"
-	"github.com/prometheus/client_golang/prometheus"
-)
+import "github.com/prometheus/client_golang/prometheus"
 
-type gaugeSampler func() map[string]float64
+type statSampler func() (gauges map[string]float64, counters map[string]float64)
 
-type evoGaugeCollector struct {
-	desc     *prometheus.Desc
-	samplers []gaugeSampler
+type evoRunStatCollector struct {
+	gaugeDesc   *prometheus.Desc
+	counterDesc *prometheus.Desc
+	samplers    []statSampler
 }
 
-func newEvoGaugeCollector() *evoGaugeCollector {
-	c := &evoGaugeCollector{
-		desc: prometheus.NewDesc(
+func newEvoRunStatCollector() *evoRunStatCollector {
+	c := &evoRunStatCollector{
+		gaugeDesc: prometheus.NewDesc(
 			"evo_gauge_info",
 			"unified gauge for obs",
 			[]string{"key"},
 			nil,
 		),
+		counterDesc: cpuUsageCounterDesc,
 	}
-	c.samplers = append(c.samplers, memoryGaugeSampler)
+	c.samplers = append(c.samplers, memoryStatSampler, cpuStatSampler)
 	return c
 }
 
-func memoryGaugeSampler() map[string]float64 {
-	info, err := runstat.GetMemory()
-	if err != nil {
-		return nil
-	}
-	return map[string]float64{
-		"memory_limit":   float64(info.MaxBytes),
-		"memory_current": float64(info.UsedBytes),
-	}
+func (c *evoRunStatCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.gaugeDesc
+	ch <- c.counterDesc
 }
 
-func (c *evoGaugeCollector) Describe(ch chan<- *prometheus.Desc) {
-	ch <- c.desc
-}
-
-func (c *evoGaugeCollector) Collect(ch chan<- prometheus.Metric) {
+func (c *evoRunStatCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, sampler := range c.samplers {
-		for key, val := range sampler() {
-			ch <- prometheus.MustNewConstMetric(c.desc, prometheus.GaugeValue, val, key)
+		gauges, counters := sampler()
+		for key, val := range gauges {
+			ch <- prometheus.MustNewConstMetric(c.gaugeDesc, prometheus.GaugeValue, val, key)
+		}
+		if val, ok := counters[cpuUsageCounterKey]; ok {
+			ch <- prometheus.MustNewConstMetric(c.counterDesc, prometheus.CounterValue, val)
 		}
 	}
 }
 
-// EnableRunStat registers runtime gauges collected on each prometheus scrape.
+// EnableRunStat registers runtime gauges and counters collected on each prometheus scrape.
 func EnableRunStat(reg prometheus.Registerer) {
 	if reg == nil {
 		reg = prometheus.DefaultRegisterer
 	}
-	reg.MustRegister(newEvoGaugeCollector())
+	reg.MustRegister(newEvoRunStatCollector())
 }
