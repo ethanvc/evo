@@ -27,12 +27,3 @@ func TestHostReader_GetMemory(t *testing.T) {
 	assert.LessOrEqual(t, info.UsedBytes, info.MaxBytes)
 	assert.Greater(t, info.MaxBytes, uint64(0))
 }
-
-func TestParseProcCgroup(t *testing.T) {
-	data := `12:memory:/docker/abc
-0::/kubepods/pod-123
-11:cpuset:/`
-	paths := parseProcCgroup(data)
-	assert.Equal(t, "/kubepods/pod-123", paths.v2Path)
-	assert.Equal(t, "/docker/abc", paths.v1Memory)
-}

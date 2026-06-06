@@ -1,3 +1,5 @@
+//go:build linux
+
 package runstat
 
 import "path/filepath"

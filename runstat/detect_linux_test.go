@@ -99,6 +99,15 @@ func TestDetectMemoryReader_host(t *testing.T) {
 	assert.True(t, ok, "expected hostReader")
 }
 
+func TestParseProcCgroup(t *testing.T) {
+	data := `12:memory:/docker/abc
+0::/kubepods/pod-123
+11:cpuset:/`
+	paths := parseProcCgroup(data)
+	assert.Equal(t, "/kubepods/pod-123", paths.v2Path)
+	assert.Equal(t, "/docker/abc", paths.v1Memory)
+}
+
 func TestIsValidV1Limit(t *testing.T) {
 	assert.False(t, isValidV1Limit(0))
 	assert.True(t, isValidV1Limit(1024))
