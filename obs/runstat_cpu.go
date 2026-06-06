@@ -20,7 +20,7 @@ func cpuStatSampler() (map[string]float64, map[string]float64) {
 		return nil, nil
 	}
 	return map[string]float64{
-		"cpu_limit_cores": info.LimitCores,
+		"cpu_core": info.LimitCores,
 	}, map[string]float64{
 		cpuUsageCounterKey: info.UsageSeconds,
 	}

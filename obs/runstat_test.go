@@ -17,10 +17,10 @@ func TestEnableRunStat_runtimeMetrics(t *testing.T) {
 	got := gaugeValues(mfs, "evo_gauge_info")
 	require.Contains(t, got, "memory_limit")
 	require.Contains(t, got, "memory_current")
-	require.Contains(t, got, "cpu_limit_cores")
+	require.Contains(t, got, "cpu_core")
 	assert.Greater(t, got["memory_limit"], float64(0))
 	assert.Greater(t, got["memory_current"], float64(0))
-	assert.Greater(t, got["cpu_limit_cores"], float64(0))
+	assert.Greater(t, got["cpu_core"], float64(0))
 	assert.LessOrEqual(t, got["memory_current"], got["memory_limit"])
 
 	counter := counterValue(mfs, "evo_cpu_usage_seconds_total")
