@@ -188,6 +188,12 @@ func GetLogErrorObject(err error) *Error {
 	if realErr, ok := errors.AsType[*Error](err); ok {
 		return realErr
 	}
+	if errors.Is(err, context.Canceled) {
+		return New(Canceled, "ContextCanceled")
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return New(DeadlineExceeded, "ContextDeadlineExceeded")
+	}
 	typErr := New(Unknown, err.Error())
 	return typErr
 }
