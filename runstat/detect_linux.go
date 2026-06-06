@@ -2,6 +2,20 @@
 
 package runstat
 
+import "os"
+
+const procSelfCgroup = "/proc/self/cgroup"
+
+var readProcCgroup = defaultReadProcCgroup
+
+func defaultReadProcCgroup() (string, error) {
+	data, err := os.ReadFile(procSelfCgroup)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
+
 func detectMemoryReader(root string) MemoryReader {
 	data, err := readProcCgroup()
 	if err != nil {

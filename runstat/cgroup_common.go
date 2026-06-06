@@ -7,23 +7,9 @@ import (
 	"strings"
 )
 
-const (
-	procSelfCgroup = "/proc/self/cgroup"
-	v1Unlimited  = uint64(1 << 62)
-)
+const v1Unlimited = uint64(1 << 62)
 
-var (
-	cgroupRoot     = "/sys/fs/cgroup"
-	readProcCgroup = defaultReadProcCgroup
-)
-
-func defaultReadProcCgroup() (string, error) {
-	data, err := os.ReadFile(procSelfCgroup)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
+var cgroupRoot = "/sys/fs/cgroup"
 
 type cgroupPaths struct {
 	v2Path   string
