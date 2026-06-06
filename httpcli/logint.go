@@ -31,7 +31,7 @@ func (i *LogInterceptor) initSpan(ctx context.Context, urlStr string, opts *Opti
 		return ctx, false
 	}
 	ctx, _ = obs.WithSpan(ctx, &obs.SpanConfig{
-		Method: parsedUrl.Host + parsedUrl.Path,
+		Method: opts.GetMethod() + " " + parsedUrl.Host + parsedUrl.Path,
 	})
 	return ctx, true
 }
