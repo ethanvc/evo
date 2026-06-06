@@ -9,8 +9,6 @@ import (
 
 const v1Unlimited = uint64(1 << 62)
 
-var cgroupRoot = "/sys/fs/cgroup"
-
 type cgroupPaths struct {
 	v2Path   string
 	v1Memory string

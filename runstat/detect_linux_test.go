@@ -57,7 +57,7 @@ func TestDetectMemoryReader_v2(t *testing.T) {
 	}
 	t.Cleanup(func() { readProcCgroup = oldRead })
 
-	r := detectMemoryReader(root)
+	r := detectMemoryReaderForLinux(root)
 	_, ok := r.(*cgroupV2Reader)
 	assert.True(t, ok, "expected cgroupV2Reader")
 }
@@ -77,7 +77,7 @@ func TestDetectMemoryReader_v1(t *testing.T) {
 	// v2 root has unlimited max
 	writeFile(t, filepath.Join(root, "memory.max"), "max\n")
 
-	r := detectMemoryReader(root)
+	r := detectMemoryReaderForLinux(root)
 	_, ok := r.(*cgroupV1Reader)
 	assert.True(t, ok, "expected cgroupV1Reader")
 }
@@ -94,7 +94,7 @@ func TestDetectMemoryReader_host(t *testing.T) {
 	}
 	t.Cleanup(func() { readProcCgroup = oldRead })
 
-	r := detectMemoryReader(root)
+	r := detectMemoryReaderForLinux(root)
 	_, ok := r.(*hostReader)
 	assert.True(t, ok, "expected hostReader")
 }

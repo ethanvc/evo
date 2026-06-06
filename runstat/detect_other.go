@@ -2,6 +2,6 @@
 
 package runstat
 
-func detectMemoryReader(root string) MemoryReader {
+func detectMemoryReader() MemoryReader {
 	return newHostReader()
 }

@@ -6,6 +6,8 @@ import "os"
 
 const procSelfCgroup = "/proc/self/cgroup"
 
+const cgroupRoot = "/sys/fs/cgroup"
+
 var readProcCgroup = defaultReadProcCgroup
 
 func defaultReadProcCgroup() (string, error) {
@@ -16,7 +18,11 @@ func defaultReadProcCgroup() (string, error) {
 	return string(data), nil
 }
 
-func detectMemoryReader(root string) MemoryReader {
+func detectMemoryReader() MemoryReader {
+	return detectMemoryReaderForLinux(cgroupRoot)
+}
+
+func detectMemoryReaderForLinux(root string) MemoryReader {
 	data, err := readProcCgroup()
 	if err != nil {
 		return newHostReader()

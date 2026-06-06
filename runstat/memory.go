@@ -41,5 +41,5 @@ func GetMemory() (MemoryInfo, error) {
 }
 
 func init() {
-	DefaultMemoryReader = detectMemoryReader(cgroupRoot)
+	DefaultMemoryReader = detectMemoryReader()
 }
