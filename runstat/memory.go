@@ -29,17 +29,16 @@ type MemoryReader interface {
 	GetMemory() (MemoryInfo, error)
 }
 
-// DefaultMemoryReader is chosen in init based on the runtime environment.
-var DefaultMemoryReader MemoryReader
-
-// GetMemory returns memory info from DefaultMemoryReader.
+// GetMemory returns memory info from the runtime environment.
 func GetMemory() (MemoryInfo, error) {
-	if DefaultMemoryReader == nil {
-		return MemoryInfo{}, fmt.Errorf("runstat: DefaultMemoryReader is nil")
+	if defaultMemoryReader == nil {
+		return MemoryInfo{}, fmt.Errorf("runstat: memory reader not initialized")
 	}
-	return DefaultMemoryReader.GetMemory()
+	return defaultMemoryReader.GetMemory()
 }
 
+var defaultMemoryReader MemoryReader
+
 func init() {
-	DefaultMemoryReader = detectMemoryReader()
+	defaultMemoryReader = detectMemoryReader()
 }

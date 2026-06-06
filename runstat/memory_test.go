@@ -13,7 +13,6 @@ func TestMemoryInfo_Ratio(t *testing.T) {
 }
 
 func TestGetMemory_usesDefault(t *testing.T) {
-	require.NotNil(t, DefaultMemoryReader)
 	info, err := GetMemory()
 	require.NoError(t, err)
 	assert.NotEmpty(t, info.Source)
