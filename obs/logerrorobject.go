@@ -31,11 +31,14 @@ func RegisterErrorObject[T error](fn func(err error) *Error) {
 	errTypeMap[typ] = fn
 }
 
+func init() {
+	RegisterErrorObject[**net.OpError](opError)
+}
+
 func opError(err error) *Error {
 	typErr, _ := errors.AsType[*net.OpError](err)
 	if typErr == nil {
 		return nil
 	}
-	return New((Internal, typErr.Err.Error())).SetMsg(err.Error())
-	
+	return New(Internal, typErr.Err.Error()).SetMsg(err.Error())
 }
