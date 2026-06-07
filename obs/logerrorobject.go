@@ -32,7 +32,7 @@ func RegisterErrorObject[T error](fn func(err error) *Error) {
 }
 
 func init() {
-	RegisterErrorObject[**net.OpError](opError)
+	RegisterErrorObject[*net.OpError](opError)
 }
 
 func opError(err error) *Error {
