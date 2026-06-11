@@ -24,3 +24,11 @@
 1. 错误均使用xobs.Error表示。
 2. 在领域边界处将error转换成xobs.Error。
 
+# Change Log
+
+## 不需要兼容gin
+1. 可以一个个迁移api，httpsvr支持by api维度的切换。
+
+## 不需要给http client编写transport
+- httpcli可以替换使用。
+
