@@ -11,6 +11,17 @@ func Info(ctx context.Context, event string, args ...any) {
 	obsCtx.Log(ctx, 1, LevelInfo, event, args...)
 }
 
+func ReportWarn(ctx context.Context, event string, labels ...KV) {}
+
+func Warn(ctx context.Context, event string, args ...any) {
+	obsCtx := GetObsContext(ctx)
+	obsCtx.Log(ctx, 1, LevelWarn, event, args...)
+}
+
+func WarnReport(ctx context.Context, event string, labels ...KV) {
+
+}
+
 func ErrReport(ctx context.Context, event string, args ...any) {
 }
 
