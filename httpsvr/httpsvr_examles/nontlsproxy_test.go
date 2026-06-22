@@ -3,6 +3,7 @@ package httpsvrexamles
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -47,7 +48,7 @@ func Test_NonTLSProxy(t *testing.T) {
 }
 
 // 非TLS代理 handler, 仅支持简单的 HTTP 代理，不支持 CONNECT
-func nonTLSProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Nil, error) {
+func nonTLSProxy(ctx context.Context, _ *httpsvr.Empty) (*io.ReadCloser, error) {
 	info := httpsvr.GetCallInfo(ctx)
 	if info.Request.Body == nil {
 		info.Request.Body = http.NoBody
@@ -73,28 +74,28 @@ func nonTLSProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Nil, error) {
 
 	upstreamCli := &httpcli.Client{
 		Timeout: 20 * time.Second,
+		DefaultClient: &http.Client{
+			Timeout: 20 * time.Second,
+			Transport: &http.Transport{
+				DisableCompression: true,
+			},
+		},
 	}
-	var body []byte
-	cliResp, err := upstreamCli.Do(ctx, fullURL, reqBody, &body, &httpcli.Options{
+	var respBody io.ReadCloser
+	cliResp, err := upstreamCli.Do(ctx, fullURL, reqBody, &respBody, &httpcli.Options{
 		Method: info.Request.Method,
 		Header: header,
 	})
 	if err != nil {
-		info.Writer.WriteHeader(http.StatusBadGateway)
+		info.StatusCode = http.StatusBadGateway
 		return nil, fmt.Errorf("fetch upstream: %w", err)
 	}
 
-	// 复制响应头
 	for k, v := range cliResp.Response.Header {
 		for _, vv := range v {
-			info.Writer.Header().Add(k, vv)
+			info.RespHeader.Add(k, vv)
 		}
 	}
-	info.Writer.WriteHeader(cliResp.Response.StatusCode)
-	_, err = info.Writer.Write(body)
-	if err != nil {
-		return nil, fmt.Errorf("copy resp body: %w", err)
-	}
-
-	return &httpsvr.Nil{}, nil
+	info.StatusCode = cliResp.Response.StatusCode
+	return &respBody, nil
 }
