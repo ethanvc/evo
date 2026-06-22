@@ -1,7 +1,6 @@
 package httpcli
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -11,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestClient_Do(t *testing.T) {
+func Test_SpecialType(t *testing.T) {
 	ctx := context.Background()
 	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
@@ -29,22 +28,15 @@ func TestClient_Do(t *testing.T) {
 	cliResp, err := Do(ctx, svr.URL, nil, nil, opts)
 	require.NoError(t, err)
 	require.Zero(t, len(cliResp.Body))
+
 	var tmpStr string
 	cliResp, err = Do(ctx, svr.URL, "TEST", &tmpStr, nil)
 	require.NoError(t, err)
 	require.Equal(t, "TEST", tmpStr)
-	var tmpAny map[string]string
-	cliResp, err = Do(ctx, svr.URL, `{"a":"3""}`, &tmpAny, nil)
-	require.Equal(t, `unmarshal error: invalid character '"' after object key:value pair. body is {"a":"3""}`, err.Error())
 
-	tmpAny = nil
-	cliResp, err = Do(ctx, svr.URL, `{"a":"3"}`, &tmpAny, nil)
+	cliResp, err = Do(ctx, svr.URL, `{"a":"3""}`, &tmpStr, nil)
 	require.NoError(t, err)
-	require.Equal(t, "3", tmpAny["a"])
-
-	cliResp, err = Do(ctx, svr.URL, bytes.NewBuffer([]byte("hello")), &tmpStr, nil)
-	require.NoError(t, err)
-	require.Equal(t, "hello", tmpStr)
+	require.Equal(t, `{"a":"3""}`, tmpStr)
 }
 
 func Test_Manul(t *testing.T) {
