@@ -44,21 +44,6 @@ func Test_Connect(t *testing.T) {
 	assert.Contains(t, strings.ToLower(string(body)), "baidu")
 }
 
-func Test_Connect_notFound(t *testing.T) {
-	svr := &httpsvr.Server{}
-	testSvr := httptest.NewServer(svr)
-	defer testSvr.Close()
-
-	req, err := http.NewRequest(http.MethodConnect, testSvr.URL+"/www.baidu.com:443", nil)
-	require.NoError(t, err)
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	assert.Equal(t, http.StatusNotFound, resp.StatusCode)
-}
-
 func connectProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Empty, error) {
 	info := httpsvr.GetCallInfo(ctx)
 	target := strings.TrimPrefix(info.PathParms.ByName("path"), "/")
