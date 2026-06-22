@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
+
+	"github.com/ethanvc/evo/obs"
 )
 
 type Serializer interface {
@@ -25,9 +26,14 @@ func (s *JsonSerializer) Marshal(ctx context.Context, req any, opts *Options) (s
 }
 
 func (s *JsonSerializer) Unmarshal(ctx context.Context, cliResp *CliResp, resp any, opts *Options) error {
-	err := json.Unmarshal(cliResp.Body, resp)
+	var dto ResponseDto
+	dto.SetData(resp)
+	err := json.Unmarshal(cliResp.Body, &dto)
 	if err != nil {
-		return fmt.Errorf("unmarshal error: %s. body is %s", err.Error(), string(cliResp.Body))
+		return err
+	}
+	if dto.GetCode() != 0 {
+		return obs.New(obs.Code(dto.GetCode()), dto.GetMsg())
 	}
 	return nil
 }

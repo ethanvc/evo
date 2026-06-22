@@ -1,4 +1,4 @@
-package httpproto
+package httpcli
 
 type ResponseDto struct {
 	Code *int   `json:"code"`
