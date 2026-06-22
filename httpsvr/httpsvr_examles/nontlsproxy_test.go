@@ -3,7 +3,6 @@ package httpsvrexamles
 import (
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -48,8 +47,11 @@ func Test_NonTLSProxy(t *testing.T) {
 }
 
 // 非TLS代理 handler, 仅支持简单的 HTTP 代理，不支持 CONNECT
-func nonTLSProxy(ctx context.Context, _ *httpsvr.Nil) (*httpsvr.Nil, error) {
+func nonTLSProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Nil, error) {
 	info := httpsvr.GetCallInfo(ctx)
+	if info.Request.Body == nil {
+		info.Request.Body = http.NoBody
+	}
 	target := strings.TrimPrefix(info.PathParms.ByName("path"), "/")
 	if target == "" {
 		target = info.Request.Host
@@ -60,38 +62,36 @@ func nonTLSProxy(ctx context.Context, _ *httpsvr.Nil) (*httpsvr.Nil, error) {
 		fullURL = "http://" + target + info.Request.RequestURI
 	}
 
-	// 构建 http.Request 给远程服务器
-	req, err := http.NewRequestWithContext(ctx, info.Request.Method, fullURL, info.Request.Body)
-	if err != nil {
-		return nil, fmt.Errorf("build upstream request: %w", err)
-	}
-	// 复制所有 header
-	for k, v := range info.Request.Header {
-		for _, vv := range v {
-			req.Header.Add(k, vv)
-		}
-	}
-	// 删除 Proxy 相关头部（防止影响下游）
-	req.Header.Del("Proxy-Connection")
+	// 通过 httpcli 请求上游
+	header := info.Request.Header.Clone()
+	header.Del("Proxy-Connection")
 
-	client := &http.Client{
+	var reqBody any
+	if info.Request.Body != nil {
+		reqBody = info.Request.Body
+	}
+
+	upstreamCli := &httpcli.Client{
 		Timeout: 20 * time.Second,
 	}
-	resp, err := client.Do(req)
+	var body []byte
+	cliResp, err := upstreamCli.Do(ctx, fullURL, reqBody, &body, &httpcli.Options{
+		Method: info.Request.Method,
+		Header: header,
+	})
 	if err != nil {
 		info.Writer.WriteHeader(http.StatusBadGateway)
 		return nil, fmt.Errorf("fetch upstream: %w", err)
 	}
-	defer resp.Body.Close()
 
 	// 复制响应头
-	for k, v := range resp.Header {
+	for k, v := range cliResp.Response.Header {
 		for _, vv := range v {
 			info.Writer.Header().Add(k, vv)
 		}
 	}
-	info.Writer.WriteHeader(resp.StatusCode)
-	_, err = io.Copy(info.Writer, resp.Body)
+	info.Writer.WriteHeader(cliResp.Response.StatusCode)
+	_, err = info.Writer.Write(body)
 	if err != nil {
 		return nil, fmt.Errorf("copy resp body: %w", err)
 	}
