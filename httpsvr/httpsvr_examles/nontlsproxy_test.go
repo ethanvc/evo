@@ -38,13 +38,13 @@ func Test_NonTLSProxy(t *testing.T) {
 		},
 	}
 
-	var body []byte
+	var body string
 	cliResp, err := cli.Do(context.Background(), "http://www.baidu.com", nil, &body, &httpcli.Options{
 		Method: http.MethodGet,
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, cliResp.Response.StatusCode)
-	assert.Contains(t, strings.ToLower(string(body)), "baidu")
+	assert.Contains(t, strings.ToLower(body), "baidu")
 }
 
 // 非TLS代理 handler, 仅支持简单的 HTTP 代理，不支持 CONNECT
