@@ -23,6 +23,7 @@ const (
 	Unavailable        Code = 14
 	DataLoss           Code = 15
 	Unauthenticated    Code = 16
+	maxCode            Code = 17
 )
 
 var codeNames = [...]string{
@@ -46,8 +47,8 @@ var codeNames = [...]string{
 }
 
 func (c Code) String() string {
-	if name := codeNames[c]; name != "" {
-		return name
+	if c >= 0 && c < maxCode {
+		return codeNames[c]
 	}
 	return "Code(" + strconv.Itoa(int(c)) + ")"
 }

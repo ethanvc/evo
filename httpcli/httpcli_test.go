@@ -39,10 +39,19 @@ func Test_SpecialType(t *testing.T) {
 	require.Equal(t, `{"a":"3""}`, tmpStr)
 }
 
-func Test_Manul(t *testing.T) {
+func Test_StdResponse(t *testing.T) {
+	type Response struct {
+		Name string `json:"name"`
+	}
 	ctx := context.Background()
-	body := ""
-	cliResp, err := Do(ctx, "https://chat.baidu.com/aichat/api/messages/list", nil, &body, nil)
-	_ = err
-	_ = cliResp
+	svr := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"code":0,"data":{"name":"hello"}}`))
+	}))
+	defer svr.Close()
+
+	var resp Response
+	_, err := Do(ctx, svr.URL, nil, &resp, nil)
+	require.NoError(t, err)
+	require.Equal(t, "hello", resp.Name)
 }
