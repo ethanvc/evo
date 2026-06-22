@@ -43,34 +43,37 @@ func Test_HttpSvr_Basic(t *testing.T) {
 	}, http.MethodGet)
 
 	opts := &httpcli.Options{}
+
 	{
 		opts.Method = http.MethodGet
-		err := httpcli.Do(ctx, testSvr.URL+"/api/not_found", nil, nil, opts)
+		cliResp, err := httpcli.Do(ctx, testSvr.URL+"/api/not_found", nil, nil, opts)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusNotFound, opts.StatusCode)
+		require.Equal(t, http.StatusNotFound, cliResp.Response.StatusCode)
 	}
 	{
 		opts.Method = http.MethodGet
-		err := httpcli.Do(ctx, testSvr.URL+"/api/return_cookie", nil, nil, opts)
+		cliResp, err := httpcli.Do(ctx, testSvr.URL+"/api/return_cookie", nil, nil, opts)
 		require.NoError(t, err)
-		require.Equal(t, "access_token=xxx", opts.RespHeader.Get("Set-Cookie"))
+		require.Equal(t, "access_token=xxx", cliResp.Response.Header.Get("Set-Cookie"))
 	}
 	{
 		opts.Method = http.MethodGet
-		resp, err := httpcli.DoType[string](ctx, testSvr.URL+"/api/get", nil, opts)
+		cliResp, err := httpcli.Do(ctx, testSvr.URL+"/api/get", nil, nil, opts)
 		require.NoError(t, err)
-		require.Equal(t, "/api/get", *resp)
+		require.Equal(t, "/api/get", string(cliResp.Body))
 	}
 	{
 		opts.Method = http.MethodOptions
-		err := httpcli.Do(ctx, testSvr.URL+"/api/test", nil, nil, opts)
+		cliResp, err := httpcli.Do(ctx, testSvr.URL+"/api/test", nil, nil, opts)
 		require.NoError(t, err)
-		require.Equal(t, "true", opts.RespHeader.Get("Access-Control-Allow-Credentials"))
+		require.Equal(t, "true", cliResp.Response.Header.Get("Access-Control-Allow-Credentials"))
 	}
 	{
-		resp, err := httpcli.DoType[string](ctx, testSvr.URL+"/api/echo_body", "hello", nil)
+		cliResp, err := httpcli.Do(ctx, testSvr.URL+"/api/echo_body", "hello", nil, &httpcli.Options{
+			Method: http.MethodPost,
+		})
 		require.NoError(t, err)
-		require.Equal(t, "hello", *resp)
+		require.Equal(t, "hello", string(cliResp.Body))
 	}
 }
 
