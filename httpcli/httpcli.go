@@ -16,6 +16,15 @@ type Client struct {
 	DefaultClient *http.Client
 }
 
+func (cli *Client) Clone() *Client {
+	return &Client{
+		Serializer:    cli.Serializer,
+		Timeout:       cli.Timeout,
+		Interceptors:  cli.Interceptors,
+		DefaultClient: cli.DefaultClient,
+	}
+}
+
 func (cli *Client) Do(ctx context.Context, url string, req, resp any, opts *Options) (*CliResp, error) {
 	if opts == nil {
 		opts = &Options{}

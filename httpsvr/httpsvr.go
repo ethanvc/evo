@@ -27,7 +27,11 @@ func (s *Server) Register(pattern string, f any, methodSlice ...string) {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h, pattern, params := s.router.Get(r.Method, r.URL.Path)
+	p := r.URL.Path
+	if p == "" {
+		p = "/"
+	}
+	h, pattern, params := s.router.Get(r.Method, p)
 	if h == nil {
 		h, pattern, params = s.getNotFoundHandler()
 	}

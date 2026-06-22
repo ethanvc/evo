@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethanvc/evo/httpcli"
 	"github.com/ethanvc/evo/httpsvr"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,24 +28,26 @@ func Test_Connect(t *testing.T) {
 	proxyURL, err := url.Parse(testSvr.URL)
 	require.NoError(t, err)
 
-	client := &http.Client{
+	cli := &httpcli.Client{
 		Timeout: 30 * time.Second,
-		Transport: &http.Transport{
-			Proxy: http.ProxyURL(proxyURL),
+		DefaultClient: &http.Client{
+			Timeout: 30 * time.Second,
+			Transport: &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			},
 		},
 	}
 
-	resp, err := client.Get("https://www.baidu.com")
+	var body []byte
+	cliResp, err := cli.Do(context.Background(), "https://www.baidu.com", nil, &body, &httpcli.Options{
+		Method: http.MethodGet,
+	})
 	require.NoError(t, err)
-	defer resp.Body.Close()
-
-	require.Equal(t, http.StatusOK, resp.StatusCode)
-	body, err := io.ReadAll(resp.Body)
-	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, cliResp.Response.StatusCode)
 	assert.Contains(t, strings.ToLower(string(body)), "baidu")
 }
 
-func connectProxy(ctx context.Context, _ *httpsvr.Nil) (*httpsvr.Nil, error) {
+func connectProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Nil, error) {
 	info := httpsvr.GetCallInfo(ctx)
 	target := strings.TrimPrefix(info.PathParms.ByName("path"), "/")
 	if target == "" {
