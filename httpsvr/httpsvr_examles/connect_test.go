@@ -44,7 +44,7 @@ func Test_Connect(t *testing.T) {
 	assert.Contains(t, strings.ToLower(string(body)), "baidu")
 }
 
-func connectProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Empty, error) {
+func connectProxy(ctx context.Context, _ *httpsvr.Nil) (*httpsvr.Nil, error) {
 	info := httpsvr.GetCallInfo(ctx)
 	target := strings.TrimPrefix(info.PathParms.ByName("path"), "/")
 	if target == "" {
@@ -62,7 +62,6 @@ func connectProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Empty, error)
 	if err != nil {
 		return nil, err
 	}
-	info.Hijacked = true
 	defer clientConn.Close()
 
 	upstream, err := net.DialTimeout("tcp", target, 15*time.Second)
@@ -85,5 +84,7 @@ func connectProxy(ctx context.Context, _ *httpsvr.Empty) (*httpsvr.Empty, error)
 	go func() { _, err := io.Copy(upstream, clientConn); errc <- err }()
 	go func() { _, err := io.Copy(clientConn, upstream); errc <- err }()
 	<-errc
-	return &httpsvr.Empty{}, nil
+	upstream.Close()
+	<-errc
+	return &httpsvr.Nil{}, nil
 }

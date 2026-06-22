@@ -45,11 +45,11 @@ func (h *Handler) Handle(ctx context.Context, info *CallInfo) (err error) {
 	}()
 	req, err = h.unmarshal(ctx, info)
 	if err != nil {
-		err = h.marshalAndWrite(ctx, err, nil, info)
+		err = h.writeResponse(ctx, err, nil, info)
 		return err
 	}
 	resp, err = h.handleRest(ctx, req, info)
-	err = h.marshalAndWrite(ctx, err, resp, info)
+	err = h.writeResponse(ctx, err, resp, info)
 	return err
 }
 
@@ -75,6 +75,8 @@ func (h *Handler) unmarshal(ctx context.Context, info *CallInfo) (any, error) {
 	case *io.ReadCloser:
 		*realV = info.Request.Body
 		return v, nil
+	case *Nil:
+		return nil, nil
 	}
 	buf, err := io.ReadAll(info.Request.Body)
 	if err != nil {
@@ -100,8 +102,11 @@ func (h *Handler) unmarshal(ctx context.Context, info *CallInfo) (any, error) {
 	return v, nil
 }
 
-func (h *Handler) marshalAndWrite(ctx context.Context, err error, resp any, info *CallInfo) error {
-	responseBody, newErr := h.marshal(ctx, err, resp, info)
+func (h *Handler) writeResponse(ctx context.Context, err error, resp any, info *CallInfo) error {
+	ignoreWrite, responseBody, newErr := h.marshal(ctx, err, resp, info)
+	if ignoreWrite {
+		return nil
+	}
 	if newErr != nil {
 		info.StatusCode = http.StatusInternalServerError
 		return newErr
@@ -126,9 +131,10 @@ func (h *Handler) getLogger(s *Server) Logger {
 
 func (h *Handler) logWriteErr(ctx context.Context, info *CallInfo, err error) {}
 
-func (h *Handler) marshal(ctx context.Context, respErr error, resp any, info *CallInfo) (responseBody io.ReadCloser, err error) {
-	s := h.getSerializer(info.Server)
+func (h *Handler) marshal(ctx context.Context, respErr error, resp any, info *CallInfo) (ignoreWrite bool, responseBody io.ReadCloser, err error) {
 	switch realV := resp.(type) {
+	case *Nil:
+		return true, nil, nil
 	case *Empty:
 		// let responseBody nil
 	case *string:
@@ -140,11 +146,14 @@ func (h *Handler) marshal(ctx context.Context, respErr error, resp any, info *Ca
 	case *io.ReadCloser:
 		responseBody = *realV
 	default:
+	}
+	s := h.getSerializer(info.Server)
+	if responseBody == nil {
 		var marshalErr error
 		responseBody, marshalErr = s.Marshal(ctx, respErr, resp, info)
 		if marshalErr != nil {
 			info.StatusCode = http.StatusInternalServerError
-			return nil, marshalErr
+			return false, nil, marshalErr
 		}
 	}
 
@@ -158,7 +167,7 @@ func (h *Handler) marshal(ctx context.Context, respErr error, resp any, info *Ca
 			info.StatusCode = http.StatusOK
 		}
 	}
-	return responseBody, nil
+	return false, responseBody, nil
 }
 
 func (h *Handler) getSerializer(s *Server) Serializer {
@@ -191,3 +200,5 @@ func (h *Handler) call(ctx context.Context, req any) (any, error) {
 }
 
 type Empty struct{}
+
+type Nil struct{}
