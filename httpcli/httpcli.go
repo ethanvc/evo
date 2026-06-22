@@ -114,7 +114,7 @@ func (cli *Client) handleTimeout(ctx context.Context, timeout time.Duration) (co
 	if !ok {
 		return context.WithTimeout(ctx, realTimeout)
 	}
-	existingTimeout := deadline.Sub(time.Now())
+	existingTimeout := time.Since(deadline)
 	if existingTimeout < realTimeout {
 		return ctx, nil
 	}
