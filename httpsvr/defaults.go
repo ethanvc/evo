@@ -6,18 +6,11 @@ import (
 	"encoding/json"
 	"io"
 	"log/slog"
-	"net/http"
 )
 
 var DefaultLogger Logger = &LoggerImpl{}
 
 var DefaultSerializer Serializer = &JsonSerializer{}
-
-var DefaultNotFoundHandler = NewHandler(func(ctx context.Context, empty *Empty) (*Empty, error) {
-	info := GetCallInfo(ctx)
-	info.StatusCode = http.StatusNotFound
-	return &Empty{}, nil
-})
 
 type LoggerImpl struct{}
 

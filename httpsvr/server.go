@@ -48,11 +48,11 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getNotFoundHandler() (*Handler, string, httpmux.Params) {
-	h := DefaultNotFoundHandler
+	const pattern = "/UnknownPath"
 	if s.NotFoundHandler != nil {
-		h = s.NotFoundHandler
+		return s.NotFoundHandler, pattern, nil
 	}
-	return h, "/UnknownPath", nil
+	return defaultNotFoundHandler, pattern, nil
 }
 
 func (s *Server) getLogger() Logger {
