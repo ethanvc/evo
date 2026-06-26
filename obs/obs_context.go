@@ -13,7 +13,7 @@ type GetLogErrorLevelT func(err error) Level
 type ObsContext struct {
 	parent                  *ObsContext
 	span                    *Span
-	handler                 Handler
+	handler                 LogHandler
 	reporter                *Reporter
 	lvl                     Level
 	getLogLevelAndEventFunc GetLogLvlAndEventFuncT
@@ -24,7 +24,7 @@ type ObsContext struct {
 type ctxKeyObsContext struct{}
 
 type ObsConfig struct {
-	Handler               Handler
+	Handler               LogHandler
 	GetLogLevelAndEvent   GetLogLvlAndEventFuncT
 	GetLogErrorObjectFunc GetLogErrorObjectT
 	GetLogErrorLevel      GetLogErrorLevelT
@@ -102,7 +102,7 @@ func (oc *ObsContext) AccessLogReport(ctx context.Context, err error, req, resp 
 
 func (oc *ObsContext) SetAttr(key string, val any) {}
 
-func (oc *ObsContext) GetHandler() Handler {
+func (oc *ObsContext) GetHandler() LogHandler {
 	for oc != nil {
 		if oc.handler != nil {
 			return oc.handler

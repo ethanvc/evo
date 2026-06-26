@@ -11,12 +11,6 @@ import (
 	"github.com/ethanvc/evo/logjson"
 )
 
-type Handler interface {
-	Handle(ctx context.Context, item LogItem)
-	Flush()
-	io.Closer
-}
-
 type JsonHandler struct {
 	writer io.Writer
 }

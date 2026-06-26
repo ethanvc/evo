@@ -15,9 +15,9 @@ var defaultSpan = newDefaultSpan()
 
 var defaultReporter = newReporter()
 
-var defaultHandler Handler = NewJsonHandler(os.Stdout)
+var defaultHandler LogHandler = NewJsonHandler(os.Stdout)
 
-func SetDefaultHandler(handler Handler) {
+func SetDefaultHandler(handler LogHandler) {
 	if handler == nil {
 		panic("handler is nil")
 	}

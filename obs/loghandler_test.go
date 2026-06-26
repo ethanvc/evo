@@ -21,16 +21,16 @@ func TestJsonHandler_Handle(t *testing.T) {
 	handler := NewJsonHandler(&writer)
 	ctx, _ := WithObsContext(context.Background(), &ObsConfig{Handler: handler})
 	Info(ctx, "Test")
-	require.Equal(t, "2026-01-01T00:00:00Z|info|obs/handler_test.go:23|1234567890:1234567890:1234567890|Test\n", writer.String())
+	require.Equal(t, "2026-01-01T00:00:00Z|info|obs/loghandler_test.go:23|1234567890:1234567890:1234567890|Test\n", writer.String())
 	writer.Reset()
 	Info(ctx, "Test", String("key", "value"))
-	require.Equal(t, `2026-01-01T00:00:00Z|info|obs/handler_test.go:26|1234567890:1234567890:1234567890|Test|{"key":"value"}`+"\n", writer.String())
+	require.Equal(t, `2026-01-01T00:00:00Z|info|obs/loghandler_test.go:26|1234567890:1234567890:1234567890|Test|{"key":"value"}`+"\n", writer.String())
 	writer.Reset()
 	type Abc struct {
 		Name string
 	}
 	Info(ctx, "Test", Any("abc", &Abc{Name: "value"}))
-	require.Equal(t, `2026-01-01T00:00:00Z|info|obs/handler_test.go:32|1234567890:1234567890:1234567890|Test|{"abc":{"Name":"value"}}`+"\n", writer.String())
+	require.Equal(t, `2026-01-01T00:00:00Z|info|obs/loghandler_test.go:32|1234567890:1234567890:1234567890|Test|{"abc":{"Name":"value"}}`+"\n", writer.String())
 }
 
 func TestDefaultLogLevel(t *testing.T) {
@@ -68,5 +68,5 @@ func TestDefaultLogLevel(t *testing.T) {
 
 func TestGetCallerPosition(t *testing.T) {
 	pos := GetCallerPosition(0)
-	assert.True(t, strings.HasPrefix(pos, "obs/handler_test.go:"))
+	assert.True(t, strings.HasPrefix(pos, "obs/loghandler_test.go:"))
 }
