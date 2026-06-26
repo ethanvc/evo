@@ -18,11 +18,14 @@ func Warn(ctx context.Context, event string, args ...any) {
 	obsCtx.Log(ctx, 1, LevelWarn, event, args...)
 }
 
-func WarnReport(ctx context.Context, event string, labels ...KV) {
-
+func WarnReport(ctx context.Context, event string, args ...any) {
+	obsCtx := GetObsContext(ctx)
+	obsCtx.Log(ctx, 1, LevelWarn, event, args...)
 }
 
 func ErrReport(ctx context.Context, event string, args ...any) {
+	obsCtx := GetObsContext(ctx)
+	obsCtx.Log(ctx, 1, LevelErr, event, args...)
 }
 
 func Err(ctx context.Context, event string, args ...any) {
