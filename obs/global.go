@@ -13,8 +13,6 @@ var generateSpanIdFunc = GenerateSpanId
 
 var defaultSpan = newDefaultSpan()
 
-var defaultReporter = newReporter()
-
 var defaultHandler LogHandler = NewJsonHandler(os.Stdout)
 
 func SetDefaultHandler(handler LogHandler) {

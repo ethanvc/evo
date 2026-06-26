@@ -7,6 +7,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
+var defaultReporter = newReporter()
+
 type Reporter struct {
 	eventLabelNames        []string
 	eventSecondsLabelNames []string
