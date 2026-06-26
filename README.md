@@ -1,4 +1,5 @@
-# 简介
+# 参考
+- GetSpan、GetSpanEx函数，GetSpanEx会返回是否是获取的全局值。
 
 # 待跟进
 1. header的名单机制，合并打印日志的处理方式。
